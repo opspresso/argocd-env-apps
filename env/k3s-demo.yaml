@@ -9,7 +9,7 @@ role: k3s
 replicas: 1
 autoscaling: false
 agent_studio_maintenance: false
-agent_memory_maintenance: false
+agent_memory_maintenance: true
 resources: false
 trusted_proxy_cidrs: []
 grafana_url: http://grafana.addon-grafana.svc.cluster.local
