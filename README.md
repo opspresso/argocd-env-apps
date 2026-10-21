@@ -63,6 +63,9 @@ Studio의 audio/Workspace observer와 scan·plugin sync·reindex ticker, Librio�
 Forge Sandbox는 controller의 full v-tag에 `sandbox-` 접두어를 붙인다.
 Memory에는 queue worker가 없으며 문서·전사 처리는 Librio가 담당한다.
 
+Agent 서비스의 공통 인증 설정·기업 프로필 스키마를 기존 데이터와 함께 전환하려면
+[기업 프로필 전환 절차](docs/agent-identity-upgrade.md)를 따른다.
+
 PostgreSQL은 Bitnami 전용 차트를 사용하며, `pgvector/pgvector` 이미지의 entrypoint·인증 환경변수·
 probe·데이터 경로를 values로 지정한다. `postgres` StatefulSet과 `data-postgres-0` PVC를 유지한다.
 MinIO는 Bitnami, Neo4j는 공식 Neo4j 차트를 사용하고, ExternalSecret과 PostgreSQL 초기화 Job은 `raw`로 관리한다.
