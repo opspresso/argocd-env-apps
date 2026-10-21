@@ -16,12 +16,55 @@
 | Librio | `librio.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 
-모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `BETTER_AUTH_URL`,
-`BETTER_AUTH_ALLOWED_HOSTS`, HTTPRoute는 같은 호스트를 가리킵니다. Forge는
-`FORGE_ALLOWED_ORIGINS`를 사용합니다. 프록시는 원래 `Host`를 전달해야 합니다.
+모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `AUTH_BASE_URL`,
+`AUTH_ALLOWED_HOSTS`, HTTPRoute는 같은 호스트를 가리킵니다. Forge는
+`ALLOWED_ORIGINS`를 사용합니다. 프록시는 원래 `Host`를 전달해야 합니다.
 OAuth 클라이언트에 `https://<hostname>/api/auth/callback/google`을 등록합니다.
 Librio는 기존 Memory Google 클라이언트를 명시적으로 참조하고, 세션 Secret은 별도로 사용합니다.
 `trusted_proxy_cidrs`는 실제 프록시 hop에 맞춰 EKS는 VPC CIDR, k3s 단일 Traefik은 빈 목록을 사용합니다.
+
+## 기업 OIDC 연결
+
+각 `agent_<service>.oidc` 블록은 Keycloak을 포함한 표준 OIDC 연결을 선언합니다.
+실제 client ID·secret은 SSM SecureString으로 준비하고 env에는 경로만 기록합니다.
+기존 환경에 이 블록이 없으면 현재 Google 연결을 유지합니다.
+
+```yaml
+agent_studio:
+  hostname: studio.example.com
+  google_sign_in: false
+  oidc:
+    issuer: https://sso.example.com/realms/company
+    provider_id: oidc
+    display_name: Company SSO
+    scopes: openid profile email
+    logout_mode: app
+    client_id_parameter: /k8s/example/agent-studio/oidc-client-id
+    client_secret_parameter: /k8s/example/agent-studio/oidc-client-secret
+    profile_claims:
+      teams: /company/teams
+      department: /company/department
+      jobTitle: /company/title
+      roles: /company/roles
+```
+
+Memory·Librio도 같은 `oidc` 필드를 사용하며 `display_name`은 Studio 전용입니다.
+`google_sign_in: false`는 Studio·Memory·Librio의 Google credential 주입을 끕니다.
+기존 Google 계정과 새로운 OIDC 계정을 이메일만으로 자동 연결하지 않으므로 전환할 계정을 먼저 확인합니다.
+
+Forge는 `agent_forge.oidc`와 `sign_in_domains`를 함께 설정합니다. `oidc`가 없으면 현재
+Google issuer와 공유 client를 사용합니다. Forge는 앱 로그아웃만 지원하므로 `logout_mode`는
+생략하거나 `app`이어야 합니다. `provider`는 생성 단계에서 거절합니다.
+
+`provider_id`는 기존 계정과 callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는
+`provider_id: keycloak`을 유지합니다. 새 설치 기본값은 `oidc`입니다. 각 호스트에
+`/api/auth/callback/<provider_id>`를 등록하고, 필요한 회사 claim을 ID token에 포함합니다.
+회사 팀·역할은 표시 정보이며 앱 권한이나 리소스 팀 멤버십을 자동 부여하지 않습니다.
+
+프로필 schema가 없는 기존 DB는 새 image의 데이터 보존 전환 도구로 준비합니다.
+Studio는 schema 11→12 전환, Memory·Librio는 직전 fingerprint→현재 fingerprint 전환을
+제공합니다. 서비스를 maintenance로 정지한 뒤 해당 image에서 명시적으로 실행하고 새 버전을
+시작합니다. Forge는 확인된 v4–v7에서 v8로 데이터를 보존해 확장합니다. 운영 DB reset은 사용하지 않습니다.
 
 ## DB와 원본 보존
 

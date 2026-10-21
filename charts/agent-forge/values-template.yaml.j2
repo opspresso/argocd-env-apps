@@ -4,6 +4,7 @@ app:
   raw:
     enabled: {{agent_forge is defined}}
 {% if agent_forge is defined %}
+{% set oidc = agent_forge.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -35,18 +36,27 @@ app:
     data:
       HOST: 0.0.0.0
       PORT: '3103'
-      FORGE_ALLOWED_ORIGINS: https://{{agent_forge.hostname}}
+      AUTH_BASE_URL: https://{{agent_forge.hostname}}
+      ALLOWED_ORIGINS: https://{{agent_forge.hostname}}
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: '{{ "workspaces" if env == "eks" else "" }}'
       FORGE_GIT_ALLOWED_ORIGINS: https://github.com
-{%- if agent_forge.sign_in_domains is defined %}
-      # Console sign-in shares the Agent Memory Google client; its redirect URIs include
+{%- if agent_forge.sign_in_domains is defined or oidc is not none %}
+      # The default sign-in uses the Agent Memory Google client; an explicit oidc block overrides it.
+      # Register the chosen provider identity on each callback, for example
       # https://<hostname>/api/auth/callback/google.
-      FORGE_OIDC_ISSUER: https://accounts.google.com
-      FORGE_OIDC_PROVIDER_ID: google
-      FORGE_ALLOWED_EMAIL_DOMAINS: '{{ agent_forge.sign_in_domains | join(",") }}'
+{% if oidc is not none %}
+      OIDC_ISSUER: {{ oidc.issuer | tojson }}
+      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
+      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
+      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
+{% else %}
+      OIDC_ISSUER: https://accounts.google.com
+      OIDC_PROVIDER_ID: google
+{% endif %}
+      ALLOWED_EMAIL_DOMAINS: '{{ agent_forge.sign_in_domains | join(",") }}'
 {%- endif %}
   sandbox:
     namespace: agent-forge-workspaces
@@ -93,15 +103,22 @@ app:
       name: FORGE_MODEL_SECRET
     - key: /k8s/{{cluster}}/agent-forge/model-channels
       name: FORGE_MODEL_CHANNELS
-{%- if agent_forge.sign_in_domains is defined %}
+{%- if agent_forge.sign_in_domains is defined or oidc is not none %}
+{% if oidc is not none %}
+    - key: {{ oidc.client_id_parameter | tojson }}
+      name: OIDC_CLIENT_ID
+    - key: {{ oidc.client_secret_parameter | tojson }}
+      name: OIDC_CLIENT_SECRET
+{% else %}
     - key: /k8s/common/agent-memory/google-client-id
-      name: FORGE_OIDC_CLIENT_ID
+      name: OIDC_CLIENT_ID
     - key: /k8s/common/agent-memory/google-client-secret
-      name: FORGE_OIDC_CLIENT_SECRET
+      name: OIDC_CLIENT_SECRET
+{% endif %}
     - key: /k8s/{{cluster}}/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/{{cluster}}/agent-forge/session-secret
-      name: FORGE_SESSION_SECRET
+      name: AUTH_SECRET
 {%- endif %}
   serviceMonitor:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}

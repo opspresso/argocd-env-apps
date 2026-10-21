@@ -5,6 +5,7 @@
 app:
   fullnameOverride: agent-memory
 {% if agent_memory is defined %}
+{% set oidc = agent_memory.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -25,8 +26,15 @@ app:
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: {{aws_region}}
       DATABASE_POOL_SIZE: '4'
-      BETTER_AUTH_URL: https://{{agent_memory.hostname}}
-      BETTER_AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
+      AUTH_BASE_URL: https://{{agent_memory.hostname}}
+{% if oidc is not none %}
+      OIDC_ISSUER: {{ oidc.issuer | tojson }}
+      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
+      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
+      OIDC_LOGOUT_MODE: {{ oidc.logout_mode | default('app') | tojson }}
+      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
+{% endif %}
+      AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
       EMBEDDING_BASE_URL: https://openrouter.ai/api/v1
       EMBEDDING_MODEL: openai/text-embedding-3-small
@@ -65,11 +73,19 @@ app:
     enabled: true
     data:
     - key: /k8s/common/agent-memory/better-auth-secret
-      name: BETTER_AUTH_SECRET
+      name: AUTH_SECRET
+{% if agent_memory.google_sign_in | default(true) %}
     - key: /k8s/common/agent-memory/google-client-id
       name: GOOGLE_CLIENT_ID
     - key: /k8s/common/agent-memory/google-client-secret
       name: GOOGLE_CLIENT_SECRET
+{% endif %}
+{% if oidc is not none %}
+    - key: {{ oidc.client_id_parameter | tojson }}
+      name: OIDC_CLIENT_ID
+    - key: {{ oidc.client_secret_parameter | tojson }}
+      name: OIDC_CLIENT_SECRET
+{% endif %}
     - key: /k8s/common/agent-memory/embedding-api-key
       name: EMBEDDING_API_KEY
     - key: /k8s/common/agent-memory/reranker-api-key

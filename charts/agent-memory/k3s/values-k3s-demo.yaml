@@ -1,7 +1,8 @@
 app:
   fullnameOverride: agent-memory
 
-  replicaCount: 1
+
+  replicaCount: 0
   autoscaling:
     enabled: False
   image:
@@ -21,8 +22,9 @@ app:
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: ap-northeast-2
       DATABASE_POOL_SIZE: '4'
-      BETTER_AUTH_URL: https://memory.agrt.dev
-      BETTER_AUTH_ALLOWED_HOSTS: 'memory.agrt.dev'
+      AUTH_BASE_URL: https://memory.agrt.dev
+
+      AUTH_ALLOWED_HOSTS: 'memory.agrt.dev'
       TRUSTED_PROXY_CIDRS: ''
       EMBEDDING_BASE_URL: https://openrouter.ai/api/v1
       EMBEDDING_MODEL: openai/text-embedding-3-small
@@ -56,11 +58,14 @@ app:
     enabled: true
     data:
     - key: /k8s/common/agent-memory/better-auth-secret
-      name: BETTER_AUTH_SECRET
+      name: AUTH_SECRET
+
     - key: /k8s/common/agent-memory/google-client-id
       name: GOOGLE_CLIENT_ID
     - key: /k8s/common/agent-memory/google-client-secret
       name: GOOGLE_CLIENT_SECRET
+
+
     - key: /k8s/common/agent-memory/embedding-api-key
       name: EMBEDDING_API_KEY
     - key: /k8s/common/agent-memory/reranker-api-key

@@ -3,7 +3,8 @@ app:
   raw:
     enabled: True
 
-  replicaCount: 1
+
+  replicaCount: 0
   autoscaling:
     enabled: False
   image:
@@ -34,17 +35,21 @@ app:
     data:
       HOST: 0.0.0.0
       PORT: '3103'
-      FORGE_ALLOWED_ORIGINS: https://forge.agrt.dev
+      AUTH_BASE_URL: https://forge.agrt.dev
+      ALLOWED_ORIGINS: https://forge.agrt.dev
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: ''
       FORGE_GIT_ALLOWED_ORIGINS: https://github.com
-      # Console sign-in shares the Agent Memory Google client; its redirect URIs include
+      # The default sign-in uses the Agent Memory Google client; an explicit oidc block overrides it.
+      # Register the chosen provider identity on each callback, for example
       # https://<hostname>/api/auth/callback/google.
-      FORGE_OIDC_ISSUER: https://accounts.google.com
-      FORGE_OIDC_PROVIDER_ID: google
-      FORGE_ALLOWED_EMAIL_DOMAINS: 'nalbam.com'
+
+      OIDC_ISSUER: https://accounts.google.com
+      OIDC_PROVIDER_ID: google
+
+      ALLOWED_EMAIL_DOMAINS: 'nalbam.com'
   sandbox:
     namespace: agent-forge-workspaces
     maxPods: 2
@@ -87,14 +92,16 @@ app:
       name: FORGE_MODEL_SECRET
     - key: /k8s/k3s-demo/agent-forge/model-channels
       name: FORGE_MODEL_CHANNELS
+
     - key: /k8s/common/agent-memory/google-client-id
-      name: FORGE_OIDC_CLIENT_ID
+      name: OIDC_CLIENT_ID
     - key: /k8s/common/agent-memory/google-client-secret
-      name: FORGE_OIDC_CLIENT_SECRET
+      name: OIDC_CLIENT_SECRET
+
     - key: /k8s/k3s-demo/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/k3s-demo/agent-forge/session-secret
-      name: FORGE_SESSION_SECRET
+      name: AUTH_SECRET
   serviceMonitor:
     enabled: false
     labels:

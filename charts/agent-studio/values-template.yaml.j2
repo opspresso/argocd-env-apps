@@ -5,6 +5,7 @@
 app:
   fullnameOverride: agent-studio
 {% if agent_studio is defined %}
+{% set oidc = agent_studio.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -30,8 +31,16 @@ app:
       ADMIN_EMAILS: me@nalbam.com
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: {{aws_region}}
-      BETTER_AUTH_URL: https://{{agent_studio.hostname}}
-      BETTER_AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
+      AUTH_BASE_URL: https://{{agent_studio.hostname}}
+{% if oidc is not none %}
+      OIDC_ISSUER: {{ oidc.issuer | tojson }}
+      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
+      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
+      OIDC_LOGOUT_MODE: {{ oidc.logout_mode | default('app') | tojson }}
+      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
+      OIDC_DISPLAY_NAME: {{ oidc.display_name | default("SSO") | tojson }}
+{% endif %}
+      AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       # PUBLIC_BASE_URL: https://{{agent_studio.hostname}}
       S3_BUCKET_NAME: agent-studio-static
 {% if env == 'k3s' %}
@@ -104,11 +113,19 @@ app:
     enabled: true
     data:
     - key: /k8s/common/{{agent_studio.service.key}}/better-auth-secret
-      name: BETTER_AUTH_SECRET
+      name: AUTH_SECRET
+{% if agent_studio.google_sign_in | default(true) %}
     - key: /k8s/common/{{agent_studio.service.key}}/google-client-id
       name: GOOGLE_CLIENT_ID
     - key: /k8s/common/{{agent_studio.service.key}}/google-client-secret
       name: GOOGLE_CLIENT_SECRET
+{% endif %}
+{% if oidc is not none %}
+    - key: {{ oidc.client_id_parameter | tojson }}
+      name: OIDC_CLIENT_ID
+    - key: {{ oidc.client_secret_parameter | tojson }}
+      name: OIDC_CLIENT_SECRET
+{% endif %}
     - key: /k8s/common/agent-studio/llm-provider-openai-api-key
       name: LLM_PROVIDER_OPENAI_API_KEY
     - key: /k8s/common/agent-studio/llm-provider-anthropic-api-key
