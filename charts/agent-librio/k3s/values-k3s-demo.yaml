@@ -3,6 +3,7 @@ app:
   raw:
     enabled: True
 
+
   replicaCount: 1
   autoscaling:
     enabled: False
@@ -36,8 +37,9 @@ app:
       DATABASE_POOL_SIZE: '4'
       DATABASE_QUEUE_POOL_SIZE: '2'
       AI_ADMISSION_POOL_SIZE: '9'
-      BETTER_AUTH_URL: https://librio.agrt.dev
-      BETTER_AUTH_ALLOWED_HOSTS: 'librio.agrt.dev'
+      AUTH_BASE_URL: https://librio.agrt.dev
+
+      AUTH_ALLOWED_HOSTS: 'librio.agrt.dev'
       TRUSTED_PROXY_CIDRS: ''
       LIBRIO_DELEGATION_ISSUER: https://studio.agrt.dev
       S3_REGION: ap-northeast-2
@@ -85,12 +87,15 @@ app:
     - key: /k8s/k3s-demo/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/k3s-demo/agent-librio/better-auth-secret
-      name: BETTER_AUTH_SECRET
+      name: AUTH_SECRET
     # Explicitly shared OAuth application; Librio uses its own session secret.
+
     - key: /k8s/common/agent-memory/google-client-id
       name: GOOGLE_CLIENT_ID
     - key: /k8s/common/agent-memory/google-client-secret
       name: GOOGLE_CLIENT_SECRET
+
+
     - key: /k8s/common/agent-memory/embedding-api-key
       name: EMBEDDING_API_KEY
     - key: /k8s/common/agent-memory/reranker-api-key

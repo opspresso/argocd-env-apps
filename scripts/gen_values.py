@@ -20,6 +20,33 @@ def parse_args():
     return p.parse_args()
 
 
+def validate_agent_oidc(context):
+    for service in ("studio", "memory", "librio", "forge"):
+        settings = context.get(f"agent_{service}")
+        if not isinstance(settings, dict):
+            continue
+        if "google_sign_in" in settings and not isinstance(settings["google_sign_in"], bool):
+            raise ValueError(f"agent_{service}.google_sign_in must be a boolean")
+        oidc = settings.get("oidc")
+        if oidc is None:
+            continue
+        if not isinstance(oidc, dict):
+            raise ValueError(f"agent_{service}.oidc must be a mapping")
+        for key in ("issuer", "client_id_parameter", "client_secret_parameter"):
+            if not isinstance(oidc.get(key), str) or not oidc[key].strip():
+                raise ValueError(f"agent_{service}.oidc.{key} is required")
+        if not isinstance(oidc.get("profile_claims", {}), dict):
+            raise ValueError(f"agent_{service}.oidc.profile_claims must be a mapping")
+        if service == "forge":
+            domains = settings.get("sign_in_domains")
+            if not isinstance(domains, list) or not domains or not all(isinstance(domain, str) and domain.strip() for domain in domains):
+                raise ValueError("agent_forge.sign_in_domains must provide an explicit OIDC allowlist")
+        allowed_logout = {"app"} if service == "forge" else {"app", "provider"}
+        mode = oidc.get("logout_mode", "app")
+        if not isinstance(mode, str) or mode not in allowed_logout:
+            raise ValueError(f"agent_{service}.oidc.logout_mode is not supported")
+
+
 def gen_repos(args):
     template_name = "values-template.yaml.j2"
     template_path = "charts/{}/{}".format(args.reponame, template_name)
@@ -60,6 +87,7 @@ def gen_values(t, reponame, platform=PLATFORM):
                                  for service in ("studio", "memory", "librio", "forge"))
                     if v.get("env") != "k3s" or not paused or v.get("minio", {}).get("console") is not False:
                         raise ValueError("storage_gc_maintenance requires k3s, all Agent services paused and minio.console false")
+                validate_agent_oidc(v)
                 proxies = v.get("trusted_proxy_cidrs", [])
                 if not isinstance(proxies, list):
                     raise ValueError("{} trusted_proxy_cidrs must be a list".format(env_path))

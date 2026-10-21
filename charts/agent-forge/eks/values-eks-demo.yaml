@@ -3,6 +3,7 @@ app:
   raw:
     enabled: True
 
+
   replicaCount: 0
   autoscaling:
     enabled: False
@@ -27,7 +28,8 @@ app:
     data:
       HOST: 0.0.0.0
       PORT: '3103'
-      FORGE_ALLOWED_ORIGINS: https://forge.agrt.dev
+      AUTH_BASE_URL: https://forge.agrt.dev
+      ALLOWED_ORIGINS: https://forge.agrt.dev
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry

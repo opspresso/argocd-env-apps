@@ -70,10 +70,11 @@ def test_authentication_hosts_match_public_routes(chart, platform):
     hostname = chart.removeprefix("agent-") + ".agrt.dev"
     assert route["hostnames"] == [hostname]
     if chart == "agent-forge":
-        assert config["FORGE_ALLOWED_ORIGINS"] == f"https://{hostname}"
+        assert config["AUTH_BASE_URL"] == f"https://{hostname}"
+        assert config["ALLOWED_ORIGINS"] == f"https://{hostname}"
     else:
-        assert config["BETTER_AUTH_ALLOWED_HOSTS"] == hostname
-        assert config["BETTER_AUTH_URL"] == f"https://{hostname}"
+        assert config["AUTH_ALLOWED_HOSTS"] == hostname
+        assert config["AUTH_BASE_URL"] == f"https://{hostname}"
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])

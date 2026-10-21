@@ -1,6 +1,7 @@
 app:
   fullnameOverride: agent-studio
 
+
   replicaCount: 1
   autoscaling:
     enabled: False
@@ -26,8 +27,9 @@ app:
       ADMIN_EMAILS: me@nalbam.com
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: ap-northeast-2
-      BETTER_AUTH_URL: https://studio.agrt.dev
-      BETTER_AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
+      AUTH_BASE_URL: https://studio.agrt.dev
+
+      AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
       # PUBLIC_BASE_URL: https://studio.agrt.dev
       S3_BUCKET_NAME: agent-studio-static
 
@@ -91,11 +93,14 @@ app:
     enabled: true
     data:
     - key: /k8s/common/agentops/better-auth-secret
-      name: BETTER_AUTH_SECRET
+      name: AUTH_SECRET
+
     - key: /k8s/common/agentops/google-client-id
       name: GOOGLE_CLIENT_ID
     - key: /k8s/common/agentops/google-client-secret
       name: GOOGLE_CLIENT_SECRET
+
+
     - key: /k8s/common/agent-studio/llm-provider-openai-api-key
       name: LLM_PROVIDER_OPENAI_API_KEY
     - key: /k8s/common/agent-studio/llm-provider-anthropic-api-key
