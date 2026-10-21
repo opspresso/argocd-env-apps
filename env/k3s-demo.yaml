@@ -8,8 +8,8 @@ group: k3s-demo
 role: k3s
 replicas: 1
 autoscaling: false
-agent_studio_maintenance: true
-agent_memory_maintenance: true
+agent_studio_maintenance: false
+agent_memory_maintenance: false
 resources: false
 trusted_proxy_cidrs: []
 grafana_url: http://grafana.addon-grafana.svc.cluster.local
@@ -53,8 +53,8 @@ agent_forge:
   - nalbam.com
   allowed_hosts:
   - forge.agrt.dev
-agent_librio_maintenance: true
-agent_forge_maintenance: true
+agent_librio_maintenance: false
+agent_forge_maintenance: false
 sample_node:
   hostname: sample-node.rovr.dev
   redis:
