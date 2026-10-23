@@ -84,8 +84,13 @@ app:
 {% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_forge.hostname}}
+    # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-channels SSM
+    # parameter, wait one refreshInterval, then set this to the parameter version to restart Forge.
+    agent-forge/model-channels-version: "3"
   externalSecrets:
     enabled: true
+    # Upper bound for an SSM edit to reach the Secret.
+    refreshInterval: 15m
     data:
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
