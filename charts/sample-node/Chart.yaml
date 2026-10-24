@@ -2,16 +2,16 @@ apiVersion: v2
 name: sample-node
 description: A Helm chart for Kubernetes
 type: application
-version: v1.5.3
+version: v1.6.0
 appVersion: v1.0.0
 
 dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
     version: "v1.7.1"
-  - repository: https://charts.bitnami.com/bitnami
+  - repository: oci://registry-1.docker.io/bitnamicharts
     name: redis
-    version: "17.0.7"
+    version: "22.0.7"
     condition: redis.enabled
   - repository: https://charts.helm.sh/incubator
     name: raw

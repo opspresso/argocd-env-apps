@@ -151,11 +151,27 @@ redis:
   enabled: true
   fullnameOverride: redis
 
+  # bitnamilegacy keeps the chart 22.0.7 default tags; every image below is published for
+  # linux/amd64 and linux/arm64. The chart rejects non-default repositories without allowInsecureImages.
   image:
     repository: bitnamilegacy/redis
+  metrics:
+    image:
+      repository: bitnamilegacy/redis-exporter
+  volumePermissions:
+    image:
+      repository: bitnamilegacy/os-shell
+  kubectl:
+    image:
+      repository: bitnamilegacy/kubectl
+  sysctl:
+    image:
+      repository: bitnamilegacy/os-shell
 
   global:
     storageClass: gp3 # aws-ebs-sc
+    security:
+      allowInsecureImages: true
 
   # master:
   #   persistence:
@@ -169,6 +185,7 @@ redis:
   architecture: standalone
 
   master:
+    resourcesPreset: none
     resources:
       requests:
         cpu: 25m
