@@ -1,12 +1,12 @@
 app:
   configmap:
     data:
-      VERSION: v0.186.0
+      VERSION: v0.186.1
     enabled: true
   env:
   - name: ENV_HASH
-    value: 0f6e3b71a1f49226d1e75a7f86c2a687
+    value: 15da5fb93942853882cb50ee55e04148
   - name: VERSION
-    value: v0.186.0
+    value: v0.186.1
   image:
-    tag: v0.186.0
+    tag: v0.186.1
