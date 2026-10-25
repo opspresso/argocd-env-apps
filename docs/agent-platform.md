@@ -187,24 +187,136 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
    로그인, Memory recall/remember, Librio 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
 7. 정상 동작을 확인한 뒤 앱 release의 자동 GitOps gate를 원래 설정으로 복원합니다.
 
-## Models 활성화와 Studio OIDC 전환
+## Models 활성화와 Studio OIDC 전환 (alpha)
 
 `agent_models_maintenance: true`이면 Models Deployment는 0개이고 HPA가 없습니다.
 ConfigMap·ExternalSecret·HTTPRoute·NetworkPolicy는 유지합니다. `values-<phase>.yaml`의 버전 키는
-`agent-models` release workflow의 GitOps dispatch가 기록합니다. 직접 tag를 쓰지 않습니다.
+`scripts/gitops.py`만 기록합니다. 직접 tag를 쓰지 않습니다.
 
-1. `agent-models` release로 ECR image와 `values-alpha.yaml`의 `image.tag`가 기록됐는지 확인합니다.
-2. `bootstrap_agent_platform.py --apply`로 Models secret을 만듭니다.
-3. `models.agrt.dev`가 k3s Gateway를 가리키는지 확인합니다(`terraform-env-demo`).
-4. Studio를 새 image로 배포하고 **Settings → Platform connections**에 Models·Memory·Librio·Forge를
-   등록합니다. callback은 `https://<host>/api/auth/callback/studio`입니다.
-5. 발급된 client ID·secret을 `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret`에
-   SecureString으로 저장합니다. Forge `model-roles`도 저장합니다(처음에는 `[]`).
-6. `env/<cluster>.yaml`에서 `agent_models_maintenance: false`로 바꾸고 병합합니다.
-   `/api/ready`, Studio OIDC 로그인, 공급자 연결, 모델 선택을 확인합니다.
-7. 각 소비 서비스 ExternalSecret의 `SecretSynced`를 확인하고 rollout합니다. 각 서비스의 **설정**에서
-   모델 역할을 선택하고 실제 모델 호출과 Models 사용량 집계를 확인합니다.
-8. 7단계를 모든 클러스터에서 확인한 뒤 더 이상 참조하지 않는 SSM 파라미터를 삭제합니다.
+### 부팅 호환성
+
+새 image는 이전 설정에서, 이전 image는 새 설정에서 정상 동작하지 않습니다. 그래서 Studio만 먼저
+올리고 나머지 네 서비스는 설정과 image를 한 커밋으로 바꿉니다.
+
+| 서비스 | 새 image + 현재 `main` 설정 | 새 image + 새 설정 |
+| --- | --- | --- |
+| Studio | 부팅함. `DATABASE_URL`·`AES_ENCRYPTION_KEY`·`STAGE`·`ADMIN_EMAILS`·Google 로그인이 있음. 이전 서비스와의 위임 호출은 실패 | 부팅함. `*_OIDC_CLIENT_ID` SSM이 없으면 ExternalSecret이 갱신되지 않고 서비스 호출만 실패 |
+| Memory·Librio | 시작 실패. production은 `OIDC_ISSUER`·`OIDC_CLIENT_ID`·`OIDC_CLIENT_SECRET`을 요구 | client SSM과 schema 변환 후 부팅 |
+| Forge | 시작 실패. Studio OIDC 필수, 이전 `model-channels` 형식 거부 | client SSM과 `model-roles` 후 부팅. schema는 시작 시 확장 |
+| Models | 해당 없음 | `auth-secret`·`encryption-key`·client SSM 후 부팅 |
+
+Studio·Memory·Librio의 새 image는 기존 schema를 자동 변환하지 않습니다. 변환 도구를 새 image로
+실행한 직후 새 버전을 시작합니다. 변환 후 이전 image는 readiness에 실패합니다.
+
+### 순서와 명령
+
+아래 명령은 k3s `kubectl` context와 `argocd-env-apps` checkout을 사용합니다.
+`ECR=396608815058.dkr.ecr.ap-northeast-2.amazonaws.com`, `V_<SERVICE>`는 각 서비스의 새 release tag입니다.
+
+```bash
+# One-off command with a new image and the service's existing Secret.
+run_once() { ns=$1; image=$2; shift 2
+  kubectl -n "$ns" run "$ns-once" --rm -i --restart=Never --image="$image" --overrides="$(jq -nc \
+    --arg i "$image" --arg s "$ns-external" '{spec:{imagePullSecrets:[{name:"ecr-registry"}],
+    containers:[{name:"run",image:$i,command:$ARGS.positional,envFrom:[{secretRef:{name:$s}}]}]}}' --args -- "$@")"; }
+```
+
+1. **ECR·IAM**: `terraform-env-demo/demo/8-agent-studio`에서 Models ECR·게시 역할만 먼저 적용합니다.
+   `models.agrt.dev` DNS는 9단계에서 바꿉니다.
+   ```bash
+   terraform apply -target='aws_ecr_repository.this["agent-models"]' -target='aws_ecr_lifecycle_policy.this["agent-models"]' \
+     -target='aws_iam_role.github_ecr["agent-models"]' -target='aws_iam_policy.github_ecr["agent-models"]' \
+     -target='aws_iam_role_policy_attachment.github_ecr["agent-models"]' -target=aws_iam_policy.k3s_ecr_pull
+   ```
+2. **Gateway 인증서**: `argocd-env-addons`의 `models.agrt.dev` host 추가를 병합합니다.
+   `kubectl -n traefik-gateway get certificate traefik-gateway-tls`가 `Ready=True`이고
+   `kubectl -n traefik-gateway get secret traefik-gateway-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -ext subjectAltName`에
+   `models.agrt.dev`가 있는지 확인합니다.
+3. **image 게시**: 다섯 서비스의 자동 GitOps를 멈추고 release tag를 push합니다. image만 ECR에 게시됩니다.
+   ```bash
+   for r in agent-studio agent-memory agent-librio agent-forge agent-models; do
+     gh variable set GITOPS_AUTO_DEPLOY --body false -R "opspresso/$r"; done
+   # 각 저장소에서 git tag vX.Y.Z && git push origin vX.Y.Z, release workflow 성공 확인
+   aws ecr describe-images --repository-name agent-forge --image-ids imageTag="$V_FORGE" imageTag="sandbox-$V_FORGE"
+   ```
+4. **Studio 먼저 전환**: schema를 변환하고 바로 alpha에 배포합니다. 이 순간부터 7단계까지 Studio에서
+   Memory·Librio·Forge 호출과 모델 실행은 실패합니다.
+   ```bash
+   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply  # baseline 12→13
+   gh api repos/opspresso/argocd-env-apps/dispatches -f event_type=gitops -f client_payload[username]=opspresso \
+     -f client_payload[project]=agent-studio -f client_payload[version]="$V_STUDIO" -f client_payload[container]=app \
+     -f client_payload[phase]=alpha -f client_payload[type]=helm
+   curl -fsS https://studio.agrt.dev/api/ready
+   curl -fsS https://studio.agrt.dev/api/auth/.well-known/openid-configuration | jq -r .issuer  # https://studio.agrt.dev/api/auth
+   ```
+   부팅이 `Unsupported stored secret format`으로 중단되면 Studio 운영 문서의 Settings 시크릿 전환을 실행합니다.
+5. **client 등록**: Studio 관리자로 **Settings → Platform connections**에서 네 서비스를 등록합니다.
+   provider ID는 `studio`, 서비스 URL은 `https://models.agrt.dev`, `https://memory.agrt.dev`,
+   `https://librio.agrt.dev`, `https://forge.agrt.dev`입니다. callback은 `<URL>/api/auth/callback/studio`입니다.
+   같은 기능의 API는 관리자 세션의 `POST /api/platform/clients`
+   (`{"service":"agent-memory","baseUrl":"https://memory.agrt.dev","providerId":"studio"}`)입니다.
+   응답의 `client.id`와 `secret`은 한 번만 표시되므로 바로 6단계에 저장합니다.
+6. **SSM**: 값을 명령줄 이력에 남기지 않도록 입력 파일이나 prompt로 전달합니다.
+   ```bash
+   for s in agent-models agent-memory agent-librio agent-forge; do
+     read -rs -p "$s client id: " id; echo; read -rs -p "$s client secret: " secret; echo
+     aws ssm put-parameter --type SecureString --name "/k8s/k3s-demo/$s/oidc-client-id" --value "$id"
+     aws ssm put-parameter --type SecureString --name "/k8s/k3s-demo/$s/oidc-client-secret" --value "$secret"; done
+   aws ssm put-parameter --type SecureString --name /k8s/k3s-demo/agent-forge/model-roles --value '[]'
+   python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply  # agent-models/auth-secret, encryption-key
+   python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo          # 남은 누락이 없어야 함
+   ```
+7. **설정과 image를 한 커밋으로 전환**: 전환 브랜치에서 네 서비스의 alpha·prod 버전을 기록하고
+   `env/k3s-demo.yaml`의 `agent_models_maintenance`를 `false`로 바꿉니다.
+   ```bash
+   git rebase origin/main
+   for p in alpha prod; do
+     TG_PROJECT=agent-memory TG_VERSION="$V_MEMORY" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
+     TG_PROJECT=agent-librio TG_VERSION="$V_LIBRIO" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
+     TG_PROJECT=agent-forge  TG_VERSION="$V_FORGE"  TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
+     TG_PROJECT=agent-models TG_VERSION="$V_MODELS" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run; done
+   TG_PROJECT=agent-studio TG_VERSION="$V_STUDIO" TG_PHASE=prod python3 scripts/gitops.py deploy --dry-run
+   ./scripts/build.sh && ./scripts/validate.py --all-charts && pytest
+   git commit -am "Deploy Agent platform Studio OIDC and Models" && git push
+   ```
+   병합 직전에 Memory·Librio schema를 변환합니다. 이 시점부터 새 버전이 Ready가 될 때까지 두 서비스는 503입니다.
+   ```bash
+   kubectl -n agent-studio exec postgres-0 -- psql -U agent_studio -d agent_platform -Atc 'SELECT fingerprint FROM agent_memory_schema'
+   run_once agent-memory "$ECR/agent-memory:$V_MEMORY" node scripts/upgrade-enterprise-profile.mjs --apply  # 이전 fingerprint일 때만
+   run_once agent-memory "$ECR/agent-memory:$V_MEMORY" node scripts/upgrade-model-work.mjs --apply          # 9eeb878d…일 때
+   run_once agent-librio "$ECR/agent-librio:$V_LIBRIO" node scripts/upgrade-platform-auth.mjs --apply      # v0.18.1·v0.19.0–v0.20.1
+   ```
+   도구가 기준선을 거절하고 데이터 보존이 필요 없으면 `node scripts/reset-database.mjs`로 해당 서비스 namespace만
+   다시 만듭니다. 이어서 PR을 병합합니다. PostgreSQL은 `max_connections` 변경으로 한 번 재시작합니다.
+8. **전환 확인**:
+   ```bash
+   kubectl get externalsecret -A | grep agent-        # 모두 SecretSynced
+   kubectl -n agent-memory annotate externalsecret agent-memory-external force-sync="$(date +%s)" --overwrite  # 필요할 때
+   curl -fsS https://memory.agrt.dev/api/health && curl -fsS https://librio.agrt.dev/api/health
+   curl -fsS https://forge.agrt.dev/health
+   kubectl -n agent-models exec deploy/agent-models -- node -e "fetch('http://127.0.0.1:3400/api/ready').then(r => process.exit(r.ok ? 0 : 1))"
+   curl -fsS --resolve models.agrt.dev:443:"$(dig +short studio.agrt.dev)" https://models.agrt.dev/api/ready
+   ```
+   각 서비스에 Studio로 로그인하고 Studio의 Memory·Librio·Forge 연결 상태를 확인합니다.
+9. **Models DNS 전환**: `terraform-env-demo` 변경을 병합하고 전체 apply로 `models.agrt.dev`를 k3s A 레코드로
+   바꿉니다. 이어서 GitHub Pages를 끕니다. 카탈로그는 Models image가 같은 경로로 제공합니다.
+   ```bash
+   terraform plan -out=tf.plan && terraform apply tf.plan
+   gh api -X DELETE repos/opspresso/agent-models/pages
+   dig +short models.agrt.dev                                   # k3s IP
+   curl -fsS https://models.agrt.dev/api/ready && curl -fsS https://models.agrt.dev/models.json | jq -r .version
+   ```
+10. **모델 연결**: Models 콘솔에서 공급자를 연결하고 모델을 선택합니다. 이전 공급자 키는 여기서 다시 입력합니다.
+    Memory·Librio는 **설정**에서 역할을 선택합니다. Forge는 `model-roles`에 선택 ID를 저장하고
+    `agent-forge/model-roles-version` annotation을 올려 재시작합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
+11. **자동 배포 복원**: `values-prod.yaml`이 alpha와 같은 버전인지 확인하고 자동 GitOps를 복원합니다.
+    ```bash
+    for c in agent-studio agent-memory agent-librio agent-forge agent-models; do
+      diff <(yq .app.image.tag charts/$c/values-alpha.yaml) <(yq .app.image.tag charts/$c/values-prod.yaml); done
+    for r in agent-studio agent-memory agent-librio agent-forge agent-models; do
+      gh variable delete GITOPS_AUTO_DEPLOY -R "opspresso/$r"; done
+    ```
+12. 11단계를 모든 클러스터에서 확인한 뒤 더 이상 참조하지 않는 SSM 파라미터를 삭제합니다.
    `/k8s/common/` 경로는 모든 클러스터가 공유하므로 마지막 클러스터를 전환한 뒤 삭제합니다.
    삭제 전에 `grep -rn '<경로>' charts/*/values*.j2 charts/*/values.yaml`과 `argocd-env-addons`에서
    참조가 없음을 확인합니다. 삭제는 되돌릴 수 없으므로 필요하면 값을 먼저 별도로 보관합니다.
