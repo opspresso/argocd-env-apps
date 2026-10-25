@@ -28,7 +28,8 @@ app:
       OIDC_PROVIDER_ID: studio
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
-      # Providers and credentials belong to Agent Models. Select each model role in Settings.
+      # Providers and credentials belong to Agent Models. agent_memory.models names the selection
+      # for each role; a Settings override takes precedence after a restart.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
       RERANKER_TIMEOUT_MS: '5000'
@@ -36,6 +37,10 @@ app:
       DECISION_TIMEOUT_MS: '5000'
       MEMORY_LANGUAGE: ko
       DREAM_TIME_ZONE: Asia/Seoul
+{%- set models = agent_memory.models | default({}) %}
+{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('decision', 'DECISION_MODEL'), ('dream', 'DREAM_MODEL')] if models[key] is defined %}
+      {{name}}: {{models[key] | tojson}}
+{%- endfor %}
   routing:
     hosts:
 {%- for host in allowed_hosts %}

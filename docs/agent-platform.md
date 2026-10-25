@@ -41,8 +41,24 @@ Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `LIBRIO_OID
 `MODELS_PUBLIC_URL=https://<agent_models.hostname>`을 설정합니다.
 
 공급자 주소·API 키·wire ID·가격은 Models만 소유합니다. 소비 서비스에는 공급자 설정을 주입하지 않습니다.
-Memory·Librio의 모델 역할(`EMBEDDING_MODEL` 등)은 Models가 선택 모델을 활성화한 뒤 각 서비스의
-**설정**에서 고릅니다. Forge의 `FORGE_MODEL_CHANNELS`는 `/k8s/<cluster>/agent-forge/model-roles`에서 읽습니다.
+Memory·Librio의 모델 역할은 `env/<cluster>.yaml`의 `agent_memory.models`, `agent_librio.models`에
+Models 선택 ID(`<provider>/<model>`)로 선언합니다. 선언하지 않은 역할은 렌더하지 않습니다.
+Models에서 해당 선택을 먼저 활성화합니다. 각 서비스 **설정**의 override가 env보다 우선하므로
+GitOps 값을 적용하려면 override를 reset합니다. Embedding 모델이나 차원을 바꾸면 기존 embedding을 다시 생성합니다.
+
+| 키 | Memory env | Librio env |
+| --- | --- | --- |
+| `embedding` | `EMBEDDING_MODEL` | `EMBEDDING_MODEL` |
+| `reranker` | `RERANKER_MODEL` | `RERANKER_MODEL` |
+| `decision` | `DECISION_MODEL` | - |
+| `dream` | `DREAM_MODEL`(Dreaming·세션 기억 추출) | - |
+| `extraction` | - | `KNOWLEDGE_EXTRACTION_MODEL`(검증 모델을 따로 두지 않으면 검증도 사용) |
+| `transcription`, `summary` | - | `AUDIO_PROCESSING_OPTIONS`의 기본 처리 옵션 항목 |
+
+Librio의 전사·회의록 모델은 작업을 요청하는 쪽(Studio 등)이 작업마다 모델 ID로 고릅니다.
+`AUDIO_PROCESSING_OPTIONS`는 그 모델의 처리 옵션만 정하며 모델을 선택하지 않습니다.
+
+Forge의 `FORGE_MODEL_CHANNELS`는 `/k8s/<cluster>/agent-forge/model-roles`에서 읽습니다.
 각 항목은 `id`, `runtime`, `model`(Models 선택 ID), `protocol`과 선택 한도만 가집니다. 공급자 연결 정보가
 있는 이전 `model-channels` 형식은 Forge가 시작 단계에서 거부합니다. 역할이 없으면 `[]`을 저장합니다.
 
@@ -76,10 +92,17 @@ agent_studio:
 callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `provider_id: keycloak`을 유지합니다.
 새 설치 기본값은 `oidc`입니다. 회사 팀·역할은 표시 정보이며 앱 권한을 자동 부여하지 않습니다.
 
-프로필 schema가 없는 기존 DB는 새 image의 데이터 보존 전환 도구로 준비합니다.
-Studio는 schema 11→12 전환, Memory·Librio는 직전 fingerprint→현재 fingerprint 전환을
-제공합니다. 서비스를 maintenance로 정지한 뒤 해당 image에서 명시적으로 실행하고 새 버전을
-시작합니다. Forge는 확인된 v4–v7에서 v8로 데이터를 보존해 확장합니다. 운영 DB reset은 사용하지 않습니다.
+기존 DB는 새 image의 데이터 보존 전환 도구로 현재 schema로 바꿉니다. 도구는 정해진 시작 schema만 받습니다.
+
+| 서비스 | 현재 schema | 시작 schema와 도구 |
+| --- | --- | --- |
+| Studio | baseline 13 | baseline 12: `node build/upgrade-platform-auth.cjs --apply`. baseline 11: `node build/upgrade-enterprise-profile.cjs --apply`(12 단계 포함) |
+| Memory | 현재 fingerprint | 기업 프로필 이전: `upgrade-enterprise-profile.mjs` 후 `upgrade-model-work.mjs`. 그 다음 기준선: `upgrade-model-work.mjs` |
+| Librio | 현재 fingerprint | v0.18.1, v0.19.0–v0.20.1: `node scripts/upgrade-platform-auth.mjs --apply` |
+| Forge | version 11 | v4–v10을 시작할 때 자동으로 단계별 확장 |
+
+Studio의 현재 baseline은 `SELECT version FROM agent_studio_schema`로 확인합니다. 해당 image에서 도구를
+명시적으로 실행한 직후 새 버전을 시작합니다. 운영 DB reset은 데이터 유실이 허용될 때만 사용합니다.
 
 ## DB와 원본 보존
 
@@ -242,7 +265,14 @@ run_once() { ns=$1; image=$2; shift 2
 4. **Studio 먼저 전환**: schema를 변환하고 바로 alpha에 배포합니다. 이 순간부터 7단계까지 Studio에서
    Memory·Librio·Forge 호출과 모델 실행은 실패합니다.
    ```bash
-   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply  # baseline 12→13
+   baseline=$(kubectl -n agent-studio exec postgres-0 -- psql -U agent_studio -d agent_platform -Atc \
+     'SELECT version FROM agent_studio_schema')
+   case "$baseline" in
+     11) run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-enterprise-profile.cjs --apply ;;  # 11→13
+     12) run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply ;;      # 12→13
+     13) echo "already current" ;;
+     *) echo "unsupported Studio baseline: $baseline" >&2; exit 1 ;;
+   esac
    gh api repos/opspresso/argocd-env-apps/dispatches -f event_type=gitops -f client_payload[username]=opspresso \
      -f client_payload[project]=agent-studio -f client_payload[version]="$V_STUDIO" -f client_payload[container]=app \
      -f client_payload[phase]=alpha -f client_payload[type]=helm
@@ -258,11 +288,15 @@ run_once() { ns=$1; image=$2; shift 2
    응답의 `client.id`와 `secret`은 한 번만 표시되므로 바로 6단계에 저장합니다.
 6. **SSM**: 값을 명령줄 이력에 남기지 않도록 입력 파일이나 prompt로 전달합니다.
    ```bash
+   set -euo pipefail  # stop at the first failed write; never keep a stale credential
    for s in agent-models agent-memory agent-librio agent-forge; do
      read -rs -p "$s client id: " id; echo; read -rs -p "$s client secret: " secret; echo
-     aws ssm put-parameter --type SecureString --name "/k8s/k3s-demo/$s/oidc-client-id" --value "$id"
-     aws ssm put-parameter --type SecureString --name "/k8s/k3s-demo/$s/oidc-client-secret" --value "$secret"; done
-   aws ssm put-parameter --type SecureString --name /k8s/k3s-demo/agent-forge/model-roles --value '[]'
+     # Re-registration issues a new client, so the stored pair is always replaced.
+     aws ssm put-parameter --type SecureString --overwrite --name "/k8s/k3s-demo/$s/oidc-client-id" --value "$id"
+     aws ssm put-parameter --type SecureString --overwrite --name "/k8s/k3s-demo/$s/oidc-client-secret" --value "$secret"; done
+   # Create the empty role list only when absent; step 10 owns its content.
+   aws ssm get-parameter --name /k8s/k3s-demo/agent-forge/model-roles >/dev/null 2>&1 ||
+     aws ssm put-parameter --type SecureString --name /k8s/k3s-demo/agent-forge/model-roles --value '[]'
    python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply  # agent-models/auth-secret, encryption-key
    python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo          # 남은 누락이 없어야 함
    ```
@@ -307,8 +341,15 @@ run_once() { ns=$1; image=$2; shift 2
    curl -fsS https://models.agrt.dev/api/ready && curl -fsS https://models.agrt.dev/models.json | jq -r .version
    ```
 10. **모델 연결**: Models 콘솔에서 공급자를 연결하고 모델을 선택합니다. 이전 공급자 키는 여기서 다시 입력합니다.
-    Memory·Librio는 **설정**에서 역할을 선택합니다. Forge는 `model-roles`에 선택 ID를 저장하고
-    `agent-forge/model-roles-version` annotation을 올려 재시작합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
+    Memory·Librio 역할은 `env/<cluster>.yaml`의 `models`로 선언합니다. Forge는 `model-roles`에 선택 ID를
+    `--overwrite`로 저장하고 ExternalSecret에 반영한 뒤 `agent-forge/model-roles-version` annotation을
+    SSM 파라미터 버전으로 올려 재시작합니다. ExternalSecret의 refreshInterval은 15분입니다.
+    ```bash
+    kubectl -n agent-forge annotate externalsecret agent-forge-external force-sync="$(date +%s)" --overwrite
+    kubectl -n agent-forge get externalsecret agent-forge-external  # SecretSynced, 갱신 시각 확인
+    aws ssm get-parameter --name /k8s/k3s-demo/agent-forge/model-roles --query Parameter.Version
+    ```
+    annotation 변경 커밋은 Secret 갱신을 확인한 뒤 병합합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
 11. **자동 배포 복원**: `values-prod.yaml`이 alpha와 같은 버전인지 확인하고 자동 GitOps를 복원합니다.
     ```bash
     for c in agent-studio agent-memory agent-librio agent-forge agent-models; do

@@ -42,7 +42,7 @@ app:
       S3_FORCE_PATH_STYLE: 'false'
 
       # Providers, credentials, wire IDs and prices belong to Agent Models.
-      # Select each model role in Settings after Models enables it.
+      # agent_librio.models names the selection for each role; a Settings override takes precedence.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
       RERANKER_TIMEOUT_MS: '5000'

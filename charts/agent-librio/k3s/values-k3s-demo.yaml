@@ -50,11 +50,16 @@ app:
       S3_FORCE_PATH_STYLE: 'true'
 
       # Providers, credentials, wire IDs and prices belong to Agent Models.
-      # Select each model role in Settings after Models enables it.
+      # agent_librio.models names the selection for each role; a Settings override takes precedence.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
+      EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
+      RERANKER_MODEL: "openrouter/rerank-v3.5"
+      KNOWLEDGE_EXTRACTION_MODEL: "openrouter/gpt-6-luna"
+      # Processing defaults for the audio models a caller may request; selection is per job.
+      AUDIO_PROCESSING_OPTIONS: "[{\"id\": \"openrouter/gpt-4o-transcribe\", \"kind\": \"transcription\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"kind\": \"summary\"}]"
       DOCUMENT_WORKER_ENABLED: 'false'
       AUDIO_WORKER_ENABLED: 'false'
       KNOWLEDGE_ENRICHMENT_CONCURRENCY: '1'
