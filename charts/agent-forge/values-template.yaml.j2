@@ -4,7 +4,6 @@ app:
   raw:
     enabled: {{agent_forge is defined}}
 {% if agent_forge is defined %}
-{% set oidc = agent_forge.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -43,21 +42,12 @@ app:
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: '{{ "workspaces" if env == "eks" else "" }}'
       FORGE_GIT_ALLOWED_ORIGINS: https://github.com
-{%- if agent_forge.sign_in_domains is defined or oidc is not none %}
-      # The default sign-in uses the Agent Memory Google client; an explicit oidc block overrides it.
-      # Register the chosen provider identity on each callback, for example
-      # https://<hostname>/api/auth/callback/google.
-{% if oidc is not none %}
-      OIDC_ISSUER: {{ oidc.issuer | tojson }}
-      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
-      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
-      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
-{% else %}
-      OIDC_ISSUER: https://accounts.google.com
-      OIDC_PROVIDER_ID: google
-{% endif %}
-      ALLOWED_EMAIL_DOMAINS: '{{ agent_forge.sign_in_domains | join(",") }}'
-{%- endif %}
+      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
+      # Internal Studio origin for the native forge:policy callback.
+      STUDIO_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
   sandbox:
     namespace: agent-forge-workspaces
     maxPods: {{workspace_max_pods | default(2)}}
@@ -84,9 +74,9 @@ app:
 {% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_forge.hostname}}
-    # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-channels SSM
+    # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-roles SSM
     # parameter, wait one refreshInterval, then set this to the parameter version to restart Forge.
-    agent-forge/model-channels-version: "3"
+    agent-forge/model-roles-version: "1"
   externalSecrets:
     enabled: true
     # Upper bound for an SSM edit to reach the Secret.
@@ -94,37 +84,23 @@ app:
     data:
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/{{cluster}}/agent-forge/credentials
-      name: FORGE_CREDENTIALS
-    - key: /k8s/{{cluster}}/agent-forge/delegators
-      name: FORGE_DELEGATORS
-    - key: /k8s/{{cluster}}/agent-forge/issuer-policies
-      name: FORGE_ISSUER_POLICIES
     - key: /k8s/{{cluster}}/agent-forge/checkpoint-secret
       name: FORGE_CHECKPOINT_SECRET
     - key: /k8s/{{cluster}}/agent-forge/credential-secret
       name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/{{cluster}}/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
-    - key: /k8s/{{cluster}}/agent-forge/model-channels
+    # Central selection IDs per runtime role; see docs/agent-platform.md.
+    - key: /k8s/{{cluster}}/agent-forge/model-roles
       name: FORGE_MODEL_CHANNELS
-{%- if agent_forge.sign_in_domains is defined or oidc is not none %}
-{% if oidc is not none %}
-    - key: {{ oidc.client_id_parameter | tojson }}
+    - key: /k8s/{{cluster}}/agent-forge/oidc-client-id
       name: OIDC_CLIENT_ID
-    - key: {{ oidc.client_secret_parameter | tojson }}
+    - key: /k8s/{{cluster}}/agent-forge/oidc-client-secret
       name: OIDC_CLIENT_SECRET
-{% else %}
-    - key: /k8s/common/agent-memory/google-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/common/agent-memory/google-client-secret
-      name: OIDC_CLIENT_SECRET
-{% endif %}
     - key: /k8s/{{cluster}}/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/{{cluster}}/agent-forge/session-secret
       name: AUTH_SECRET
-{%- endif %}
   serviceMonitor:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
     labels:

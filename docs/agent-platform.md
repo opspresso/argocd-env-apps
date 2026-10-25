@@ -7,7 +7,7 @@
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
 | `argocd-env-addons` | Argo CD, External Secrets, Gateway/TLS, CNI, 관측성 |
-| `argocd-env-apps` | 네 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL·MinIO |
+| `argocd-env-apps` | 다섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL·MinIO |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
@@ -15,19 +15,42 @@
 | Memory | `memory.agrt.dev` | 사용자·팀·조직의 단기/장기 메모리, recall/remember/handoff |
 | Librio | `librio.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
+| Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
 
 모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `AUTH_BASE_URL`,
 `AUTH_ALLOWED_HOSTS`, HTTPRoute는 같은 호스트를 가리킵니다. Forge는
 `ALLOWED_ORIGINS`를 사용합니다. 프록시는 원래 `Host`를 전달해야 합니다.
-OAuth 클라이언트에 `https://<hostname>/api/auth/callback/google`을 등록합니다.
-Librio는 기존 Memory Google 클라이언트를 명시적으로 참조하고, 세션 Secret은 별도로 사용합니다.
 `trusted_proxy_cidrs`는 실제 프록시 hop에 맞춰 EKS는 VPC CIDR, k3s 단일 Traefik은 빈 목록을 사용합니다.
 
-## 기업 OIDC 연결
+## 로그인과 모델 연결
 
-각 `agent_<service>.oidc` 블록은 Keycloak을 포함한 표준 OIDC 연결을 선언합니다.
+Studio만 외부 로그인 제공자(Google 또는 기업 OIDC)와 연결합니다. Memory·Librio·Forge·Models는
+Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌더합니다.
+
+| 설정 | Memory·Librio·Forge·Models |
+| --- | --- |
+| `OIDC_ISSUER` | `https://<agent_studio.hostname>/api/auth` |
+| `OIDC_PROVIDER_ID` | `studio`. callback은 `https://<서비스 호스트>/api/auth/callback/studio` |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret` |
+| `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3400` (Models 제외) |
+| `STUDIO_URL` | `http://agent-studio.agent-studio.svc.cluster.local:3000` (Librio·Forge의 정책 callback) |
+
+`gen_values.py`는 이 네 서비스의 `oidc`, `google_sign_in`, `sign_in_domains`를 거부합니다.
+Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `LIBRIO_OIDC_CLIENT_ID`,
+`FORGE_OIDC_CLIENT_ID`로 읽습니다. Studio에는 `MODELS_URL`과 브라우저용
+`MODELS_PUBLIC_URL=https://<agent_models.hostname>`을 설정합니다.
+
+공급자 주소·API 키·wire ID·가격은 Models만 소유합니다. 소비 서비스에는 공급자 설정을 주입하지 않습니다.
+Memory·Librio의 모델 역할(`EMBEDDING_MODEL` 등)은 Models가 선택 모델을 활성화한 뒤 각 서비스의
+**설정**에서 고릅니다. Forge의 `FORGE_MODEL_CHANNELS`는 `/k8s/<cluster>/agent-forge/model-roles`에서 읽습니다.
+각 항목은 `id`, `runtime`, `model`(Models 선택 ID), `protocol`과 선택 한도만 가집니다. 공급자 연결 정보가
+있는 이전 `model-channels` 형식은 Forge가 시작 단계에서 거부합니다. 역할이 없으면 `[]`을 저장합니다.
+
+### Studio 기업 OIDC
+
+`agent_studio.oidc` 블록은 Keycloak을 포함한 기업 OIDC 연결을 선언합니다.
 실제 client ID·secret은 SSM SecureString으로 준비하고 env에는 경로만 기록합니다.
-기존 환경에 이 블록이 없으면 현재 Google 연결을 유지합니다.
+이 블록이 없으면 Studio는 현재 Google 연결을 유지합니다.
 
 ```yaml
 agent_studio:
@@ -48,18 +71,10 @@ agent_studio:
       roles: /company/roles
 ```
 
-Memory·Librio도 같은 `oidc` 필드를 사용하며 `display_name`은 Studio 전용입니다.
-`google_sign_in: false`는 Studio·Memory·Librio의 Google credential 주입을 끕니다.
-기존 Google 계정과 새로운 OIDC 계정을 이메일만으로 자동 연결하지 않으므로 전환할 계정을 먼저 확인합니다.
-
-Forge는 `agent_forge.oidc`와 `sign_in_domains`를 함께 설정합니다. `oidc`가 없으면 현재
-Google issuer와 공유 client를 사용합니다. Forge는 앱 로그아웃만 지원하므로 `logout_mode`는
-생략하거나 `app`이어야 합니다. `provider`는 생성 단계에서 거절합니다.
-
-`provider_id`는 기존 계정과 callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는
-`provider_id: keycloak`을 유지합니다. 새 설치 기본값은 `oidc`입니다. 각 호스트에
-`/api/auth/callback/<provider_id>`를 등록하고, 필요한 회사 claim을 ID token에 포함합니다.
-회사 팀·역할은 표시 정보이며 앱 권한이나 리소스 팀 멤버십을 자동 부여하지 않습니다.
+`google_sign_in: false`는 Studio의 Google credential 주입을 끕니다. 기존 Google 계정과 새 OIDC 계정을
+이메일만으로 자동 연결하지 않으므로 전환할 계정을 먼저 확인합니다. `provider_id`는 기존 계정과
+callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `provider_id: keycloak`을 유지합니다.
+새 설치 기본값은 `oidc`입니다. 회사 팀·역할은 표시 정보이며 앱 권한을 자동 부여하지 않습니다.
 
 프로필 schema가 없는 기존 DB는 새 image의 데이터 보존 전환 도구로 준비합니다.
 Studio는 schema 11→12 전환, Memory·Librio는 직전 fingerprint→현재 fingerprint 전환을
@@ -106,46 +121,27 @@ python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply
 ```
 
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
-기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, 위임 키·정책 callback 키·체크포인트 키는
-서로 독립적으로 생성합니다. 연결 URL이나 파생 JSON이 기존 키와 모순되면 쓰기 전에 중단합니다.
+기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, Models의 세션 secret과 base64 32바이트 암호화 키,
+Forge 체크포인트·세션 키를 서로 독립적으로 생성합니다. DB URL이 기존 비밀번호와 모순되면 쓰기 전에 중단합니다.
+서비스 OIDC client와 Forge `model-roles`는 생성하지 않고 준비할 경로만 출력합니다.
 Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으로 rollout해야 합니다.
-추가 personal credential 또는 key rotation은 이 최초 bootstrap과 분리해 모든 소비자를 함께 갱신합니다.
 
-| SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 |
-| --- | --- |
-| `agent-platform/database-url` | 네 서비스 |
-| `agent-studio/metrics-bearer-token` | Studio와 수집기의 bearer |
-| `agent-memory/delegation-secret` | Memory와 Studio |
-| `agent-librio/delegation-secret` | Librio와 Studio |
-| `agent-librio/policy-secret`, `issuer-policies` | Studio callback / Librio |
-| `agent-librio/better-auth-secret`, `metrics-bearer-token`, `audio-models` | Librio web·worker |
-| `agent-forge/delegation-secret`, `organization-id`, `delegators` | Studio / Forge |
-| `agent-forge/policy-secret`, `issuer-policies` | Studio callback / Forge |
-| `agent-forge/credentials`, `metrics-bearer-token` | Forge의 hash / 수집기의 bearer |
-| `agent-forge/checkpoint-secret`, `credential-secret`, `model-secret`, `model-channels` | Forge |
-| `agent-forge/session-secret` | Forge 콘솔 로그인 세션 쿠키 서명 |
-| `common/agent-memory/google-client-id`, `google-client-secret` | Memory와 Forge 콘솔 로그인(같은 Google client) |
+| SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
+| --- | --- | --- |
+| `agent-platform/database-url` | 다섯 서비스 | bootstrap |
+| `agent-<service>/metrics-bearer-token` | Studio·Memory·Librio·Forge와 수집기 | bootstrap |
+| `agent-models/auth-secret`, `encryption-key` | Models | bootstrap |
+| `agent-librio/better-auth-secret` | Librio web·worker | bootstrap |
+| `agent-forge/checkpoint-secret`, `credential-secret`, `model-secret`, `session-secret` | Forge | bootstrap |
+| `agent-forge/organization-id` | Studio·Forge | bootstrap |
+| `agent-{models,memory,librio,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
+| `agent-{models,memory,librio,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
+| `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
 
-Forge 콘솔 로그인은 `env/<cluster>.yaml`의 `agent_forge.sign_in_domains`가 있을 때만 켜집니다.
-Google client의 redirect URI에 `https://<agent_forge.hostname>/api/auth/callback/google`이 등록돼 있어야 합니다.
-
-bootstrap은 모델 JSON을 생성하지 않습니다. Memory·Librio 조직 ID는 설정하지 않습니다.
-Studio가 위임 토큰에 서명하기 전에 각 서비스의 `GET /api/v1/installation`에서 설치 조직 ID를 읽습니다.
-그래서 Memory·Librio DB를 다시 초기화해도 Studio 설정을 바꿀 필요가 없습니다.
-Memory·Librio는 Studio가 서명한 `email` claim으로 회원을 결정합니다. 계정이 없으면 만들고,
-가입 대기 회원은 승인하며, 차단·제거된 회원은 거부합니다.
+Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
+Memory·Librio 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
-
-Studio issuer는 `https://studio.agrt.dev`입니다. 위임 토큰은 서비스별 audience·scope·현재 사용자와
-조직을 고정합니다. Forge/Librio의 고정 callback은 내부 Studio Service의
-`/api/services/forge/model-policy`, `/api/services/librio/model-policy`를 사용하며 별도 키로 인증합니다.
-callback의 내부 Studio 주소는 `http://agent-studio.agent-studio.svc.cluster.local:3000`입니다.
-임의 callback URL이나 요청 body의 owner를 신뢰하지 않습니다.
-모니터링용 Forge principal은 `workspace:read`만 가지며 controller에는 토큰의 SHA256만 전달합니다.
-
-Librio `audio-models`와 Forge `model-channels`는 실제 등록 provider/model을 기준으로 준비합니다.
-provider wire ID, 공개 model ID, catalog ID를 구분하고 미확인 가격을 0원으로 만들지 않습니다.
-빈 배열이나 존재하지 않는 모델로 음성·native 실행이 준비됐다고 판단하지 않습니다.
+ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
 
 ## 실행과 네트워크
 
@@ -164,13 +160,14 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 공급자·Git 장기 키는 Sandbox에 전달하지 않습니다. 자세한 권한·보존 계약은
 [Kubernetes Workspace 운영](workspace-kubernetes.md)을 따릅니다.
 
-내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`으로 같습니다.
+내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
 앱 ingress는 해당 플랫폼 Gateway, 수집기, 같은 namespace와 명시된 서비스 peer만 허용합니다.
 k3s Gateway 리소스는 `traefik-gateway` namespace에 있지만 실제 출발 Pod는 `kube-system`에 있습니다.
 Gateway 접근은 `app.kubernetes.io/name=traefik`, `app.kubernetes.io/instance=traefik-kube-system`을
 함께 가진 Pod로 제한하며 다른 `kube-system` Pod를 허용하지 않습니다.
-Studio에는 Forge/Librio callback, Forge에는 Sandbox의 인증된 Gateway 연결을 허용합니다.
+Studio에는 Forge/Librio callback, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
+연결을 허용합니다. Sandbox는 Models에 직접 연결하지 않고 Forge Gateway를 거칩니다.
 신뢰된 control-plane의 외부 LLM·MCP egress는 기존 동작을 유지합니다.
 Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod 포트만 허용합니다.
 
@@ -190,6 +187,24 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
    로그인, Memory recall/remember, Librio 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
 7. 정상 동작을 확인한 뒤 앱 release의 자동 GitOps gate를 원래 설정으로 복원합니다.
 
+## Models 활성화와 Studio OIDC 전환
+
+`agent_models_maintenance: true`이면 Models Deployment는 0개이고 HPA가 없습니다.
+ConfigMap·ExternalSecret·HTTPRoute·NetworkPolicy는 유지합니다. `values-<phase>.yaml`의 버전 키는
+`agent-models` release workflow의 GitOps dispatch가 기록합니다. 직접 tag를 쓰지 않습니다.
+
+1. `agent-models` release로 ECR image와 `values-alpha.yaml`의 `image.tag`가 기록됐는지 확인합니다.
+2. `bootstrap_agent_platform.py --apply`로 Models secret을 만듭니다.
+3. `models.agrt.dev`가 k3s Gateway를 가리키는지 확인합니다(`terraform-env-demo`).
+4. Studio를 새 image로 배포하고 **Settings → Platform connections**에 Models·Memory·Librio·Forge를
+   등록합니다. callback은 `https://<host>/api/auth/callback/studio`입니다.
+5. 발급된 client ID·secret을 `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret`에
+   SecureString으로 저장합니다. Forge `model-roles`도 저장합니다(처음에는 `[]`).
+6. `env/<cluster>.yaml`에서 `agent_models_maintenance: false`로 바꾸고 병합합니다.
+   `/api/ready`, Studio OIDC 로그인, 공급자 연결, 모델 선택을 확인합니다.
+7. 각 소비 서비스 ExternalSecret의 `SecretSynced`를 확인하고 rollout합니다. 각 서비스의 **설정**에서
+   모델 역할을 선택하고 실제 모델 호출과 Models 사용량 집계를 확인합니다.
+
 `agent_<service>_maintenance: true`는 해당 서비스의 웹·worker/HPA만 정지합니다.
 Studio는 ticker도 정지합니다. 각 flag는 다른 앱·DB·storage를 삭제하지 않습니다.
 이전 Workspace PVC/namespace와 구 실행기는 더 이상 선언하지 않습니다.
@@ -207,7 +222,8 @@ Helm/pytest는 alpha와 미래 EKS의 resource 정책, 같은 DB URL, 인증·me
 RBAC·NetworkPolicy·quota·보존 계약을 검사합니다. 실제 환경 검증은 별도입니다.
 Memory/Librio web은 `/api/live`와 DB readiness `/api/health`를 나누고, Librio worker는 초기화 후
 `/api/health`를 제공합니다. Forge `/health`는 DB/backend readiness, `/`는 독립 HTTP liveness입니다.
-Librio/Memory `/api/metrics`, Forge `/metrics`는 전용 bearer를 요구합니다.
+Librio/Memory `/api/metrics`는 전용 bearer를 요구합니다. Forge `/metrics`는 Studio가 발급한
+`workspace:read` token을 요구하므로 `agent-forge/metrics-bearer-token` 정적 bearer로는 수집되지 않습니다.
 health 성공만으로 원본 storage·provider·작업 성공을 판정하지 않습니다.
 
 DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.md)을 따릅니다.

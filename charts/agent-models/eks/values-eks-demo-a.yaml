@@ -1,0 +1,4 @@
+app:
+  fullnameOverride: agent-models
+  raw:
+    enabled: False

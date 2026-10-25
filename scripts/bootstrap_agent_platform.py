@@ -2,7 +2,7 @@
 """Create missing platform secrets without rotating credentials or changing databases."""
 
 import argparse
-import hashlib
+import base64
 import json
 from pathlib import Path
 import secrets
@@ -29,48 +29,33 @@ def aws(region, *arguments, payload=None):
     return json.loads(result.stdout)
 
 
+SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-librio", "agent-forge")
+
+
 def parameter_values(prefix, existing):
     values = {}
 
-    def secret(path):
+    def secret(path, generate=lambda: secrets.token_hex(32)):
         key = f"{prefix}/{path}"
-        values[key] = existing.get(key) or secrets.token_hex(32)
+        values[key] = existing.get(key) or generate()
         return values[key]
 
     postgres = secret("agent-studio/postgres-password")
     values[f"{prefix}/agent-platform/database-url"] = (
         f"postgresql://agent_studio:{quote(postgres, safe='')}"
         "@postgres.agent-studio.svc.cluster.local:5432/agent_platform")
-    for service in ("agent-memory", "agent-librio", "agent-forge"):
-        secret(f"{service}/delegation-secret")
     for service in ("agent-studio", "agent-memory", "agent-librio", "agent-forge"):
         secret(f"{service}/metrics-bearer-token")
-    for path in ("agent-librio/better-auth-secret", "agent-librio/policy-secret",
-                 "agent-forge/policy-secret", "agent-forge/checkpoint-secret",
-                 "agent-forge/credential-secret", "agent-forge/model-secret", "agent-forge/session-secret"):
+    for path in ("agent-librio/better-auth-secret", "agent-forge/checkpoint-secret",
+                 "agent-forge/credential-secret", "agent-forge/model-secret", "agent-forge/session-secret",
+                 "agent-models/auth-secret"):
         secret(path)
+    # Models requires canonical base64 of exactly 32 bytes.
+    secret("agent-models/encryption-key", lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
     # Forge owns issuer-qualified principals; its organization is a configured namespace.
     # Memory/Librio organization IDs must instead come from their initialized installations.
-    org = values[f"{prefix}/agent-forge/organization-id"] = existing.get(
+    values[f"{prefix}/agent-forge/organization-id"] = existing.get(
         f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
-    issuer = "https://studio.agrt.dev"
-    scopes = ["workspace:read", "workspace:write", "run:write", "git:write", "git:connect", "git:publish-protected"]
-    values[f"{prefix}/agent-forge/delegators"] = json.dumps([{
-        "issuer": issuer, "organizationId": org, "scopes": scopes,
-        "secret": values[f"{prefix}/agent-forge/delegation-secret"], "policyRequired": True
-    }], separators=(",", ":"))
-    for service in ("forge", "librio"):
-        policy = {"issuer": issuer,
-                  "url": f"http://agent-studio.agent-studio.svc.cluster.local:3000/api/services/{service}/model-policy",
-                  "secret": values[f"{prefix}/agent-{service}/policy-secret"]}
-        if service == "librio":
-            policy["mode"] = "required"
-        values[f"{prefix}/agent-{service}/issuer-policies"] = json.dumps([policy], separators=(",", ":"))
-    values[f"{prefix}/agent-forge/credentials"] = json.dumps([{
-        "issuer": "agent-platform-monitoring", "subject": "metrics", "organizationId": org,
-        "scopes": ["workspace:read"], "tokenSha256": hashlib.sha256(
-            values[f"{prefix}/agent-forge/metrics-bearer-token"].encode()).hexdigest()
-    }], separators=(",", ":"))
     return values
 
 
@@ -88,15 +73,7 @@ def bootstrap(cluster, region, apply=False):
     names = list(parameter_values(prefix, {}))
     existing = read_parameters(region, names)
     desired = parameter_values(prefix, existing)
-    # JSON whitespace is irrelevant, but identity, scope and signing keys must agree.
-    def same(name, left, right):
-        if name.endswith(("/delegators", "/issuer-policies", "/credentials")):
-            try:
-                return json.loads(left) == json.loads(right)
-            except ValueError:
-                return False
-        return left == right
-    mismatches = [name for name, value in existing.items() if not same(name, value, desired[name])]
+    mismatches = [name for name, value in existing.items() if value != desired[name]]
     if mismatches:
         raise RuntimeError("Inconsistent connection parameters; review without rotating: " + ", ".join(mismatches))
     missing = [name for name in names if name not in existing]
@@ -107,9 +84,11 @@ def bootstrap(cluster, region, apply=False):
             })
         print(f"{'Created' if apply else 'Missing'}: {name}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
-    # These are operator-validated service configuration, never random secret material.
-    for path in ("agent-forge/model-channels", "agent-librio/audio-models"):
-        print(f"Prepare and validate separately: {prefix}/{path}")
+    # Studio issues each service client, and Forge roles name central Models selections.
+    # Operators prepare these after registration; they are never random secret material.
+    for service in SERVICE_CLIENTS:
+        print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
+    print(f"Prepare and validate separately: {prefix}/agent-forge/model-roles")
     return 0 if apply or not missing else 1
 
 

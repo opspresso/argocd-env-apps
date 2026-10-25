@@ -3,7 +3,6 @@ app:
   raw:
     enabled: True
 
-
   replicaCount: 1
   autoscaling:
     enabled: False
@@ -42,14 +41,12 @@ app:
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: ''
       FORGE_GIT_ALLOWED_ORIGINS: https://github.com
-      # The default sign-in uses the Agent Memory Google client; an explicit oidc block overrides it.
-      # Register the chosen provider identity on each callback, for example
-      # https://<hostname>/api/auth/callback/google.
-
-      OIDC_ISSUER: https://accounts.google.com
-      OIDC_PROVIDER_ID: google
-
-      ALLOWED_EMAIL_DOMAINS: 'nalbam.com'
+      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
+      # Internal Studio origin for the native forge:policy callback.
+      STUDIO_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
   sandbox:
     namespace: agent-forge-workspaces
     maxPods: 2
@@ -73,9 +70,9 @@ app:
 
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://forge.agrt.dev
-    # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-channels SSM
+    # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-roles SSM
     # parameter, wait one refreshInterval, then set this to the parameter version to restart Forge.
-    agent-forge/model-channels-version: "3"
+    agent-forge/model-roles-version: "1"
   externalSecrets:
     enabled: true
     # Upper bound for an SSM edit to reach the Secret.
@@ -83,26 +80,19 @@ app:
     data:
     - key: /k8s/k3s-demo/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/k3s-demo/agent-forge/credentials
-      name: FORGE_CREDENTIALS
-    - key: /k8s/k3s-demo/agent-forge/delegators
-      name: FORGE_DELEGATORS
-    - key: /k8s/k3s-demo/agent-forge/issuer-policies
-      name: FORGE_ISSUER_POLICIES
     - key: /k8s/k3s-demo/agent-forge/checkpoint-secret
       name: FORGE_CHECKPOINT_SECRET
     - key: /k8s/k3s-demo/agent-forge/credential-secret
       name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/k3s-demo/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
-    - key: /k8s/k3s-demo/agent-forge/model-channels
+    # Central selection IDs per runtime role; see docs/agent-platform.md.
+    - key: /k8s/k3s-demo/agent-forge/model-roles
       name: FORGE_MODEL_CHANNELS
-
-    - key: /k8s/common/agent-memory/google-client-id
+    - key: /k8s/k3s-demo/agent-forge/oidc-client-id
       name: OIDC_CLIENT_ID
-    - key: /k8s/common/agent-memory/google-client-secret
+    - key: /k8s/k3s-demo/agent-forge/oidc-client-secret
       name: OIDC_CLIENT_SECRET
-
     - key: /k8s/k3s-demo/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/k3s-demo/agent-forge/session-secret

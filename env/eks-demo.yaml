@@ -43,7 +43,7 @@ workspace_worker_replicas: 2
 workspace_worker_concurrency: 16
 workspace_continuation_concurrency: 2
 postgresql:
-  max_connections: 400
+  max_connections: 550
   storage: 20Gi
   storageClass: gp3
 agent_librio:
@@ -59,3 +59,7 @@ agent_forge_maintenance: true
 sample_node:
   redis:
     enabled: true
+
+agent_models_maintenance: true
+agent_models:
+  hostname: models.agrt.dev

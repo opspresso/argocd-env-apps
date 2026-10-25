@@ -1,0 +1,71 @@
+{% set maintenance = agent_models_maintenance | default(false) -%}
+app:
+  fullnameOverride: agent-models
+  raw:
+    enabled: {{agent_models is defined}}
+{% if agent_models is defined %}
+  replicaCount: {{0 if maintenance else replicas}}
+  autoscaling:
+    enabled: {{false if maintenance else autoscaling}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-models
+  imagePullSecrets:
+    - name: ecr-registry
+{% if not resources %}
+  resources: null
+{% endif %}
+  configmap:
+    enabled: true
+    data:
+      # Transactions are short ledger/session writes; upstream calls never hold a connection.
+      DATABASE_POOL_SIZE: '{{4 if env == "k3s" else 8}}'
+      AUTH_BASE_URL: https://{{agent_models.hostname}}
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
+      MODEL_REQUEST_TIMEOUT_MS: '600000'
+      MODEL_MAX_CONCURRENT_REQUESTS: '64'
+      MODEL_MAX_REQUEST_BYTES: '100663296'
+      MODEL_MAX_STREAM_BUFFER_BYTES: '268435456'
+      AWS_REGION: {{aws_region}}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/agent-models/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/{{cluster}}/agent-models/encryption-key
+      name: AES_ENCRYPTION_KEY
+    - key: /k8s/{{cluster}}/agent-models/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/{{cluster}}/agent-models/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+  routing:
+    hosts:
+    - {{agent_models.hostname}}
+    httpRoute:
+      enabled: true
+{% if env == 'k3s' %}
+      parentRefs:
+      - name: traefik-gateway
+        namespace: traefik-gateway
+{% endif %}
+{% if env != 'k3s' %}
+  podLabels:
+    sidecar.istio.io/inject: "true"
+{% endif %}
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{agent_models.hostname}}
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
+{% if env == 'k3s' %}
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: traefik
+        app.kubernetes.io/instance: traefik-kube-system
+{% endif %}
+  registry:
+    region: {{aws_region}}
+{% endif %}

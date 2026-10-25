@@ -5,7 +5,6 @@
 app:
   fullnameOverride: agent-memory
 {% if agent_memory is defined %}
-{% set oidc = agent_memory.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -21,34 +20,21 @@ app:
   configmap:
     enabled: true
     data:
-      MEMORY_DELEGATION_ISSUER: https://studio.agrt.dev
-      ADMIN_EMAILS: me@nalbam.com
-      # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: {{aws_region}}
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://{{agent_memory.hostname}}
-{% if oidc is not none %}
-      OIDC_ISSUER: {{ oidc.issuer | tojson }}
-      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
-      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
-      OIDC_LOGOUT_MODE: {{ oidc.logout_mode | default('app') | tojson }}
-      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
-{% endif %}
+      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
-      EMBEDDING_BASE_URL: https://openrouter.ai/api/v1
-      EMBEDDING_MODEL: openai/text-embedding-3-small
+      # Providers and credentials belong to Agent Models. Select each model role in Settings.
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
-      RERANKER_BASE_URL: https://openrouter.ai/api/v1
-      RERANKER_MODEL: cohere/rerank-v3.5
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
-      DECISION_BASE_URL: https://openrouter.ai/api/alpha
-      DECISION_MODEL: typesafe/jev-1.13
       DECISION_TIMEOUT_MS: '5000'
       MEMORY_LANGUAGE: ko
-      DREAM_BASE_URL: https://openrouter.ai/api/v1
-      DREAM_MODEL: openai/gpt-6-luna
       DREAM_TIME_ZONE: Asia/Seoul
   routing:
     hosts:
@@ -74,31 +60,12 @@ app:
     data:
     - key: /k8s/common/agent-memory/better-auth-secret
       name: AUTH_SECRET
-{% if agent_memory.google_sign_in | default(true) %}
-    - key: /k8s/common/agent-memory/google-client-id
-      name: GOOGLE_CLIENT_ID
-    - key: /k8s/common/agent-memory/google-client-secret
-      name: GOOGLE_CLIENT_SECRET
-{% endif %}
-{% if oidc is not none %}
-    - key: {{ oidc.client_id_parameter | tojson }}
+    - key: /k8s/{{cluster}}/agent-memory/oidc-client-id
       name: OIDC_CLIENT_ID
-    - key: {{ oidc.client_secret_parameter | tojson }}
+    - key: /k8s/{{cluster}}/agent-memory/oidc-client-secret
       name: OIDC_CLIENT_SECRET
-{% endif %}
-    - key: /k8s/common/agent-memory/embedding-api-key
-      name: EMBEDDING_API_KEY
-    - key: /k8s/common/agent-memory/reranker-api-key
-      name: RERANKER_API_KEY
-    - key: /k8s/common/agent-memory/decision-api-key
-      name: DECISION_API_KEY
-    # The OpenRouter key that embeddings already use; sent only to DREAM_BASE_URL.
-    - key: /k8s/common/agent-memory/embedding-api-key
-      name: DREAM_API_KEY
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/{{cluster}}/agent-memory/delegation-secret
-      name: MEMORY_DELEGATION_SECRET
     - key: /k8s/{{cluster}}/agent-memory/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
 

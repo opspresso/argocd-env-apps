@@ -5,7 +5,7 @@ postgresql:
   primary:
 
     # Docker Official PostgreSQL applies these flags to existing data directories.
-    args: ["-c", "max_connections=400", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]
+    args: ["-c", "max_connections=550", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]
 
 
     persistence:

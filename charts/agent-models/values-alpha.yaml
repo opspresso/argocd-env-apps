@@ -1,0 +1,6 @@
+app:
+  configmap:
+    data: {}
+    enabled: true
+  env: []
+  image: {}

@@ -21,30 +21,31 @@ def parse_args():
 
 
 def validate_agent_oidc(context):
-    for service in ("studio", "memory", "librio", "forge"):
+    """Studio alone connects to an external IdP; the other services sign in through Studio."""
+    for service in ("memory", "librio", "forge", "models"):
         settings = context.get(f"agent_{service}")
-        if not isinstance(settings, dict):
-            continue
-        if "google_sign_in" in settings and not isinstance(settings["google_sign_in"], bool):
-            raise ValueError(f"agent_{service}.google_sign_in must be a boolean")
-        oidc = settings.get("oidc")
-        if oidc is None:
-            continue
-        if not isinstance(oidc, dict):
-            raise ValueError(f"agent_{service}.oidc must be a mapping")
-        for key in ("issuer", "client_id_parameter", "client_secret_parameter"):
-            if not isinstance(oidc.get(key), str) or not oidc[key].strip():
-                raise ValueError(f"agent_{service}.oidc.{key} is required")
-        if not isinstance(oidc.get("profile_claims", {}), dict):
-            raise ValueError(f"agent_{service}.oidc.profile_claims must be a mapping")
-        if service == "forge":
-            domains = settings.get("sign_in_domains")
-            if not isinstance(domains, list) or not domains or not all(isinstance(domain, str) and domain.strip() for domain in domains):
-                raise ValueError("agent_forge.sign_in_domains must provide an explicit OIDC allowlist")
-        allowed_logout = {"app"} if service == "forge" else {"app", "provider"}
-        mode = oidc.get("logout_mode", "app")
-        if not isinstance(mode, str) or mode not in allowed_logout:
-            raise ValueError(f"agent_{service}.oidc.logout_mode is not supported")
+        if isinstance(settings, dict):
+            for key in ("oidc", "google_sign_in", "sign_in_domains"):
+                if key in settings:
+                    raise ValueError(f"agent_{service}.{key} is not supported; the service signs in through Studio OIDC")
+    settings = context.get("agent_studio")
+    if not isinstance(settings, dict):
+        return
+    if "google_sign_in" in settings and not isinstance(settings["google_sign_in"], bool):
+        raise ValueError("agent_studio.google_sign_in must be a boolean")
+    oidc = settings.get("oidc")
+    if oidc is None:
+        return
+    if not isinstance(oidc, dict):
+        raise ValueError("agent_studio.oidc must be a mapping")
+    for key in ("issuer", "client_id_parameter", "client_secret_parameter"):
+        if not isinstance(oidc.get(key), str) or not oidc[key].strip():
+            raise ValueError(f"agent_studio.oidc.{key} is required")
+    if not isinstance(oidc.get("profile_claims", {}), dict):
+        raise ValueError("agent_studio.oidc.profile_claims must be a mapping")
+    mode = oidc.get("logout_mode", "app")
+    if not isinstance(mode, str) or mode not in {"app", "provider"}:
+        raise ValueError("agent_studio.oidc.logout_mode is not supported")
 
 
 def gen_repos(args):
@@ -79,7 +80,7 @@ def gen_values(t, reponame, platform=PLATFORM):
                     raise ValueError("{} must declare a supported env".format(env_path))
                 if v.get("cluster") != os.path.splitext(env_file)[0]:
                     raise ValueError("{} cluster must match its filename".format(env_path))
-                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_librio_maintenance", "agent_forge_maintenance", "storage_gc_maintenance"):
+                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_librio_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "storage_gc_maintenance"):
                     if key in v and not isinstance(v[key], bool):
                         raise ValueError("{} {} must be a boolean".format(env_path, key))
                 if v.get("storage_gc_maintenance"):

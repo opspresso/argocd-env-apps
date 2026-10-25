@@ -39,7 +39,7 @@ workspace_disk_mb: 2048
 workspace_cpus: 1
 workspace_worker_concurrency: 1
 postgresql:
-  max_connections: 200
+  max_connections: 250
   storage: 5Gi
 minio:
   storage: 10Gi
@@ -49,8 +49,6 @@ agent_librio:
   - librio.agrt.dev
 agent_forge:
   hostname: forge.agrt.dev
-  sign_in_domains:
-  - nalbam.com
   allowed_hosts:
   - forge.agrt.dev
 agent_librio_maintenance: false
@@ -61,3 +59,7 @@ sample_node:
     enabled: true
     storageClass: local-path
     storage: 1Gi
+
+agent_models_maintenance: true
+agent_models:
+  hostname: models.agrt.dev

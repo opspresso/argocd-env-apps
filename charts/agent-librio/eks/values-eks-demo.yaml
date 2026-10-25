@@ -3,7 +3,6 @@ app:
   raw:
     enabled: True
 
-
   replicaCount: 0
   autoscaling:
     enabled: False
@@ -25,37 +24,31 @@ app:
   configmap:
     enabled: true
     data:
-      ADMIN_EMAILS: me@nalbam.com
       AWS_REGION: ap-northeast-2
       DATABASE_POOL_SIZE: '4'
       DATABASE_QUEUE_POOL_SIZE: '2'
       AI_ADMISSION_POOL_SIZE: '9'
       AUTH_BASE_URL: https://librio.agrt.dev
-
+      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
       AUTH_ALLOWED_HOSTS: 'librio.agrt.dev'
       TRUSTED_PROXY_CIDRS: '10.10.0.0/16'
-      LIBRIO_DELEGATION_ISSUER: https://studio.agrt.dev
+      # Internal Studio origin for the native librio:policy callback.
+      STUDIO_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
       S3_REGION: ap-northeast-2
 
       S3_BUCKET_NAME: agent-librio-static
       S3_FORCE_PATH_STYLE: 'false'
 
-      EMBEDDING_BASE_URL: https://openrouter.ai/api/v1
-      EMBEDDING_MODEL: openai/text-embedding-3-small
+      # Providers, credentials, wire IDs and prices belong to Agent Models.
+      # Select each model role in Settings after Models enables it.
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
-      RERANKER_BASE_URL: https://openrouter.ai/api/v1
-      RERANKER_MODEL: cohere/rerank-v3.5
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
       DOCUMENT_WORKER_ENABLED: 'false'
       AUDIO_WORKER_ENABLED: 'false'
-      KNOWLEDGE_EXTRACTION_BASE_URL: https://openrouter.ai/api/v1
-      KNOWLEDGE_EXTRACTION_MODEL: openai/gpt-6-luna
-      # Audio models resolve id, label, wire ID and price from Librio's pinned catalog and use the
-      # shared OpenRouter endpoint: GPT-4o Transcribe for transcription, GPT-6.1 Sol for meeting notes.
-      # Admins can add or change models in Settings → AI models.
-      AUDIO_MODEL_BASE_URL: https://openrouter.ai/api/v1
-      AUDIO_MODEL_CHANNELS: '[{"kind":"transcription","catalogId":"openrouter/gpt-4o-transcribe"},{"kind":"summary","catalogId":"openrouter/gpt-6.1-sol"}]'
       KNOWLEDGE_ENRICHMENT_CONCURRENCY: '4'
       # Every replica uses the same PostgreSQL admission policy.
       AI_PROVIDER_MAX_CONCURRENCY: '8'
@@ -79,27 +72,10 @@ app:
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-librio/better-auth-secret
       name: AUTH_SECRET
-    # Explicitly shared OAuth application; Librio uses its own session secret.
-
-    - key: /k8s/common/agent-memory/google-client-id
-      name: GOOGLE_CLIENT_ID
-    - key: /k8s/common/agent-memory/google-client-secret
-      name: GOOGLE_CLIENT_SECRET
-
-
-    - key: /k8s/common/agent-memory/embedding-api-key
-      name: EMBEDDING_API_KEY
-    - key: /k8s/common/agent-memory/reranker-api-key
-      name: RERANKER_API_KEY
-    - key: /k8s/common/agent-memory/knowledge-extraction-api-key
-      name: KNOWLEDGE_EXTRACTION_API_KEY
-    - key: /k8s/eks-demo/agent-librio/delegation-secret
-      name: LIBRIO_DELEGATION_SECRET
-    - key: /k8s/eks-demo/agent-librio/issuer-policies
-      name: LIBRIO_ISSUER_POLICIES
-    # The OpenRouter key that knowledge extraction already uses; sent only to AUDIO_MODEL_BASE_URL.
-    - key: /k8s/common/agent-memory/knowledge-extraction-api-key
-      name: AUDIO_MODEL_API_KEY
+    - key: /k8s/eks-demo/agent-librio/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-librio/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
     - key: /k8s/eks-demo/agent-librio/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
 
