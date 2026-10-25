@@ -54,11 +54,22 @@ app:
       S3_FORCE_PATH_STYLE: 'false'
 {% endif %}
       # Providers, credentials, wire IDs and prices belong to Agent Models.
-      # Select each model role in Settings after Models enables it.
+      # agent_librio.models names the selection for each role; a Settings override takes precedence.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       EMBEDDING_MIN_SCORE: '0.2'
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
+{%- set models = agent_librio.models | default({}) %}
+{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('extraction', 'KNOWLEDGE_EXTRACTION_MODEL')] if models[key] is defined %}
+      {{name}}: {{models[key] | tojson}}
+{%- endfor %}
+{%- set audio = [] %}
+{%- if models.transcription is defined %}{% set _ = audio.append({'id': models.transcription, 'kind': 'transcription'}) %}{% endif %}
+{%- if models.summary is defined %}{% set _ = audio.append({'id': models.summary, 'kind': 'summary'}) %}{% endif %}
+{%- if audio %}
+      # Processing defaults for the audio models a caller may request; selection is per job.
+      AUDIO_PROCESSING_OPTIONS: {{audio | tojson | tojson}}
+{%- endif %}
       DOCUMENT_WORKER_ENABLED: 'false'
       AUDIO_WORKER_ENABLED: 'false'
       KNOWLEDGE_ENRICHMENT_CONCURRENCY: '{{1 if env == "k3s" else 4}}'
