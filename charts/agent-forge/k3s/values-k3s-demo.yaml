@@ -97,6 +97,9 @@ app:
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/k3s-demo/agent-forge/session-secret
       name: AUTH_SECRET
+    # Static scrape credential for /metrics, shared with Alloy and the ServiceMonitor.
+    - key: /k8s/k3s-demo/agent-forge/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
   serviceMonitor:
     enabled: false
     labels:

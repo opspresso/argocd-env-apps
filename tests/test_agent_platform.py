@@ -92,6 +92,10 @@ def test_metrics_auth_and_dependency_independent_liveness(chart, platform):
     secret = resource(chart, platform, "ExternalSecret", secret_name)
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
     assert refs[secret_key] == f"/k8s/{platform}-demo/{chart}/metrics-bearer-token"
+    if forge:
+        # The scraper's bearer and Forge's accepted token come from the same parameter.
+        app = resource(chart, platform, "ExternalSecret", f"{chart}-external")["spec"]["data"]
+        assert {entry["secretKey"]: entry["remoteRef"]["key"] for entry in app}["METRICS_BEARER_TOKEN"] == refs[secret_key]
     if platform == "eks":
         monitor = resource(chart, platform, "ServiceMonitor", chart)["spec"]
         assert monitor["endpoints"][0]["authorization"]["credentials"] == {"name": secret_name, "key": secret_key}

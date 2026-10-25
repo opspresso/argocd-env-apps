@@ -204,6 +204,26 @@ ConfigMap·ExternalSecret·HTTPRoute·NetworkPolicy는 유지합니다. `values-
    `/api/ready`, Studio OIDC 로그인, 공급자 연결, 모델 선택을 확인합니다.
 7. 각 소비 서비스 ExternalSecret의 `SecretSynced`를 확인하고 rollout합니다. 각 서비스의 **설정**에서
    모델 역할을 선택하고 실제 모델 호출과 Models 사용량 집계를 확인합니다.
+8. 7단계를 모든 클러스터에서 확인한 뒤 더 이상 참조하지 않는 SSM 파라미터를 삭제합니다.
+   `/k8s/common/` 경로는 모든 클러스터가 공유하므로 마지막 클러스터를 전환한 뒤 삭제합니다.
+   삭제 전에 `grep -rn '<경로>' charts/*/values*.j2 charts/*/values.yaml`과 `argocd-env-addons`에서
+   참조가 없음을 확인합니다. 삭제는 되돌릴 수 없으므로 필요하면 값을 먼저 별도로 보관합니다.
+
+   | 경로 | 이전 용도 |
+   | --- | --- |
+   | `/k8s/<cluster>/agent-forge/credentials`, `delegators`, `issuer-policies`, `delegation-secret`, `policy-secret` | 공유 HMAC 위임·정책 callback |
+   | `/k8s/<cluster>/agent-forge/model-channels` | 공급자 정보를 포함한 이전 Forge 모델 채널 |
+   | `/k8s/<cluster>/agent-librio/delegation-secret`, `issuer-policies`, `policy-secret`, `audio-models` | 위임·정책 callback·이전 음성 모델 |
+   | `/k8s/<cluster>/agent-memory/delegation-secret` | 위임 |
+   | `/k8s/<cluster>/agent-memory/organization-id`, `agent-librio/organization-id` | 사용하지 않음. Studio가 installation API로 읽음 |
+   | `/k8s/common/agent-memory/embedding-api-key`, `reranker-api-key`, `decision-api-key`, `knowledge-extraction-api-key` | 공급자 키. Models 공급자 연결로 이동 |
+   | `/k8s/common/agent-memory/google-client-id`, `google-client-secret` | Memory·Librio·Forge Google 로그인 |
+   | `/k8s/common/agent-studio/llm-provider-{openai,anthropic,google,xai,openrouter,selfhosted}-api-key` | Studio 공급자 키. Models 공급자 연결로 이동 |
+
+   공급자 키는 Models의 공급자 연결에 다시 입력한 뒤 삭제합니다. `/k8s/common/agent-studio/`의
+   `a2a-api-key`, `llm-api-key`, `slack-bot-token`, `slack-signing-secret`, `better-auth-secret`,
+   `google-client-id`, `google-client-secret`는 이 전환 전부터 GitOps가 참조하지 않습니다.
+   다른 소유자가 없는지 확인한 뒤 별도로 정리합니다.
 
 `agent_<service>_maintenance: true`는 해당 서비스의 웹·worker/HPA만 정지합니다.
 Studio는 ticker도 정지합니다. 각 flag는 다른 앱·DB·storage를 삭제하지 않습니다.
@@ -222,8 +242,9 @@ Helm/pytest는 alpha와 미래 EKS의 resource 정책, 같은 DB URL, 인증·me
 RBAC·NetworkPolicy·quota·보존 계약을 검사합니다. 실제 환경 검증은 별도입니다.
 Memory/Librio web은 `/api/live`와 DB readiness `/api/health`를 나누고, Librio worker는 초기화 후
 `/api/health`를 제공합니다. Forge `/health`는 DB/backend readiness, `/`는 독립 HTTP liveness입니다.
-Librio/Memory `/api/metrics`는 전용 bearer를 요구합니다. Forge `/metrics`는 Studio가 발급한
-`workspace:read` token을 요구하므로 `agent-forge/metrics-bearer-token` 정적 bearer로는 수집되지 않습니다.
+Librio/Memory `/api/metrics`와 Forge `/metrics`는 `METRICS_BEARER_TOKEN` 전용 bearer를 요구합니다.
+Forge는 `agent-forge/metrics-bearer-token`을 `METRICS_BEARER_TOKEN`으로 받습니다. 이 값을 지원하지 않는
+Forge image는 Studio가 발급한 `workspace:read` token만 받으므로 k3s Alloy·EKS ServiceMonitor 수집이 실패합니다.
 health 성공만으로 원본 storage·provider·작업 성공을 판정하지 않습니다.
 
 DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.md)을 따릅니다.

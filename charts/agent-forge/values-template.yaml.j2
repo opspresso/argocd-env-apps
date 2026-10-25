@@ -101,6 +101,9 @@ app:
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/{{cluster}}/agent-forge/session-secret
       name: AUTH_SECRET
+    # Static scrape credential for /metrics, shared with Alloy and the ServiceMonitor.
+    - key: /k8s/{{cluster}}/agent-forge/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
   serviceMonitor:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
     labels:
