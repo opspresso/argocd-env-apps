@@ -38,13 +38,14 @@ Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 �
 | Librio web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
 | Librio worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
 | Forge | 12 | 0 | 0 | OIDC 2 | 0 | 14 |
-| Models (k3s / EKS) | 4 / 8 | 0 | 0 | OIDC 4 | 0 | 8 / 12 |
+| Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 | 0 | 9 / 13 |
 
 Studio Workspace readiness는 별도 짧은 프로세스에서 1개 쿼리 연결을 사용합니다.
 heartbeat liveness는 DB를 열지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
 연결을 하나씩 사용합니다. Librio maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
 같은 pool을 만듭니다. worker health는 process-only입니다. Forge pool 12와 OIDC 잠금 pool은 코드에 고정돼 있고
-readiness는 query pool을 사용합니다. Models readiness도 query pool을 사용합니다.
+readiness는 query pool을 사용합니다. Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도
+probe가 연결을 기다리지 않습니다.
 
 Models의 DB 작업은 사용량 예약·정산과 세션의 짧은 transaction이며 공급자 호출 동안 연결을 잡지 않습니다.
 그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 k3s 4, EKS 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
@@ -56,8 +57,11 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| alpha | `Studio(9+8+8+probe1)+Memory9+Librio(20+19)+Forge14+Models8 = 96` | 192 | 20 | 250 |
-| 미래 EKS | `Studio(6×9+2×8+8+probe2)+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×12 = 245` | 490 | 20 | 550 |
+| alpha | `Studio(9+8+8+probe1)+Memory9+Librio(20+19)+Forge14+Models9 = 97` | 194 | 20 | 250 |
+| 미래 EKS | `Studio(6×9+2×8+8+probe2)+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×13 = 247` | 494 | 20 | 550 |
+
+웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
+프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.
 
 `test_production_capacity.py`는 실제 렌더의 HPA·worker replica·pool 값으로 이 상한을 계산합니다.
 새 프로세스, HPA 상한, pool 크기를 바꾸면 함께 갱신합니다. 이전 rollout이 끝나기 전에 다음
