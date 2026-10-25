@@ -121,7 +121,7 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 - `agent_studio_maintenance`는 Agent Studio만 위한 boolean이다. `true`이면 해당 클러스터의
   앱·오디오/Workspace worker와 ticker를 0개로 내리고 HPA를 끈다.
   다른 앱과 PostgreSQL은 건드리지 않는다. 기본값은 `false`다.
-  Memory·Librio·Forge도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
+  Memory·Librio·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
 - `storage_gc_maintenance`는 k3s에서 네 Agent maintenance가 모두 `true`이고 `minio.console: false`일 때만 허용한다.
   MinIO 서버·PVC는 유지하고 S3 ingress를 닫는다. [중지·재개 절차](docs/storage-gc-maintenance.md)를 따른다.
 - `metrics.backend`는 수집 방식을 정한다. k3s는 Alloy가 직접 수집하는 `grafana-cloud`,

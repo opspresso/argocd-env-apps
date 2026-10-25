@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-models-k3s
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: noti-argocd-k3s
+  labels:
+    app.kubernetes.io/instance: apps-k3s-demo
+    opspresso.com/cluster: k3s-demo
+    opspresso.com/group: apps
+spec:
+  project: apps
+  destination:
+    name: in-cluster
+    namespace: agent-models
+  source:
+    repoURL: https://github.com/opspresso/argocd-env-apps
+    targetRevision: HEAD
+    path: charts/agent-models
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-alpha.yaml
+      - k3s/values-k3s-demo.yaml
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

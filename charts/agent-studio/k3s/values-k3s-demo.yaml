@@ -45,25 +45,17 @@ app:
       RERANKER_MIN_SCORE: '0.01'
 
       UNKNOWN_MODEL_POLICY: allow
-      LLM_PROVIDER_ANTHROPIC_BASE_URL: https://api.anthropic.com/v1
-      LLM_PROVIDER_OPENAI_BASE_URL: https://api.openai.com/v1
-      LLM_PROVIDER_GOOGLE_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
-      LLM_PROVIDER_XAI_BASE_URL: https://api.x.ai/v1
-      LLM_PROVIDER_OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
-
-      LLM_PROVIDER_SELFHOSTED_BASE_URL: https://llm.nyala-blenny.ts.net/v1
-
+      # Agent Models owns provider connections, credentials, selections and usage.
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_PUBLIC_URL: https://models.agrt.dev
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
-      FORGE_DELEGATION_ISSUER: https://studio.agrt.dev
       WORKSPACE_OBSERVER_CONCURRENCY: '1'
       WORKSPACE_CONTINUATION_CONCURRENCY: '2'
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
-      MEMORY_DELEGATION_ISSUER: https://studio.agrt.dev
       LIBRIO_URL: http://agent-librio.agent-librio.svc.cluster.local:3000
-      LIBRIO_DELEGATION_ISSUER: https://studio.agrt.dev
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
 
@@ -101,18 +93,6 @@ app:
       name: GOOGLE_CLIENT_SECRET
 
 
-    - key: /k8s/common/agent-studio/llm-provider-openai-api-key
-      name: LLM_PROVIDER_OPENAI_API_KEY
-    - key: /k8s/common/agent-studio/llm-provider-anthropic-api-key
-      name: LLM_PROVIDER_ANTHROPIC_API_KEY
-    - key: /k8s/common/agent-studio/llm-provider-google-api-key
-      name: LLM_PROVIDER_GOOGLE_API_KEY
-    - key: /k8s/common/agent-studio/llm-provider-xai-api-key
-      name: LLM_PROVIDER_XAI_API_KEY
-    - key: /k8s/common/agent-studio/llm-provider-openrouter-api-key
-      name: LLM_PROVIDER_OPENROUTER_API_KEY
-    - key: /k8s/common/agent-studio/llm-provider-selfhosted-api-key
-      name: LLM_PROVIDER_SELFHOSTED_API_KEY
     - key: /k8s/common/agent-studio/aes-encryption-key
       name: AES_ENCRYPTION_KEY
     - key: /k8s/common/agent-studio/github-token
@@ -131,16 +111,17 @@ app:
       name: METRICS_BEARER_TOKEN
     - key: /k8s/k3s-demo/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
-    - key: /k8s/k3s-demo/agent-forge/delegation-secret
-      name: FORGE_DELEGATION_SECRET
-    - key: /k8s/k3s-demo/agent-forge/policy-secret
-      name: FORGE_POLICY_SECRET
-    - key: /k8s/k3s-demo/agent-memory/delegation-secret
-      name: MEMORY_DELEGATION_SECRET
-    - key: /k8s/k3s-demo/agent-librio/delegation-secret
-      name: LIBRIO_DELEGATION_SECRET
-    - key: /k8s/k3s-demo/agent-librio/policy-secret
-      name: LIBRIO_POLICY_SECRET
+    # Studio registers each service client; the service and Studio read the same client ID.
+
+    - key: /k8s/k3s-demo/agent-forge/oidc-client-id
+      name: FORGE_OIDC_CLIENT_ID
+
+    - key: /k8s/k3s-demo/agent-memory/oidc-client-id
+      name: MEMORY_OIDC_CLIENT_ID
+
+    - key: /k8s/k3s-demo/agent-librio/oidc-client-id
+      name: LIBRIO_OIDC_CLIENT_ID
+
   ingressPeers:
     - namespaceSelector:
         matchLabels:

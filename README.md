@@ -2,7 +2,7 @@
 
 현재 k3s alpha와 미래 EKS 선언의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
-Agent Studio·Memory·Librio·Forge의 k3s/EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
+Agent Studio·Models·Memory·Librio·Forge의 k3s/EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다.
 
 ## 저장소 구조
@@ -228,6 +228,7 @@ values 파일 누락이나 chart 오류를 Argo CD sync 가 아니라 CI 에서 
 Studio observer는 Forge/Librio의 원격 작업을 관찰하고 대화를 재개한다. Librio는 별도 queue
 worker 하나로 문서·오디오를 처리한다. Forge는 HTTP·MCP·Gateway·worker를 한 서비스로 실행한다.
 Sandbox는 `agent-forge-workspaces`의 controller-owned Pod와 제한된 emptyDir를 사용한다.
+Models는 공급자 호출과 사용량을 소유하며 네 서비스는 Studio OIDC와 내부 `MODELS_URL`로 연결한다.
 실행·네트워크·자원·기존 PVC 보존은 [Kubernetes Workspace 운영](docs/workspace-kubernetes.md)을 따른다.
 
 ## test

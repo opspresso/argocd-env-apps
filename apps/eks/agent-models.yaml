@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: agent-models
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/opspresso/argocd-env-apps.git
+        revision: HEAD
+        files:
+          - path: "env/eks-demo.yaml"
+
+  template:
+    metadata:
+      name: "agent-models-{{cluster}}"
+      labels:
+        app.kubernetes.io/instance: "apps-{{cluster}}"
+        opspresso.com/cluster: "{{cluster}}"
+        opspresso.com/group: "apps"
+    spec:
+      project: apps
+      destination:
+        name: "{{cluster}}"
+        namespace: agent-models
+      source:
+        repoURL: https://github.com/opspresso/argocd-env-apps
+        targetRevision: HEAD
+        path: charts/agent-models
+        helm:
+          valueFiles:
+            - values.yaml
+            - "values-{{phase}}.yaml"
+            - "{{env}}/values-{{cluster}}.yaml"
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

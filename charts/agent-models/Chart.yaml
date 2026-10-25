@@ -1,0 +1,10 @@
+apiVersion: v2
+name: agent-models
+description: Central model discovery, routing and usage accounting.
+type: application
+version: v1.0.0
+appVersion: v1.0.0
+dependencies:
+- repository: https://opspresso.github.io/helm-charts
+  name: app
+  version: v1.7.1

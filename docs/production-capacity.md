@@ -16,7 +16,8 @@ PVC 용량과 Forge Pod/Job 수 제한은 유지합니다.
 | Librio web | 100m / 512Mi | 2Gi | 2, app CPU 70% |
 | Librio queue worker | 200m / 512Mi | 2Gi | 1, web과 분리 |
 | Forge controller/gateway/worker | 100m / 512Mi | 2Gi | 2, app CPU 70% |
-| PostgreSQL | 250m / 768Mi | 2Gi | 단일 StatefulSet, 400 connections |
+| Models | 100m / 256Mi | 1Gi | 2, app CPU 70% |
+| PostgreSQL | 250m / 768Mi | 2Gi | 단일 StatefulSet, 550 connections |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은
@@ -26,21 +27,30 @@ Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 �
 
 ## PostgreSQL
 
-네 앱은 같은 `agent_platform` DB를 사용합니다. 풀은 생성 여부보다 실제 동시 접속 가능 상한으로
+다섯 앱은 같은 `agent_platform` DB를 사용합니다. 풀은 생성 여부보다 실제 동시 접속 가능 상한으로
 계산합니다. 각 프로세스의 명시된 풀 크기는 다음과 같습니다.
 
-| 프로세스 | ordinary | queue | readiness | content lock | AI admission | 합계 |
+| 프로세스 | query | queue | readiness | 잠금·보조 | AI admission | 합계 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Studio web | 4 | 0 | 1 | 4 | 0 | 9 |
-| Studio Workspace/Audio observer | 4 | 0 | 0 | 4 | 0 | 8 |
-| Memory web | 4 | 0 | 1 | 0 | 0 | 5 |
-| Librio web | 4 | 2 | 1 | 0 | 9 | 16 |
-| Librio worker | 4 | 2 | 0 | 0 | 9 | 15 |
-| Forge | 12 | 0 | 0 | 0 | 0 | 12 |
+| Studio web | 4 | 0 | 1 | content 4 | 0 | 9 |
+| Studio Workspace/Audio observer | 4 | 0 | 0 | content 4 | 0 | 8 |
+| Memory web | 4 | 0 | 1 | background 2 + OIDC 2 | 0 | 9 |
+| Librio web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
+| Librio worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
+| Forge | 12 | 0 | 0 | OIDC 2 | 0 | 14 |
+| Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
 
 Studio Workspace readiness는 별도 짧은 프로세스에서 1개 쿼리 연결을 사용합니다.
-heartbeat liveness는 DB를 열지 않습니다. Librio maintenance lock은 ordinary pool에서
-checkout하므로 추가 pool로 중복 계산하지 않습니다. worker health는 process-only입니다.
+heartbeat liveness는 DB를 열지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
+연결을 하나씩 사용합니다. Librio maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
+같은 pool을 만듭니다. 1시간 주기 platform retention은 worker에서만 query pool로 실행합니다.
+worker health는 process-only입니다. Forge pool 12와 OIDC 잠금 pool은 코드에 고정돼 있고
+readiness는 query pool을 사용합니다. Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도
+probe가 연결을 기다리지 않습니다. lease 갱신도 전용 연결 1개를 사용합니다.
+
+Models의 DB 작업은 사용량 예약·정산과 세션의 짧은 transaction이며 공급자 호출 동안 연결을 잡지 않습니다.
+그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 k3s 4, EKS 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
+5초 뒤 실패하므로 pool을 줄인 뒤 연결 대기 시간과 오류를 관찰합니다.
 
 Librio AI admission pool9는 요청용8+정리/정책제어1 연결입니다. 전체8·batch4 제한은
 공유 PostgreSQL에서 합산되며 interactive 용량을 남깁니다. pool을5로 줄이면 같은 프로세스의
@@ -48,8 +58,11 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| alpha | `Studio(9+8+8+probe1)+Memory5+Librio(16+15)+Forge12 = 74` | 148 | 20 | 200 |
-| 미래 EKS | `Studio(6×9+2×8+8+probe2)+Memory6×5+Librio(2×16+15)+Forge2×12 = 181` | 362 | 20 | 400 |
+| alpha | `Studio(9+8+8+probe1)+Memory9+Librio(20+19)+Forge14+Models10 = 98` | 196 | 20 | 250 |
+| 미래 EKS | `Studio(6×9+2×8+8+probe2)+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 249` | 498 | 20 | 550 |
+
+웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
+프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.
 
 `test_production_capacity.py`는 실제 렌더의 HPA·worker replica·pool 값으로 이 상한을 계산합니다.
 새 프로세스, HPA 상한, pool 크기를 바꾸면 함께 갱신합니다. 이전 rollout이 끝나기 전에 다음

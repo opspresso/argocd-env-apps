@@ -92,6 +92,10 @@ def test_metrics_auth_and_dependency_independent_liveness(chart, platform):
     secret = resource(chart, platform, "ExternalSecret", secret_name)
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
     assert refs[secret_key] == f"/k8s/{platform}-demo/{chart}/metrics-bearer-token"
+    if forge:
+        # The scraper's bearer and Forge's accepted token come from the same parameter.
+        app = resource(chart, platform, "ExternalSecret", f"{chart}-external")["spec"]["data"]
+        assert {entry["secretKey"]: entry["remoteRef"]["key"] for entry in app}["METRICS_BEARER_TOKEN"] == refs[secret_key]
     if platform == "eks":
         monitor = resource(chart, platform, "ServiceMonitor", chart)["spec"]
         assert monitor["endpoints"][0]["authorization"]["credentials"] == {"name": secret_name, "key": secret_key}
@@ -155,7 +159,15 @@ def test_studio_observer_has_no_execution_or_cluster_authority(platform):
     assert config["FORGE_URL"] == "http://agent-forge.agent-forge.svc.cluster.local:3103"
     assert config["MEMORY_URL"] == "http://agent-memory.agent-memory.svc.cluster.local:3000"
     assert config["LIBRIO_URL"] == "http://agent-librio.agent-librio.svc.cluster.local:3000"
-    assert config["FORGE_DELEGATION_ISSUER"] == config["MEMORY_DELEGATION_ISSUER"] == config["LIBRIO_DELEGATION_ISSUER"] == "https://studio.agrt.dev"
+    assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
+    assert config["MODELS_PUBLIC_URL"] == "https://models.agrt.dev"
+    assert not any(name.startswith("LLM_PROVIDER_") or "_DELEGATION_" in name for name in config)
+    refs = {entry["secretKey"]: entry["remoteRef"]["key"]
+            for entry in resource("agent-studio", platform, "ExternalSecret", "agent-studio-external")["spec"]["data"]}
+    # Studio and each service read the same registered client ID.
+    for service in ("forge", "memory", "librio"):
+        assert refs[f"{service.upper()}_OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-{service}/oidc-client-id"
+    assert not any(name.startswith("LLM_PROVIDER_") or name.endswith(("_DELEGATION_SECRET", "_POLICY_SECRET")) for name in refs)
     assert not any(doc["kind"] in {"Role", "RoleBinding", "Job"} for doc in manifests("agent-studio", platform))
     assert resource("agent-studio", platform, "Deployment", "agent-studio-ticker")["spec"]["replicas"] == 1
 
