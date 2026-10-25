@@ -5,7 +5,7 @@ from test_agent_platform import resource
 import pytest
 
 
-@pytest.mark.parametrize("platform,expected", [("eks", 494), ("k3s", 194)])
+@pytest.mark.parametrize("platform,expected", [("eks", 498), ("k3s", 196)])
 def test_database_budget_covers_application_growth_and_rollout_overlap(platform, expected):
     def maximum_replicas(chart):
         if platform == "eks":
@@ -23,14 +23,15 @@ def test_database_budget_covers_application_growth_and_rollout_overlap(platform,
     # Memory: query pool + readiness 1 + background session locks 2 + OIDC refresh locks 2.
     memory = maximum_replicas("agent-memory") * (int(config["agent-memory"]["DATABASE_POOL_SIZE"]) + 1 + 2 + 2)
     # Librio web and worker both build the maintenance pool 2 and OIDC refresh pool 2.
+    # Platform retention runs only in the worker and uses the query pool.
     # Worker health is process-only and never opens the HTTP readiness pool.
     librio_pool = sum(int(config["agent-librio"][key]) for key in ("DATABASE_POOL_SIZE", "DATABASE_QUEUE_POOL_SIZE", "AI_ADMISSION_POOL_SIZE")) + 2 + 2
     librio_worker = resource("agent-librio", platform, "Deployment", "agent-librio-worker")["spec"]["replicas"]
     librio = maximum_replicas("agent-librio") * (librio_pool + 1) + librio_worker * librio_pool
     # Forge: fixed query pool 12 + OIDC refresh locks 2; readiness uses the query pool.
     forge = maximum_replicas("agent-forge") * (12 + 2)
-    # Models: query pool + OIDC refresh locks 4 + dedicated readiness 1 (maxDatabaseConnections).
-    models = maximum_replicas("agent-models") * (int(config["agent-models"]["DATABASE_POOL_SIZE"]) + 5)
+    # Models maxDatabaseConnections: query pool + OIDC refresh locks 4 + readiness 1 + lease renewal 1.
+    models = maximum_replicas("agent-models") * (int(config["agent-models"]["DATABASE_POOL_SIZE"]) + 6)
     total = 2 * (studio + memory + librio + forge + models)
     assert total == expected
     postgres = resource("postgresql", platform, "StatefulSet", "postgres")["spec"]["template"]["spec"]["containers"][0]

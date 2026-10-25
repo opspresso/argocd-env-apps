@@ -19,7 +19,11 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
     assert container["readinessProbe"]["httpGet"] == {"path": "/api/ready", "port": 3400}
     assert container["livenessProbe"]["httpGet"] == {"path": "/api/health", "port": 3400}
     assert container["startupProbe"]["httpGet"] == container["livenessProbe"]["httpGet"]
-    assert pod["terminationGracePeriodSeconds"] > int(config["MODEL_REQUEST_TIMEOUT_MS"]) // 1000 + 15
+    # SIGTERM -> preStop sleep -> drain admitted requests -> settle (~30s) -> close responses (10s).
+    pre_stop = int(container["lifecycle"]["preStop"]["exec"]["command"][-1].split()[-1])
+    drain = int(config["MODEL_SHUTDOWN_GRACE_MS"]) // 1000
+    assert drain >= int(config["MODEL_REQUEST_TIMEOUT_MS"]) // 1000
+    assert pod["terminationGracePeriodSeconds"] >= pre_stop + drain + 30 + 10 + 30
     refs = resource("agent-models", platform, "ExternalSecret", "agent-models-external")["spec"]["data"]
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in refs}
     assert refs == {
