@@ -265,7 +265,14 @@ run_once() { ns=$1; image=$2; shift 2
 4. **Studio 먼저 전환**: schema를 변환하고 바로 alpha에 배포합니다. 이 순간부터 7단계까지 Studio에서
    Memory·Librio·Forge 호출과 모델 실행은 실패합니다.
    ```bash
-   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply  # baseline 12에서 13으로
+   baseline=$(kubectl -n agent-studio exec postgres-0 -- psql -U agent_studio -d agent_platform -Atc \
+     'SELECT version FROM agent_studio_schema')
+   case "$baseline" in
+     11) run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-enterprise-profile.cjs --apply ;;  # 11→13
+     12) run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply ;;      # 12→13
+     13) echo "already current" ;;
+     *) echo "unsupported Studio baseline: $baseline" >&2; exit 1 ;;
+   esac
    gh api repos/opspresso/argocd-env-apps/dispatches -f event_type=gitops -f client_payload[username]=opspresso \
      -f client_payload[project]=agent-studio -f client_payload[version]="$V_STUDIO" -f client_payload[container]=app \
      -f client_payload[phase]=alpha -f client_payload[type]=helm
@@ -287,7 +294,9 @@ run_once() { ns=$1; image=$2; shift 2
      # Re-registration issues a new client, so the stored pair is always replaced.
      aws ssm put-parameter --type SecureString --overwrite --name "/k8s/k3s-demo/$s/oidc-client-id" --value "$id"
      aws ssm put-parameter --type SecureString --overwrite --name "/k8s/k3s-demo/$s/oidc-client-secret" --value "$secret"; done
-   aws ssm put-parameter --type SecureString --overwrite --name /k8s/k3s-demo/agent-forge/model-roles --value '[]'
+   # Create the empty role list only when absent; step 10 owns its content.
+   aws ssm get-parameter --name /k8s/k3s-demo/agent-forge/model-roles >/dev/null 2>&1 ||
+     aws ssm put-parameter --type SecureString --name /k8s/k3s-demo/agent-forge/model-roles --value '[]'
    python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply  # agent-models/auth-secret, encryption-key
    python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo          # 남은 누락이 없어야 함
    ```
@@ -332,8 +341,15 @@ run_once() { ns=$1; image=$2; shift 2
    curl -fsS https://models.agrt.dev/api/ready && curl -fsS https://models.agrt.dev/models.json | jq -r .version
    ```
 10. **모델 연결**: Models 콘솔에서 공급자를 연결하고 모델을 선택합니다. 이전 공급자 키는 여기서 다시 입력합니다.
-    Memory·Librio는 **설정**에서 역할을 선택합니다. Forge는 `model-roles`에 선택 ID를 저장하고
-    `agent-forge/model-roles-version` annotation을 올려 재시작합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
+    Memory·Librio 역할은 `env/<cluster>.yaml`의 `models`로 선언합니다. Forge는 `model-roles`에 선택 ID를
+    `--overwrite`로 저장하고 ExternalSecret에 반영한 뒤 `agent-forge/model-roles-version` annotation을
+    SSM 파라미터 버전으로 올려 재시작합니다. ExternalSecret의 refreshInterval은 15분입니다.
+    ```bash
+    kubectl -n agent-forge annotate externalsecret agent-forge-external force-sync="$(date +%s)" --overwrite
+    kubectl -n agent-forge get externalsecret agent-forge-external  # SecretSynced, 갱신 시각 확인
+    aws ssm get-parameter --name /k8s/k3s-demo/agent-forge/model-roles --query Parameter.Version
+    ```
+    annotation 변경 커밋은 Secret 갱신을 확인한 뒤 병합합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
 11. **자동 배포 복원**: `values-prod.yaml`이 alpha와 같은 버전인지 확인하고 자동 GitOps를 복원합니다.
     ```bash
     for c in agent-studio agent-memory agent-librio agent-forge agent-models; do
