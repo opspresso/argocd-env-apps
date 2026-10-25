@@ -60,6 +60,6 @@ sample_node:
     storageClass: local-path
     storage: 1Gi
 
-agent_models_maintenance: true
+agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
