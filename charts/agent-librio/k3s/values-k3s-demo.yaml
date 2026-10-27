@@ -3,7 +3,7 @@ app:
   raw:
     enabled: True
 
-  replicaCount: 1
+  replicaCount: 0
   autoscaling:
     enabled: False
   image:
@@ -103,4 +103,4 @@ app:
   workloads:
     worker:
       enabled: true
-      replicas: 1
+      replicas: 0

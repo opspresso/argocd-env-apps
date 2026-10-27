@@ -8,8 +8,8 @@ group: k3s-demo
 role: k3s
 replicas: 1
 autoscaling: false
-agent_studio_maintenance: false
-agent_memory_maintenance: false
+agent_studio_maintenance: true
+agent_memory_maintenance: true
 resources: false
 trusted_proxy_cidrs: []
 grafana_url: http://grafana.addon-grafana.svc.cluster.local
@@ -60,8 +60,8 @@ agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
-agent_librio_maintenance: false
-agent_forge_maintenance: false
+agent_librio_maintenance: true
+agent_forge_maintenance: true
 sample_node:
   hostname: sample-node.rovr.dev
   redis:
@@ -69,6 +69,6 @@ sample_node:
     storageClass: local-path
     storage: 1Gi
 
-agent_models_maintenance: false
+agent_models_maintenance: true
 agent_models:
   hostname: models.agrt.dev

@@ -3,7 +3,7 @@ app:
   raw:
     enabled: True
 
-  replicaCount: 1
+  replicaCount: 0
   autoscaling:
     enabled: False
   image:
