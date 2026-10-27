@@ -13,6 +13,47 @@ raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
   templates:
     - |
+      # A SecretStore in a tenant namespace must assume the tenant role with the namespace's own
+      # Project and Environment. Whoever creates it, a forged session tag would read another Project.
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicy
+      metadata:
+        name: broker-tenant-secret-stores
+      spec:
+        failurePolicy: Fail
+        matchConstraints:
+          namespaceSelector:
+            matchLabels:
+              opspresso.com/broker-tenant: "true"
+          resourceRules:
+            - apiGroups: [external-secrets.io]
+              apiVersions: ["*"]
+              operations: [CREATE, UPDATE]
+              resources: [secretstores]
+        variables:
+          - name: aws
+            expression: "has(object.spec.provider) && has(object.spec.provider.aws) ? object.spec.provider.aws : null"
+          - name: labels
+            expression: "namespaceObject.metadata.labels"
+          - name: tags
+            expression: "variables.aws != null && has(variables.aws.sessionTags) ? variables.aws.sessionTags : []"
+        validations:
+          - expression: "variables.aws != null && has(variables.aws.role) && variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.broker.tenantSecretsRoleArn }}'"
+            message: Tenant SecretStores must use the AWS provider with the Broker tenant secrets role.
+          - expression: >-
+              size(variables.tags) == 2 &&
+              variables.tags.exists(t, t.key == 'broker-project' && t.value == variables.labels['opspresso.com/broker-project']) &&
+              variables.tags.exists(t, t.key == 'broker-env' && t.value == variables.labels['opspresso.com/broker-env'])
+            message: Tenant SecretStore session tags must equal the namespace's Broker project and environment.
+    - |
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicyBinding
+      metadata:
+        name: broker-tenant-secret-stores
+      spec:
+        policyName: broker-tenant-secret-stores
+        validationActions: [Deny]
+    - |
       {{- $root := .Values.global.broker }}
       apiVersion: v1
       kind: List
@@ -124,6 +165,6 @@ raw:
               requests.memory: 4Gi
               limits.memory: 8Gi
               pods: "20"
-              services.loadbalancer: "0"
+              services.loadbalancers: "0"
               services.nodeports: "0"
       {{- end }}

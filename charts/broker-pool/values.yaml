@@ -188,6 +188,7 @@ bootstrap:
                       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'broker_admin')\gexec
                       ALTER ROLE broker_admin WITH LOGIN CREATEDB CREATEROLE NOSUPERUSER PASSWORD :'admin_password';
                       REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
+                      REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
                       GRANT CONNECT ON DATABASE postgres TO broker_admin;
                       SQL
                       psql -h postgres -U pool_owner -d template1 -v ON_ERROR_STOP=1 \
