@@ -491,8 +491,12 @@ Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-broker-tenant-secrets` 역할을
   session tag `broker-project`·`broker-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
 - 테넌트 항목을 지워도 namespace는 지우지 않는다(`Prune=false`). 앱을 정리한 뒤 직접 삭제한다.
-- ValidatingAdmissionPolicy `broker-tenant-secret-stores`는 테넌트 namespace의 SecretStore가 tenant 역할을 쓰고 session tag가
-  namespace label(`opspresso.com/broker-project`·`broker-env`)과 같을 때만 허용한다. 누가 만들든 다른 Project tag는 거부된다.
+- AWS는 session tag가 가리키는 Project 경로를 읽게 할 뿐, tag가 정당한지는 확인하지 않는다. 그래서 클러스터의
+  ValidatingAdmissionPolicy `broker-tenant-secret-stores`가 모든 SecretStore·ClusterSecretStore를 검사한다.
+  - 테넌트 namespace의 SecretStore는 tenant 역할만 쓸 수 있다.
+  - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/broker-project`·`broker-env`)이
+    session tag와 같은 namespace의 SecretStore에서만 허용한다. 다른 namespace와 ClusterSecretStore는 거부한다.
+  - 이름까지 확인하므로 다른 namespace에 테넌트 label을 붙여도 다른 Project를 흉내 낼 수 없다.
 - 풀 bootstrap은 `postgres`·`template1` database의 PUBLIC CONNECT를 회수한다.
 - 풀은 `agent-broker`, `agent-forge-workspaces`, `opspresso.com/broker-tenant=true` namespace에서만 접속을 받는다.
   Forge Sandbox egress에는 `agent_broker`가 있을 때 풀 5432 허용이 추가된다.

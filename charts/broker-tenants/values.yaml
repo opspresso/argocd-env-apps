@@ -13,8 +13,12 @@ raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
   templates:
     - |
-      # A SecretStore in a tenant namespace must assume the tenant role with the namespace's own
-      # Project and Environment. Whoever creates it, a forged session tag would read another Project.
+      # The tenant secrets role reads any Project's path that its session tags name, so the cluster,
+      # not AWS, decides which store may assume it. The policy therefore checks every SecretStore and
+      # ClusterSecretStore, not only stores in tenant namespaces:
+      # - a tenant namespace may only use the tenant role, and
+      # - the tenant role is only valid in namespace app-<project>-<env> whose labels equal the tags.
+      # Matching the name as well as the labels stops a relabelled namespace from posing as a Project.
       apiVersion: admissionregistration.k8s.io/v1
       kind: ValidatingAdmissionPolicy
       metadata:
@@ -22,29 +26,36 @@ raw:
       spec:
         failurePolicy: Fail
         matchConstraints:
-          namespaceSelector:
-            matchLabels:
-              opspresso.com/broker-tenant: "true"
           resourceRules:
             - apiGroups: [external-secrets.io]
               apiVersions: ["*"]
               operations: [CREATE, UPDATE]
-              resources: [secretstores]
+              resources: [secretstores, clustersecretstores]
         variables:
           - name: aws
             expression: "has(object.spec.provider) && has(object.spec.provider.aws) ? object.spec.provider.aws : null"
+          - name: tenantRole
+            expression: "variables.aws != null && has(variables.aws.role) && variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.broker.tenantSecretsRoleArn }}'"
           - name: labels
-            expression: "namespaceObject.metadata.labels"
+            expression: "namespaceObject != null && has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
+          - name: tenantNamespace
+            expression: "'opspresso.com/broker-tenant' in variables.labels && variables.labels['opspresso.com/broker-tenant'] == 'true'"
           - name: tags
             expression: "variables.aws != null && has(variables.aws.sessionTags) ? variables.aws.sessionTags : []"
         validations:
-          - expression: "variables.aws != null && has(variables.aws.role) && variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.broker.tenantSecretsRoleArn }}'"
+          - expression: "!variables.tenantNamespace || variables.tenantRole"
             message: Tenant SecretStores must use the AWS provider with the Broker tenant secrets role.
           - expression: >-
-              size(variables.tags) == 2 &&
-              variables.tags.exists(t, t.key == 'broker-project' && t.value == variables.labels['opspresso.com/broker-project']) &&
-              variables.tags.exists(t, t.key == 'broker-env' && t.value == variables.labels['opspresso.com/broker-env'])
-            message: Tenant SecretStore session tags must equal the namespace's Broker project and environment.
+              !variables.tenantRole || (
+                variables.tenantNamespace &&
+                'opspresso.com/broker-project' in variables.labels &&
+                'opspresso.com/broker-env' in variables.labels &&
+                namespaceObject.metadata.name == 'app-' + variables.labels['opspresso.com/broker-project'] + '-' + variables.labels['opspresso.com/broker-env'] &&
+                size(variables.tags) == 2 &&
+                variables.tags.exists(t, t.key == 'broker-project' && t.value == variables.labels['opspresso.com/broker-project']) &&
+                variables.tags.exists(t, t.key == 'broker-env' && t.value == variables.labels['opspresso.com/broker-env'])
+              )
+            message: The Broker tenant secrets role is only valid in namespace app-<project>-<env> with session tags equal to its Broker labels.
     - |
       apiVersion: admissionregistration.k8s.io/v1
       kind: ValidatingAdmissionPolicyBinding
