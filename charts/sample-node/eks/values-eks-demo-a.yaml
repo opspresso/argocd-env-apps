@@ -17,7 +17,7 @@ app:
 
   routing:
     hosts:
-    - sample-node.demo.opspresso.com
+    - sample-node.demo.rovr.dev
     httpRoute:
       enabled: true
 
@@ -26,7 +26,7 @@ app:
     sidecar.istio.io/inject: "true"
 
   podAnnotations:
-    link.argocd.argoproj.io/external-link: https://sample-node.demo.opspresso.com
+    link.argocd.argoproj.io/external-link: https://sample-node.demo.rovr.dev
   serviceMonitor:
     enabled: true
     labels:

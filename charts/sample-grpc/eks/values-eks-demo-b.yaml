@@ -10,7 +10,7 @@ app:
       PROFILE: 'eks'
   routing:
     hosts:
-    - sample-grpc.demo.opspresso.com
+    - sample-grpc.demo.rovr.dev
     httpRoute:
       enabled: true
 
@@ -19,7 +19,7 @@ app:
     sidecar.istio.io/inject: "true"
 
   podAnnotations:
-    link.argocd.argoproj.io/external-link: https://sample-grpc.demo.opspresso.com
+    link.argocd.argoproj.io/external-link: https://sample-grpc.demo.rovr.dev
   serviceMonitor:
     enabled: true
     labels:
