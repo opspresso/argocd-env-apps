@@ -3,7 +3,7 @@
 현재 k3s alpha와 미래 EKS 선언의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
 Agent Studio·Models·Memory·Librio·Forge의 k3s/EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
-[Agent Platform 배포](docs/agent-platform.md)를 따른다.
+[Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
 
 ## 저장소 구조
 
