@@ -1,26 +1,34 @@
 # 서비스 용량과 DB 연결 예산
 
-운영 클러스터는 EKS `eks-demo`(Auto Mode, phase `prod`)입니다. 기준 NodePool은 Graviton arm64 `m7g.xlarge` 3대이고,
+운영 클러스터는 EKS `eks-demo`(Auto Mode, phase `prod`)입니다. 기준 NodePool은 Graviton arm64 `m7g.xlarge` 2대이고,
 동적 NodePool `general`과 `workspaces`가 추가 용량을 만듭니다. 실제 사용량은 배포 때 다시 확인합니다.
 배포하지 않는 k3s 선언에는 compute requests/limits나 HPA를 두지 않고 PVC 용량과 Forge Pod/Job 수 제한만 유지합니다.
 
 ## EKS 워크로드
 
+requests는 `eks-demo`의 유휴 peak working set에 여유를 더한 값입니다. memory limit은 48 동시 요청 부하
+시험 peak(Studio 1.1Gi, Memory 530Mi, Models 400Mi, Librio 230Mi, Forge 185Mi)보다 크게 둡니다.
+CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request를 50m로 유지합니다.
+
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
 | --- | --- | --- | --- |
-| Studio web | 100m / 512Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
-| Memory web | 100m / 256Mi | 512Mi | 2~6, app CPU 70% |
-| Librio web | 100m / 512Mi | 2Gi | 2, app CPU 70% |
-| Librio queue worker | 200m / 512Mi | 2Gi | 1, web과 분리 |
-| Forge controller/gateway/worker | 100m / 512Mi | 2Gi | 2, app CPU 70% |
-| Models | 100m / 256Mi | 1Gi | 2, app CPU 70% |
-| PostgreSQL | 250m / 768Mi | 2Gi | 단일 StatefulSet, 550 connections |
+| Studio web | 50m / 256Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
+| Memory web | 50m / 160Mi | 1Gi | 2~6, app CPU 70% |
+| Librio web | 25m / 192Mi | 1Gi | 2, app CPU 70% |
+| Librio queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
+| Forge controller/gateway/worker | 25m / 256Mi | 1Gi | 2, app CPU 70% |
+| Models | 10m / 128Mi | 1Gi | 2, app CPU 70% |
+| Broker | 10m / 128Mi | 512Mi | 2 |
+| PostgreSQL | 50m / 512Mi | 2Gi | 단일 StatefulSet, 550 connections |
+| Broker pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은
 Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 않습니다.
 노드 수 계산은 sidecar·DaemonSet·rolling surge와 가장 큰 노드 한 대 손실까지 포함해야 합니다.
-낮은 유휴 CPU만으로 production 기준 노드를 줄이지 않습니다.
+낮은 유휴 CPU만으로 production 기준 노드를 줄이지 않습니다. 기준 노드 2대는 전체 requests
+(약 1.5 vCPU·9.2Gi)를 노드 한 대(3.77 vCPU·14.3Gi allocatable)가 수용하는 조건으로 정했습니다.
+rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 처리합니다.
 
 ## PostgreSQL
 
