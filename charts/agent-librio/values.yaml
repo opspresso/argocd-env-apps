@@ -5,10 +5,10 @@ app:
     tag: latest
   resources:
     requests:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 25m
+      memory: 192Mi
     limits:
-      memory: 2Gi
+      memory: 1Gi
   service:
     name: http
     port: 3000
@@ -222,8 +222,8 @@ app:
         value: 'true'
       resources:
         requests:
-          cpu: 200m
-          memory: 512Mi
+          cpu: 25m
+          memory: 256Mi
         limits:
           memory: 2Gi
       overrides: |

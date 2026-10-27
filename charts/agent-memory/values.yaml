@@ -5,8 +5,8 @@ app:
     tag: latest
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 50m
+      memory: 160Mi
     limits:
       memory: 512Mi
   service:

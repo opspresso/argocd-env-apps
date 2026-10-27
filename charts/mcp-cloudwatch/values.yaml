@@ -55,11 +55,11 @@ app:
 
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 10m
+      memory: 192Mi
     limits:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
 
   # Upstream only exposes the MCP route. A TCP probe checks that the HTTP
   # listener is accepting connections without opening a long-lived MCP stream.
