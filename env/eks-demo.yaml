@@ -70,11 +70,11 @@ sample_node:
 agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
-agent_broker_maintenance: true
+agent_broker_maintenance: false
 agent_broker:
   hostname: broker.agrt.dev
   # Studio and Forge use Broker only after Studio has issued Broker's OIDC client and Broker is running.
-  connected: false
+  connected: true
   # Deployment namespaces app-<project>-<env>; Broker's deployment_wiring returns entries.
   tenants: []
 broker_pool:
