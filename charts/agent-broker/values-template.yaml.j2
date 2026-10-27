@@ -1,0 +1,72 @@
+{% set maintenance = agent_broker_maintenance | default(false) -%}
+app:
+  fullnameOverride: agent-broker
+  raw:
+    enabled: {{agent_broker is defined}}
+{% if agent_broker is defined %}
+  replicaCount: {{0 if maintenance else replicas}}
+  autoscaling:
+    enabled: {{false if maintenance else autoscaling}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-broker
+  imagePullSecrets:
+    - name: ecr-registry
+{% if not resources %}
+  resources: null
+{% endif %}
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://{{agent_broker.hostname}}
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: {{aws_region}}
+      BROKER_CLUSTER: {{cluster}}
+      BROKER_SECRET_STORE: ssm
+      BROKER_KMS_KEY_ID: alias/agent-broker
+      BROKER_POOL_HOST: postgres.broker-pool.svc.cluster.local
+      BROKER_POOL_PORT: '5432'
+      BROKER_BUCKET: agent-broker-objects
+      BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-sandbox-objects
+      BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-objects
+      BROKER_EKS_CLUSTER: {{cluster}}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/agent-broker/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/{{cluster}}/agent-broker/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/{{cluster}}/agent-broker/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/{{cluster}}/agent-broker/pool-database-url
+      name: BROKER_POOL_DATABASE_URL
+  routing:
+    hosts:
+    - {{agent_broker.hostname}}
+    httpRoute:
+      enabled: true
+{% if env == 'k3s' %}
+      parentRefs:
+      - name: traefik-gateway
+        namespace: traefik-gateway
+{% endif %}
+{% if env != 'k3s' %}
+  podLabels:
+    sidecar.istio.io/inject: "true"
+{% endif %}
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{agent_broker.hostname}}
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: {{aws_region}}
+{% endif %}

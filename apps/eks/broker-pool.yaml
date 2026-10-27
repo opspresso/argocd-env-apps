@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: broker-pool
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/opspresso/argocd-env-apps.git
+        revision: HEAD
+        files:
+          - path: "env/eks-demo.yaml"
+
+  template:
+    metadata:
+      name: "broker-pool-{{cluster}}"
+      labels:
+        app.kubernetes.io/instance: "apps-{{cluster}}"
+        opspresso.com/cluster: "{{cluster}}"
+        opspresso.com/group: "apps"
+    spec:
+      project: apps
+      destination:
+        name: "{{cluster}}"
+        namespace: broker-pool
+      source:
+        repoURL: https://github.com/opspresso/argocd-env-apps
+        targetRevision: HEAD
+        path: charts/broker-pool
+        helm:
+          valueFiles:
+            - values.yaml
+            - "{{env}}/values-{{cluster}}.yaml"
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

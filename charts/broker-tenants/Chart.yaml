@@ -1,0 +1,10 @@
+apiVersion: v2
+name: broker-tenants
+description: Deployment namespaces for Agent Broker projects
+type: application
+version: v1.0.0
+appVersion: v1.0.0
+dependencies:
+- name: raw
+  repository: https://charts.helm.sh/incubator
+  version: 0.2.5

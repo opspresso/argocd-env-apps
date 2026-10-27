@@ -1,0 +1,11 @@
+global:
+  ssmPrefix: /k8s/{{cluster}}
+{% if broker_pool is defined and broker_pool.storage is defined %}
+postgresql:
+  primary:
+    persistence:
+      size: {{broker_pool.storage}}
+{% if broker_pool.storageClass is defined %}
+      storageClass: {{broker_pool.storageClass}}
+{% endif %}
+{% endif %}
