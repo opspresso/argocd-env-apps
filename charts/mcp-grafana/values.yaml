@@ -48,11 +48,11 @@ app:
 
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 5m
+      memory: 32Mi
     limits:
       cpu: 200m
-      memory: 256Mi
+      memory: 128Mi
 
   # kubelet sends the pod IP as the Host header, which the allowlist above cannot
   # contain because it changes on every restart. Naming one explicitly is what

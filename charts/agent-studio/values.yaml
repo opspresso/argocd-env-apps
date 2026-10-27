@@ -5,10 +5,10 @@ app:
     tag: latest
   resources:
     requests:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 50m
+      memory: 256Mi
     limits:
-      memory: 2Gi
+      memory: 1Gi
   service:
     name: http
     port: 3000
