@@ -8,6 +8,8 @@
 
 requests는 `eks-demo`의 유휴 peak working set에 여유를 더한 값입니다. memory limit은 48 동시 요청 부하
 시험 peak(Studio 1.1Gi, Memory 530Mi, Models 400Mi, Librio 230Mi, Forge 185Mi)보다 크게 둡니다.
+Models의 400Mi는 v0.1.10의 요청 signal 누수 수정 전에 측정한 값입니다. 수정 후 같은 부하를 반복했을 때 working set은
+54~79Mi에서 늘지 않았고 재시작은 없었습니다. Models limit 1Gi는 이 값보다 크므로 유지합니다.
 CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request를 50m로 유지합니다.
 
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
