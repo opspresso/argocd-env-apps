@@ -3,9 +3,9 @@ app:
   raw:
     enabled: True
 
-  replicaCount: 0
+  replicaCount: 1
   autoscaling:
-    enabled: False
+    enabled: True
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-librio
   imagePullSecrets:
@@ -89,4 +89,4 @@ app:
   workloads:
     worker:
       enabled: true
-      replicas: 0
+      replicas: 1

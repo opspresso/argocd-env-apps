@@ -8,8 +8,8 @@ group: eks-demo
 role: mgmt
 replicas: 1
 autoscaling: true
-agent_studio_maintenance: true
-agent_memory_maintenance: true
+agent_studio_maintenance: false
+agent_memory_maintenance: false
 resources: true
 trusted_proxy_cidrs:
 - 10.10.0.0/16
@@ -61,13 +61,13 @@ agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
-agent_librio_maintenance: true
-agent_forge_maintenance: true
+agent_librio_maintenance: false
+agent_forge_maintenance: false
 sample_node:
   redis:
     enabled: true
 
-agent_models_maintenance: true
+agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
 agent_broker_maintenance: true
