@@ -1,11 +1,10 @@
 # 서비스 용량과 DB 연결 예산
 
-현재 실행 환경은 k3s alpha입니다. `eks-demo` prod는 미래 클러스터를 위한 선언이며
-현재 EKS 노드·서비스가 운영 중이라는 뜻이 아닙니다. k3s 노드는 `m6i.xlarge`, 메모리 16Gi이며
-현재 사용량은 배포 때 다시 확인합니다. k3s에는 compute requests/limits나 HPA를 선언하지 않습니다.
-PVC 용량과 Forge Pod/Job 수 제한은 유지합니다.
+운영 클러스터는 EKS `eks-demo`(Auto Mode, phase `prod`)입니다. 기준 NodePool은 Graviton arm64 `m7g.xlarge` 3대이고,
+동적 NodePool `general`과 `workspaces`가 추가 용량을 만듭니다. 실제 사용량은 배포 때 다시 확인합니다.
+배포하지 않는 k3s 선언에는 compute requests/limits나 HPA를 두지 않고 PVC 용량과 Forge Pod/Job 수 제한만 유지합니다.
 
-## 미래 EKS 선언
+## EKS 워크로드
 
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
 | --- | --- | --- | --- |
@@ -54,8 +53,8 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| alpha | `Studio9+Memory9+Librio(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
-| 미래 EKS | `Studio6×9+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
+| k3s 선언(미배포) | `Studio9+Memory9+Librio(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
+| EKS `eks-demo` | `Studio6×9+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
 
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
 프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.
@@ -70,8 +69,8 @@ rollout을 누적하지 않습니다. PostgreSQL `max_connections`·공유 메�
 
 `workspace_max_pods`는 Forge 실행 namespace의 Pod/Job 상한입니다. 실행 Pod는 일시적인 디스크를 사용하고 마지막 확정 checkpoint로 복원합니다.
 EKS Pod당 4608Mi ephemeral storage 예약에 더해 이미지·호스트 로그 디스크가 필요합니다.
-미래 Workspace NodePool은 taint `agent-forge/workspace`와 앱의 toleration을 맞춰야 합니다.
+Workspace NodePool(`workspaces`)은 taint `agent-forge/workspace`와 앱의 toleration을 맞춰야 합니다.
 
-기존 Studio DinD PVC는 보존하지만 daemon은 시작하지 않습니다. 기존 PostgreSQL·MinIO·Neo4j
-데이터를 새 서비스 namespace로 자동 복사하지 않습니다. DB·object storage는 단일 인스턴스이며
+기존 Studio DinD PVC는 보존하지만 daemon은 시작하지 않습니다. 기존 PostgreSQL·object storage·Neo4j
+데이터를 새 서비스 namespace로 자동 복사하지 않습니다. PostgreSQL은 단일 StatefulSet이며
 이 배포가 failover나 backup을 제공하지는 않습니다. 백업 복원과 실제 CNI 격리는 별도 검증합니다.

@@ -7,13 +7,12 @@ Studio는 Forge API를 관찰하며 실행 namespace의 RBAC를 갖지 않습니
 Forge의 Job은 passive supervisor를 실행합니다. 사용자 명령은 저장된 Job·Pod UID를 검증한
 뒤 exec로 시작합니다. `backoffLimit: 0`, `restartPolicy: Never`와 단일 parallelism을 사용하여
 Kubernetes의 자동 재시도가 사용자 명령을 다시 실행하지 못하게 합니다.
-Job owner가 있는 Pod는 향후 EKS CNI 정책 적용을 위한 필수 조건입니다.
-현재 실제 환경은 k3s이며 EKS 정책 적용은 미래 클러스터에서 다시 검증해야 합니다.
+Job owner가 있는 Pod는 EKS CNI 정책 적용을 위한 필수 조건입니다. 운영 클러스터는 EKS `eks-demo`입니다.
 
 실행 Pod는 `sandbox` ServiceAccount를 사용하며 token을 mount하지 않습니다.
 운영 Secret·공급자 장기 키·Git token·hostPath도 전달하지 않습니다.
-namespace quota는 alpha 2개, 미래 EKS 32개의 Pod와 Job을 각각 제한합니다.
-`resources: false`인 k3s는 compute requests/limits를 생략하고 Pod/Job 수와 `emptyDir.sizeLimit`을 유지합니다.
+namespace quota는 EKS `eks-demo`에서 Pod와 Job을 각각 32개로 제한합니다(`workspace_max_pods`). 배포하지 않는 k3s 선언은 2개입니다.
+`resources: false`인 k3s 선언은 compute requests/limits를 생략하고 Pod/Job 수와 `emptyDir.sizeLimit`을 유지합니다.
 EKS는 CPU·메모리·ephemeral-storage requests/limits와 quota를 함께 선언합니다.
 
 ## 네트워크
@@ -27,7 +26,7 @@ NetworkPolicy는 ingress/egress를 기본 거부합니다. 실행 Pod에는 다�
 Sandbox가 읽는 `FORGE_SANDBOX_API_URL`은 Service 포트를 사용합니다.
 NetworkPolicy는 DNAT 뒤의 Pod 포트를 사용하므로 두 값을 혼동하지 않습니다.
 native CLI는 이 주소의 인증된 모델 Gateway를 호출합니다. 같은 namespace의 다른 서비스나
-Kubernetes API, Studio·Memory·Librio·PostgreSQL·MinIO에는 직접 연결할 수 없습니다.
+Kubernetes API, Studio·Memory·Librio·PostgreSQL에는 직접 연결할 수 없습니다.
 폐쇄망은 `workspace_allow_public: false`, 추가 내부 목적지는 `workspace_extra_egress`에 정확히 선언합니다.
 
 앱 namespace ingress는 별도 정책입니다. Forge에 Studio와 Sandbox의 연결을 허용합니다.
@@ -59,7 +58,7 @@ Studio에는 Workspace worker도 없습니다. Studio는 web과 ticker만 실행
 
 ## 검증
 
-`python3 scripts/validate.py --all-charts`와 pytest는 alpha와 미래 EKS의 이미지 결합,
+`python3 scripts/validate.py --all-charts`와 pytest는 EKS와 k3s 선언의 이미지 결합,
 RBAC, Pod/Job quota, IPv4 네트워크, Service/Pod 포트, 폐기된 Studio 실행 자원 부재를 검사합니다.
 이 결과는 CNI의 실제 패킷 차단이나 실행 성공을 보장하지 않습니다.
 
@@ -67,7 +66,7 @@ RBAC, Pod/Job quota, IPv4 네트워크, Service/Pod 포트, 폐기된 Studio 실
 
 1. Job ownerReference와 저장된 Job·Pod UID가 일치하고 Sandbox에 운영 token/Secret이 없는지 확인합니다.
 2. 명령 접수→출력 cursor 조회→재연결에서 같은 명령이 중복 실행되지 않는지 확인합니다.
-3. DNS와 public HTTPS·Forge Gateway 연결, PostgreSQL·MinIO·metadata·다른 Workspace 차단을 함께 확인합니다.
+3. DNS와 public HTTPS·Forge Gateway 연결, PostgreSQL·metadata·다른 Workspace 차단을 함께 확인합니다.
    차단 대상이 실제로 제공 중인지 양성 대조로 확인해야 합니다.
 4. 취소·lease handoff·checkpoint 저장→Pod 종료→복원·namespace quota를 확인합니다.
 5. 실행 Pod 이벤트와 Forge terminal/unknown/output_loss, 고아 자원 상태를 대조합니다.

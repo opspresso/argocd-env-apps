@@ -6,7 +6,7 @@
 Studio의 audio/Workspace worker도 더 이상 선언하지 않습니다. Argo CD `prune`이 두 Deployment를 삭제합니다.
 
 GitOps는 Neo4j chart/Application/Secret bootstrap과 Studio의 이전 Docker PVC·실행 namespace를
-더 이상 생성하지 않습니다. 현재 네 앱, Forge 실행 namespace, PostgreSQL·MinIO와 미래 EKS 선언은 유지합니다.
+더 이상 생성하지 않습니다. 현재 앱, Forge 실행 namespace, PostgreSQL과 object storage 선언은 유지합니다.
 Librio 소스의 선택적 Neo4j adapter와 Forge의 독립 Docker provider는 지원 기능이며 이 정리의 대상이 아닙니다.
 
 ## 기존 클러스터의 제거 순서

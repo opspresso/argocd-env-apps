@@ -84,7 +84,8 @@ charts/<project>/
   첫 배포 때 자동 생성된다.
 - `prod`는 기본적으로 브랜치를 만들어 PR을 올린다. `auto_merge: true` (`TG_AUTO_MERGE=true`
   또는 `--auto-merge`)면 prod도 `main`에 바로 push한다. 나머지 phase는 항상 직접 push한다.
-- `eks-demo`는 `phase: prod`, `k3s-demo`는 `phase: alpha`를 사용한다.
+- `eks-demo`는 `phase: prod`, `k3s-demo`는 `phase: alpha`를 사용한다. 운영 클러스터 `eks-demo`는 `values-prod.yaml`을 읽고,
+  `values-alpha.yaml`을 읽는 배포 클러스터는 없다.
   EKS ApplicationSet이 읽는 앱과 MCP chart는 `values-prod.yaml`을 제공해야 한다.
   추가 EKS env의 phase는 각 `env/<cluster>.yaml`에서 선택한다.
 
@@ -122,10 +123,10 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
   앱과 ticker를 0개로 내리고 HPA를 끈다.
   다른 앱과 PostgreSQL은 건드리지 않는다. 기본값은 `false`다.
   Memory·Librio·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
-- `storage_gc_maintenance`는 k3s에서 네 Agent maintenance가 모두 `true`이고 `minio.console: false`일 때만 허용한다.
+- `storage_gc_maintenance`는 k3s 선언에서 네 Agent maintenance가 모두 `true`이고 `minio.console: false`일 때만 허용한다.
   MinIO 서버·PVC는 유지하고 S3 ingress를 닫는다. [중지·재개 절차](docs/storage-gc-maintenance.md)를 따른다.
-- `metrics.backend`는 수집 방식을 정한다. k3s는 Alloy가 직접 수집하는 `grafana-cloud`,
-  EKS는 `prometheus`를 사용한다. ServiceMonitor는 `prometheus`에서만 생성한다.
+- `metrics.backend`는 수집 방식을 정한다. EKS는 `prometheus`, k3s 선언은 Alloy가 직접 수집하는
+  `grafana-cloud`를 사용한다. ServiceMonitor는 `prometheus`에서만 생성한다.
 - `resources` 는 workload의 requests/limits 사용 여부를 제어하는 env 원천값이다.
   `true`면 chart 기본 requests/limits를 유지하고, `false`면 템플릿이 resource block을
   제거한다. 공통 chart는 EKS 기본값이며 k3s·local은 반드시 `resources: false`를 사용한다.
@@ -136,8 +137,10 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 
 ## apps/{eks,k3s,local}/<project>.yaml
 
-- EKS는 `kind: ApplicationSet` + git files generator로 `env/*.yaml`을 읽는다. k3s는 현재 단일 클러스터의 `Application`을 사용한다.
-- 현재 실존 클러스터는 k3s alpha다. EKS는 미래 선언이며 렌더 검증을 실제 배포로 보고하지 않는다.
+- EKS는 `kind: ApplicationSet` + git files generator로 `env/*.yaml`을 읽는다. k3s 선언은 단일 클러스터의 `Application`을 사용한다.
+- 운영 클러스터는 EKS `eks-demo`(phase `prod`)이며 같은 클러스터의 Argo CD가 `apps-eks.yaml`을 동기화한다.
+  `eks-demo-a`·`eks-demo-b`는 향후 서비스 클러스터 선언이다. k3s 선언(`apps-k3s.yaml`, `apps/k3s/`, `env/k3s-demo.yaml`, `charts/*/k3s/`)은 저장소에 남아 있지만 어느 클러스터에도 배포하지 않는다.
+  배포하지 않는 선언의 렌더 검증을 실제 배포로 보고하지 않는다. k3s 선언을 삭제하지 않는다.
 - 배포할 클러스터는 `generators.git.files` 의 주석을 풀어 고른다.
 - Application 이름은 `<project>-{{cluster}}`.
 - label `opspresso.com/group: apps`, `opspresso.com/cluster: {{cluster}}` 를 유지한다.
