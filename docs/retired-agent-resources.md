@@ -3,7 +3,7 @@
 현재 네 서비스는 `agent_platform` PostgreSQL을 사용합니다. Librio 지식 그래프는 PostgreSQL이
 원장이며, 이 배포는 `NEO4J_*`를 주입하지 않습니다. Forge 실행 Pod는 `emptyDir`를 사용하고
 파일·세션은 `agent_forge_checkpoints`의 암호화된 checkpoint에서 복원합니다.
-Studio의 Workspace worker는 관찰·대화 재개용이므로 유지합니다.
+Studio의 audio/Workspace worker도 더 이상 선언하지 않습니다. Argo CD `prune`이 두 Deployment를 삭제합니다.
 
 GitOps는 Neo4j chart/Application/Secret bootstrap과 Studio의 이전 Docker PVC·실행 namespace를
 더 이상 생성하지 않습니다. 현재 네 앱, Forge 실행 namespace, PostgreSQL·MinIO와 미래 EKS 선언은 유지합니다.

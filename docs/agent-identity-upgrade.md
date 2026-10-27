@@ -29,7 +29,7 @@
    `scripts/gitops.py deploy --dry-run`으로 alpha·prod의 새 이미지 버전 값을 생성하고,
    `scripts/build.sh`, 전체 Helm 검증과 pytest를 실행한다. 검증된 PR을 병합한다.
    PostgreSQL·MinIO·PVC는 유지하며 `storage_gc_maintenance`는 설정하지 않는다.
-2. 네 Argo Application이 해당 revision을 반영했고 8개 서비스 Deployment의 desired/ready가
+2. 네 Argo Application이 해당 revision을 반영했고 모든 서비스 Deployment의 desired/ready가
    모두 0인지 확인한다. 기존 Pod가 종료되기 전에 변환을 시작하지 않는다.
 3. 개인별 값을 출력하지 않고 기존 테이블의 행 수·식별자와 내용 digest를 기록한다.
    신규 nullable 필드와 스키마 marker는 내용 비교에서 구분한다.

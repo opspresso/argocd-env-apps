@@ -10,8 +10,6 @@ PVC 용량과 Forge Pod/Job 수 제한은 유지합니다.
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
 | --- | --- | --- | --- |
 | Studio web | 100m / 512Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
-| Studio Workspace observer | 200m / 512Mi | 2Gi | 2, 프로세스당 원격 작업 관찰 16개·대화 재개 2개 |
-| Studio Audio observer | 100m / 256Mi | 2Gi | 1 |
 | Memory web | 100m / 256Mi | 512Mi | 2~6, app CPU 70% |
 | Librio web | 100m / 512Mi | 2Gi | 2, app CPU 70% |
 | Librio queue worker | 200m / 512Mi | 2Gi | 1, web과 분리 |
@@ -33,15 +31,13 @@ Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 �
 | 프로세스 | query | queue | readiness | 잠금·보조 | AI admission | 합계 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Studio web | 4 | 0 | 1 | content 4 | 0 | 9 |
-| Studio Workspace/Audio observer | 4 | 0 | 0 | content 4 | 0 | 8 |
 | Memory web | 4 | 0 | 1 | background 2 + OIDC 2 | 0 | 9 |
 | Librio web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
 | Librio worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
 | Forge | 12 | 0 | 0 | OIDC 2 | 0 | 14 |
 | Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
 
-Studio Workspace readiness는 별도 짧은 프로세스에서 1개 쿼리 연결을 사용합니다.
-heartbeat liveness는 DB를 열지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
+Studio schedule ticker는 HTTP만 호출하고 DB에 연결하지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
 연결을 하나씩 사용합니다. Librio maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
 같은 pool을 만듭니다. 1시간 주기 platform retention은 worker에서만 query pool로 실행합니다.
 worker health는 process-only입니다. Forge pool 12와 OIDC 잠금 pool은 코드에 고정돼 있고
@@ -58,8 +54,8 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| alpha | `Studio(9+8+8+probe1)+Memory9+Librio(20+19)+Forge14+Models10 = 98` | 196 | 20 | 250 |
-| 미래 EKS | `Studio(6×9+2×8+8+probe2)+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 249` | 498 | 20 | 550 |
+| alpha | `Studio9+Memory9+Librio(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
+| 미래 EKS | `Studio6×9+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
 
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
 프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.
@@ -72,8 +68,7 @@ rollout을 누적하지 않습니다. PostgreSQL `max_connections`·공유 메�
 
 ## 실행 용량과 보존
 
-`workspace_max_pods`는 Forge 실행 namespace의 Pod/Job 상한입니다. Studio observer 동시성은
-실행 자원 quota와 별개입니다. 실행 Pod는 일시적인 디스크를 사용하고 마지막 확정 checkpoint로 복원합니다.
+`workspace_max_pods`는 Forge 실행 namespace의 Pod/Job 상한입니다. 실행 Pod는 일시적인 디스크를 사용하고 마지막 확정 checkpoint로 복원합니다.
 EKS Pod당 4608Mi ephemeral storage 예약에 더해 이미지·호스트 로그 디스크가 필요합니다.
 미래 Workspace NodePool은 taint `agent-forge/workspace`와 앱의 toleration을 맞춰야 합니다.
 

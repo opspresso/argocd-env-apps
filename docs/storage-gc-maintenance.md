@@ -22,8 +22,8 @@ minio:
 `storage_gc_maintenance`는 k3s에서 네 서비스가 모두 maintenance이고 콘솔이 꺼져 있을 때만
 허용됩니다. 잘못된 조합은 생성기가 산출물을 쓰기 전에 거부합니다.
 
-- Studio web·ticker·Audio observer·Workspace observer, Memory web, Librio web·worker,
-  Forge controller의 총 8개 Deployment가 0개가 됩니다. HPA도 비활성화합니다.
+- Studio web·ticker, Memory web, Librio web·worker, Forge controller의 총 6개 Deployment가
+  0개가 됩니다. HPA도 비활성화합니다.
 - MinIO console의 Deployment·Service·NetworkPolicy는 제거됩니다.
 - MinIO 서버의 기존 NetworkPolicy를 같은 이름·Pod selector의 `ingress: []` 정책으로 교체합니다.
   별도 deny 정책을 추가하는 방식이 아닙니다. 여러 NetworkPolicy의 allow 규칙은 합쳐지므로,
@@ -38,7 +38,7 @@ MinIO chart의 일반 NetworkPolicy는 전체 ingress를 빈 목록으로 바꾸
 
 1. 기존 활성 실행·업로드·queue 작업을 확인하고 승인된 유지보수 변경을 반영합니다.
    Argo Application은 각각 동기화되므로 여러 앱이 동시에 정지했다고 가정하지 않습니다.
-2. 승인 revision 반영, 8개 Deployment의 desired/ready 0, 해당 비종료 Pod와 MinIO console Pod 0을
+2. 승인 revision 반영, 6개 Deployment의 desired/ready 0, 해당 비종료 Pod와 MinIO console Pod 0을
    확인합니다. Forge 실행 namespace에도 활성 Sandbox Pod·Job이 없어야 합니다.
 3. 실제 env/envFrom·Secret key 참조에서 다른 S3 writer가 없는지 확인합니다.
    S3용 NodePort·LoadBalancer·Ingress·HTTPRoute·hostPort·외부 alias가 없는지도 대조합니다.
@@ -65,5 +65,5 @@ python3 scripts/validate.py --all-charts
 pytest
 ```
 
-재개 렌더에서 원래 MinIO ingress 정책과 콘솔이 돌아오고 앱 8개가 정상 replica를 갖는지 확인합니다.
+재개 렌더에서 원래 MinIO ingress 정책과 콘솔이 돌아오고 앱 6개가 정상 replica를 갖는지 확인합니다.
 반영 후 Argo 상태, 네 서비스 health, worker·storage 접근을 확인합니다.

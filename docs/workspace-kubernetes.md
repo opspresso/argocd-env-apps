@@ -30,8 +30,8 @@ native CLI는 이 주소의 인증된 모델 Gateway를 호출합니다. 같은 
 Kubernetes API, Studio·Memory·Librio·PostgreSQL·MinIO에는 직접 연결할 수 없습니다.
 폐쇄망은 `workspace_allow_public: false`, 추가 내부 목적지는 `workspace_extra_egress`에 정확히 선언합니다.
 
-앱 namespace ingress는 별도 정책입니다. Forge에 Studio와 Sandbox의 연결을 허용하고,
-Studio에 Forge의 정책 callback을 허용합니다. Forge controller의 외부 provider/Git 통신과
+앱 namespace ingress는 별도 정책입니다. Forge에 Studio와 Sandbox의 연결을 허용합니다.
+Forge는 Studio 정책 callback을 호출하지 않습니다. Forge controller의 외부 provider/Git 통신과
 Kubernetes API 접근은 Sandbox egress와 구분합니다.
 
 ## 이미지·디스크·복원
@@ -48,12 +48,12 @@ EKS의 기본 Pod는 1 CPU·2Gi memory·4608Mi ephemeral storage를 예약합니
 
 파일·native session은 Forge 전용 키로 암호화한 PostgreSQL checkpoint에서 복원합니다.
 Pod별 PVC는 만들지 않습니다. 마지막으로 확정된 checkpoint 뒤의 파일은 Pod 소실 시 복구되지 않습니다.
-수명·lease·output cursor·취소·unknown 상태는 Forge가 관리하며 Studio의 대화 재개와 분리합니다.
+수명·lease·output cursor·취소·unknown 상태는 Forge가 관리합니다.
 
 ## 폐기된 실행 자원
 
 Studio의 Docker daemon·Service·PVC·실행 namespace·RBAC는 선언하지 않습니다.
-Studio worker는 Forge 작업을 관찰하는 control-plane이므로 유지합니다.
+Studio에는 Workspace worker도 없습니다. Studio는 web과 ticker만 실행하고 Forge를 MCP로 호출합니다.
 예전 `app.legacyExecution` 값으로 구 실행기를 재활성화할 수 없습니다.
 기존 클러스터 자원의 삭제는 [소비자·내용 확인 절차](retired-agent-resources.md)를 따릅니다.
 

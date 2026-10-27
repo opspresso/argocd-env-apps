@@ -11,7 +11,7 @@
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
-| Studio | `studio.agrt.dev` | Agent·Chat, 승인, 서비스 위임, 오디오/Workspace 관찰·대화 재개 |
+| Studio | `studio.agrt.dev` | Agent·Chat, 승인, 로그인(OIDC 발급), MCP로 Memory·Librio·Forge 호출 |
 | Memory | `memory.agrt.dev` | 사용자·팀·조직의 단기/장기 메모리, recall/remember/handoff |
 | Librio | `librio.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
@@ -33,7 +33,6 @@ Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌�
 | `OIDC_PROVIDER_ID` | `studio`. callback은 `https://<서비스 호스트>/api/auth/callback/studio` |
 | `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret` |
 | `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3400` (Models 제외) |
-| `STUDIO_URL` | `http://agent-studio.agent-studio.svc.cluster.local:3000` (Librio·Forge의 정책 callback) |
 
 `gen_values.py`는 이 네 서비스의 `oidc`, `google_sign_in`, `sign_in_domains`를 거부합니다.
 Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `LIBRIO_OIDC_CLIENT_ID`,
@@ -168,10 +167,14 @@ ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하
 
 ## 실행과 네트워크
 
-Studio의 `agent-studio-audio-worker`와 `agent-studio-workspace-worker`는 원격 작업을 관찰하고
-후속 Agent/Chat을 실행합니다. Studio에는 Sandbox 실행 권한·Docker daemon·Kubernetes token이 없습니다.
-Workspace readiness는 Studio DB와 observer 설정/heartbeat를 확인합니다. Forge 장애는
-Studio observer의 liveness를 실패시키지 않습니다. ticker는 scan/plugin sync를 매분, reindex를 매시간 호출합니다.
+Studio는 web(`agent-studio`)과 schedule ticker(`agent-studio-ticker`)만 실행합니다.
+오디오 처리는 Librio, Workspace 실행은 Forge가 소유하고 Studio는 MCP로 두 서비스를 호출합니다.
+Studio에는 audio/Workspace worker, Sandbox 실행 권한, Docker daemon, Kubernetes token이 없습니다.
+ticker는 scan/plugin sync를 매분, reindex를 매시간 호출합니다. PR 리뷰는 호출자의 GitHub MCP grant로
+`GITHUB_API_URL`·`GITHUB_WEB_URL`에 연결합니다.
+
+Librio·Forge는 자기 정책을 직접 판단하며 Studio 정책 callback을 호출하지 않습니다. 그래서 두 서비스에는
+`STUDIO_URL`을 설정하지 않습니다.
 
 Librio는 웹과 별도 `agent-librio-worker` 하나를 사용합니다. 문서/Audio 소비는 worker에서만 활성화합니다.
 웹과 worker는 같은 이미지·모델·AI admission 정책을 사용합니다. quota는 동일 PostgreSQL에서
@@ -183,13 +186,19 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 공급자·Git 장기 키는 Sandbox에 전달하지 않습니다. 자세한 권한·보존 계약은
 [Kubernetes Workspace 운영](workspace-kubernetes.md)을 따릅니다.
 
+Forge 고유 Git 연결에는 GitHub OAuth App이 필요합니다. Forge는 선택 환경변수
+`FORGE_GITHUB_CLIENT_ID`, `FORGE_GITHUB_CLIENT_SECRET`으로 이 앱을 읽습니다. OAuth App의 callback은
+`<AUTH_BASE_URL>/api/github/callback`, scope는 `repo workflow read:user`입니다.
+이 저장소는 두 값을 아직 Forge에 주입하지 않으며 ExternalSecret 키도 없습니다. 값이 없으면 Forge 고유
+Git 연결은 사용할 수 없습니다. 연결하려면 SSM 경로와 ExternalSecret 키를 별도 변경으로 추가합니다.
+
 내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
 앱 ingress는 해당 플랫폼 Gateway, 수집기, 같은 namespace와 명시된 서비스 peer만 허용합니다.
 k3s Gateway 리소스는 `traefik-gateway` namespace에 있지만 실제 출발 Pod는 `kube-system`에 있습니다.
 Gateway 접근은 `app.kubernetes.io/name=traefik`, `app.kubernetes.io/instance=traefik-kube-system`을
 함께 가진 Pod로 제한하며 다른 `kube-system` Pod를 허용하지 않습니다.
-Studio에는 Forge/Librio callback, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
+Studio에는 Forge·Librio namespace의 연결, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
 연결을 허용합니다. Sandbox는 Models에 직접 연결하지 않고 Forge Gateway를 거칩니다.
 신뢰된 control-plane의 외부 LLM·MCP egress는 기존 동작을 유지합니다.
 Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod 포트만 허용합니다.
@@ -382,6 +391,33 @@ run_once() { ns=$1; image=$2; shift 2
 Studio는 ticker도 정지합니다. 각 flag는 다른 앱·DB·storage를 삭제하지 않습니다.
 이전 Workspace PVC/namespace와 구 실행기는 더 이상 선언하지 않습니다.
 기존 실데이터 삭제는 [별도 운영 절차](retired-agent-resources.md)로 수행합니다.
+
+## Studio worker 폐기와 독립 서비스 전환
+
+이 전환에서 Studio의 audio/Workspace worker와 Librio·Forge의 `STUDIO_URL`이 제거됩니다.
+Argo CD의 `prune`이 두 worker Deployment를 삭제합니다. 아래 명령은 [순서와 명령](#순서와-명령)의
+`run_once`와 `ECR`, `V_<SERVICE>`를 사용합니다. 각 서비스의 새 release image 게시를 먼저 확인합니다.
+
+1. **Librio DB 변환**: `agent_librio_maintenance: true`로 Librio web과 worker를 먼저 정지합니다.
+   두 Deployment의 desired/ready가 0인지 확인한 뒤 새 image로 변환합니다.
+   ```bash
+   run_once agent-librio "$ECR/agent-librio:$V_LIBRIO" node scripts/upgrade-audio-profiles.mjs --apply
+   ```
+   결과는 `upgraded` 또는 `current`여야 합니다. 다른 결과면 Librio를 재개하지 않고 원인을 확인합니다.
+   변환 후에는 Librio를 v0.21.x로 되돌리지 않습니다. 새 버전을 기록하고 maintenance를 `false`로 되돌립니다.
+2. **Forge**: 새 image를 배포합니다. schema v11→v12는 Forge가 시작할 때 자동으로 적용합니다.
+3. **Studio**: 새 Studio image를 배포한 뒤 platform auth를 변환합니다.
+   ```bash
+   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply
+   ```
+   이 도구는 서비스 API scope를 추가하고 Forge·Librio의 policy/control scope를 제거합니다.
+   여러 번 실행해도 결과가 같습니다.
+4. **확인**: `agent-studio` namespace에 `agent-studio`와 `agent-studio-ticker` Deployment만 있는지 확인합니다.
+   Librio 원본 upload→전사/회의록과 Forge 실행→로그→취소를 Studio MCP 호출로 확인합니다.
+   ```bash
+   kubectl -n agent-studio get deploy
+   curl -fsS https://librio.agrt.dev/api/health && curl -fsS https://forge.agrt.dev/health
+   ```
 
 ## 검증
 
