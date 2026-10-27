@@ -3,12 +3,13 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-memory
     tag: latest
+  # The limit covers a measured 530Mi peak under concurrent recalls.
   resources:
     requests:
       cpu: 50m
       memory: 160Mi
     limits:
-      memory: 512Mi
+      memory: 1Gi
   service:
     name: http
     port: 3000

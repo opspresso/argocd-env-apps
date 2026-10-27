@@ -8,8 +8,10 @@ app:
     enabled: False
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-librio
+
   imagePullSecrets:
     - name: ecr-registry
+
 
   resources: null
 

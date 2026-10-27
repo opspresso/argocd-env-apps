@@ -3,12 +3,14 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-studio
     tag: latest
+  # Requests follow idle use. The limit covers a measured 1.1Gi peak under
+  # concurrent agent runs.
   resources:
     requests:
       cpu: 50m
       memory: 256Mi
     limits:
-      memory: 1Gi
+      memory: 2Gi
   service:
     name: http
     port: 3000
