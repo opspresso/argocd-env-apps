@@ -1,6 +1,3 @@
 global:
   broker:
-    cluster: eks-demo-b
-    region: ap-northeast-2
     tenantSecretsRoleArn: arn:aws:iam::396608815058:role/agent-broker-tenant-secrets
-    tenants: []

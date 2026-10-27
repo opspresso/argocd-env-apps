@@ -1,6 +1,3 @@
 global:
   broker:
-    cluster: {{cluster}}
-    region: {{aws_region}}
     tenantSecretsRoleArn: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-secrets
-    tenants: {{ (agent_broker.tenants if agent_broker is defined and agent_broker.tenants is defined else []) | tojson }}

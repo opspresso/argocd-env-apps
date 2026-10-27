@@ -10,7 +10,7 @@
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
 | `argocd-env-addons` | Argo CD, External Secrets, Istio Gateway, external-dns, CNI 정책, 관측성 |
-| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Broker 풀·테넌트 |
+| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Broker 풀·tenant admission 정책 |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
@@ -482,15 +482,21 @@ Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
 | --- | --- | --- |
 | `agent-broker-<cluster>` | `agent-broker` | Broker web·API·MCP. `agent_broker_maintenance: true`이면 0개 |
 | `broker-pool-<cluster>` | `broker-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `broker_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
-| `broker-tenants-<cluster>` | `app-<project>-<env>` | `agent_broker.tenants` 항목마다 namespace, SA `app`, SecretStore `agent-broker`, ExternalSecret `app-env`, 기본 NetworkPolicy, ResourceQuota |
+| `broker-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `broker-tenant-secret-stores` |
 
 - `agent_broker.connected`가 `true`일 때만 Studio(`BROKER_URL`, Broker OIDC client ID, MCP 내부 host)와 Forge(`BROKER_URL`, Sandbox의 풀 egress)가
   Broker에 연결된다. Broker client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
   `register-platform-client.cjs --service agent-broker`로 client를 등록해 SSM에 저장한 뒤 Broker를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
+- 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-broker`, ExternalSecret `app-env`,
+  NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Broker Delivery가
+  `projects/<project>/<env>.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
+  (`agent-platform`의 `docs/APP_DELIVERY.md`).
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-broker-tenant-secrets` 역할을
   session tag `broker-project`·`broker-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
-- 테넌트 항목을 지워도 namespace는 지우지 않는다(`Prune=false`). 앱을 정리한 뒤 직접 삭제한다.
+- Broker는 `agent_broker.delivery`의 namespace(`app-delivery`)에 Argo Workflows Workflow를 제출한다. 그래서 Broker Pod는
+  ServiceAccount token을 마운트하고(`automountServiceAccountToken: true`), `NODE_EXTRA_CA_CERTS`로 API server CA를 신뢰한다.
+  제출 권한(Role `agent-broker`)은 `argocd-env-projects`의 `charts/delivery`가 준다.
 - AWS는 session tag가 가리키는 Project 경로를 읽게 할 뿐, tag가 정당한지는 확인하지 않는다. 그래서 클러스터의
   ValidatingAdmissionPolicy `broker-tenant-secret-stores`가 모든 SecretStore·ClusterSecretStore를 검사한다.
   - 테넌트 namespace의 SecretStore는 tenant 역할만 쓸 수 있다.

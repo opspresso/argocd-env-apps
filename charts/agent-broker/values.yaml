@@ -157,7 +157,9 @@ app:
                 port: {{ .Values.service.targetPort }}
   registry:
     region: ap-northeast-2
-  automountServiceAccountToken: false
+  # Broker submits app Deliveries to Argo Workflows through the Kubernetes API (argocd-env-projects
+  # charts/delivery grants its ServiceAccount a Role in namespace app-delivery).
+  automountServiceAccountToken: true
   # Studio calls the MCP endpoint; Forge materializes dev variables at Run start.
   servicePeers:
   - agent-studio

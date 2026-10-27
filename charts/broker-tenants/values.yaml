@@ -1,13 +1,9 @@
-# One deployment namespace per Broker Project environment (agent-platform docs/RESOURCE_BROKER.md).
-# Broker's `deployment_wiring` returns the `tenants` entry to add to env/<cluster>.yaml.
+# The admission policy that keeps the Broker tenant secrets role inside its own Project namespace.
+# argocd-env-projects charts/app creates the namespaces app-<project>-<env> and their SecretStores
+# (agent-platform docs/APP_DELIVERY.md); this policy guards every SecretStore in the cluster.
 global:
   broker:
-    cluster: ""
-    region: ap-northeast-2
     tenantSecretsRoleArn: ""
-    # - project: todo
-    #   env: dev
-    tenants: []
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
@@ -64,118 +60,3 @@ raw:
       spec:
         policyName: broker-tenant-secret-stores
         validationActions: [Deny]
-    - |
-      {{- $root := .Values.global.broker }}
-      apiVersion: v1
-      kind: List
-      items:{{ if not $root.tenants }} []{{ end }}
-      {{- range $root.tenants }}
-      {{- $ns := printf "app-%s-%s" .project .env }}
-      {{- $path := printf "/agent-broker/%s/%s/%s" $root.cluster .project .env }}
-        - apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: {{ $ns }}
-            annotations:
-              # Removing a tenant entry must not delete a namespace that still runs an application.
-              argocd.argoproj.io/sync-options: Prune=false
-            labels:
-              opspresso.com/broker-tenant: "true"
-              opspresso.com/broker-project: {{ .project | quote }}
-              opspresso.com/broker-env: {{ .env | quote }}
-        - apiVersion: v1
-          kind: ServiceAccount
-          metadata:
-            name: app
-            namespace: {{ $ns }}
-          automountServiceAccountToken: false
-        # The tenant role only reads paths that match these session tags; AWS rejects any other Project.
-        - apiVersion: external-secrets.io/v1
-          kind: SecretStore
-          metadata:
-            name: agent-broker
-            namespace: {{ $ns }}
-          spec:
-            provider:
-              aws:
-                service: ParameterStore
-                region: {{ $root.region }}
-                role: {{ required "tenantSecretsRoleArn is required" $root.tenantSecretsRoleArn }}
-                sessionTags:
-                  - key: broker-project
-                    value: {{ .project | quote }}
-                  - key: broker-env
-                    value: {{ .env | quote }}
-        - apiVersion: external-secrets.io/v1
-          kind: ExternalSecret
-          metadata:
-            name: app-env
-            namespace: {{ $ns }}
-          spec:
-            refreshInterval: 15m
-            secretStoreRef:
-              kind: SecretStore
-              name: agent-broker
-            target:
-              name: app-env
-              creationPolicy: Owner
-            dataFrom:
-              - find:
-                  path: {{ $path }}
-                  name:
-                    regexp: ".*"
-                rewrite:
-                  - regexp:
-                      source: {{ printf "^%s/" $path | quote }}
-                      target: ""
-        - apiVersion: networking.k8s.io/v1
-          kind: NetworkPolicy
-          metadata:
-            name: tenant-baseline
-            namespace: {{ $ns }}
-          spec:
-            podSelector: {}
-            policyTypes: [Ingress, Egress]
-            ingress:
-              - from:
-                  - podSelector: {}
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: istio-system
-            egress:
-              - to:
-                  - podSelector: {}
-              - to:
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: kube-system
-                ports:
-                  - {protocol: UDP, port: 53}
-                  - {protocol: TCP, port: 53}
-              - to:
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: broker-pool
-                ports:
-                  - {protocol: TCP, port: 5432}
-              # Public HTTPS only: no instance metadata, cluster or VPC addresses.
-              - to:
-                  - ipBlock:
-                      cidr: 0.0.0.0/0
-                      except: [10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16]
-                ports:
-                  - {protocol: TCP, port: 443}
-        - apiVersion: v1
-          kind: ResourceQuota
-          metadata:
-            name: tenant
-            namespace: {{ $ns }}
-          spec:
-            hard:
-              requests.cpu: "2"
-              requests.memory: 4Gi
-              limits.memory: 8Gi
-              pods: "20"
-              services.loadbalancers: "0"
-              services.nodeports: "0"
-      {{- end }}
