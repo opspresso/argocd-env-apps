@@ -27,6 +27,13 @@ app:
       BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-sandbox-objects
       BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-tenant-objects
       BROKER_EKS_CLUSTER: eks-demo
+
+      # App Delivery (agent-platform docs/APP_DELIVERY.md). The service account CA lets fetch trust the API server.
+      BROKER_DELIVERY_NAMESPACE: app-delivery
+      BROKER_DELIVERY_TEMPLATE: app-delivery
+      BROKER_DELIVERY_DOMAIN: apps.rovr.dev
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
   externalSecrets:
     enabled: true
     data:

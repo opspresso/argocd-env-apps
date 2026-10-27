@@ -75,8 +75,11 @@ agent_broker:
   hostname: broker.agrt.dev
   # Studio and Forge use Broker only after Studio has issued Broker's OIDC client and Broker is running.
   connected: true
-  # Deployment namespaces app-<project>-<env>; Broker's deployment_wiring returns entries.
-  tenants: []
+  # App Delivery: argocd-env-projects declares the WorkflowTemplate and the per-environment Applications.
+  delivery:
+    namespace: app-delivery
+    template: app-delivery
+    domain: apps.rovr.dev
 broker_pool:
   storage: 10Gi
   storageClass: gp3

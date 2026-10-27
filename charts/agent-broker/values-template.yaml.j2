@@ -33,6 +33,13 @@ app:
       BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-sandbox-objects
       BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-objects
       BROKER_EKS_CLUSTER: {{cluster}}
+{% if agent_broker.delivery is defined %}
+      # App Delivery (agent-platform docs/APP_DELIVERY.md). The service account CA lets fetch trust the API server.
+      BROKER_DELIVERY_NAMESPACE: {{agent_broker.delivery.namespace}}
+      BROKER_DELIVERY_TEMPLATE: {{agent_broker.delivery.template}}
+      BROKER_DELIVERY_DOMAIN: {{agent_broker.delivery.domain}}
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+{% endif %}
   externalSecrets:
     enabled: true
     data:
