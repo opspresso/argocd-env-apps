@@ -70,3 +70,11 @@ sample_node:
 agent_models_maintenance: true
 agent_models:
   hostname: models.agrt.dev
+agent_broker_maintenance: true
+agent_broker:
+  hostname: broker.agrt.dev
+  # Deployment namespaces app-<project>-<env>; Broker's deployment_wiring returns entries.
+  tenants: []
+broker_pool:
+  storage: 10Gi
+  storageClass: gp3

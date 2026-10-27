@@ -169,6 +169,10 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-{models,memory,librio,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
 | `agent-{models,memory,librio,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
 | `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
+| `agent-broker/auth-secret` | Broker | bootstrap(`agent_broker`가 있는 클러스터) |
+| `agent-broker/pool-admin-password`, `pool-database-url` | Broker, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
+| `broker-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
+| `agent-broker/oidc-client-id`, `oidc-client-secret` | Broker, Studio | Studio 등록 후 |
 
 Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
 Memory·Librio 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
@@ -450,3 +454,21 @@ health 성공만으로 원본 storage·provider·작업 성공을 판정하지 �
 DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.md)을 따릅니다.
 PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collation 버전도 확인합니다.
 경고를 없애려고 데이터나 인덱스 재구성 없이 버전만 덮어쓰지 않습니다.
+
+## Agent Broker
+
+EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_broker`). Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로
+k3s에는 선언하지 않는다. 계약은 `agent-platform`의 `docs/RESOURCE_BROKER.md`, AWS 리소스는 `terraform-env-demo`의
+`demo/8-agent-broker`가 소유한다.
+
+| Application | namespace | 내용 |
+| --- | --- | --- |
+| `agent-broker-<cluster>` | `agent-broker` | Broker web·API·MCP. `agent_broker_maintenance: true`이면 0개 |
+| `broker-pool-<cluster>` | `broker-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `broker_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
+| `broker-tenants-<cluster>` | `app-<project>-<env>` | `agent_broker.tenants` 항목마다 namespace, SA `app`, SecretStore `agent-broker`, ExternalSecret `app-env`, 기본 NetworkPolicy, ResourceQuota |
+
+- 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-broker-tenant-secrets` 역할을
+  session tag `broker-project`·`broker-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
+- 테넌트 항목을 지워도 namespace는 지우지 않는다(`Prune=false`). 앱을 정리한 뒤 직접 삭제한다.
+- 풀은 `agent-broker`, `agent-forge-workspaces`, `opspresso.com/broker-tenant=true` namespace에서만 접속을 받는다.
+  Forge Sandbox egress에는 `agent_broker`가 있을 때 풀 5432 허용이 추가된다.

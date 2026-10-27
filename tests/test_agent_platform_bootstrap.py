@@ -110,3 +110,21 @@ def test_copy_from_requires_every_source_value_before_any_write():
         with pytest.raises(RuntimeError, match="agent-forge/organization-id"):
             bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo")
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
+
+
+def test_broker_clusters_get_pool_credentials_with_a_matching_admin_url(capsys):
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm({})) as aws:
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, broker=True) == 0
+    writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"]["Value"] for call in aws.call_args_list
+              if call.args[2] == "put-parameter"}
+    admin = writes[f"{TARGET}/agent-broker/pool-admin-password"]
+    assert writes[f"{TARGET}/agent-broker/pool-database-url"] == (
+        f"postgresql://broker_admin:{admin}@postgres.broker-pool.svc.cluster.local:5432/postgres")
+    assert len(writes[f"{TARGET}/agent-broker/auth-secret"]) >= 32
+    assert writes[f"{TARGET}/broker-pool/postgres-password"] != admin
+    assert f"{TARGET}/agent-broker/oidc-client-id" in capsys.readouterr().out
+    assert not any("oidc-client" in name for name in writes)
+
+
+def test_clusters_without_broker_get_no_broker_parameters():
+    assert not any("broker" in name for name in bootstrap.parameter_values(TARGET, {}))

@@ -1,0 +1,63 @@
+app:
+  fullnameOverride: agent-broker
+  raw:
+    enabled: True
+
+  replicaCount: 0
+  autoscaling:
+    enabled: False
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-broker
+  imagePullSecrets:
+    - name: ecr-registry
+
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://broker.agrt.dev
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: ap-northeast-2
+      BROKER_CLUSTER: eks-demo
+      BROKER_KMS_KEY_ID: alias/agent-broker
+      BROKER_POOL_HOST: postgres.broker-pool.svc.cluster.local
+      BROKER_POOL_PORT: '5432'
+      BROKER_BUCKET: agent-broker-objects
+      BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-sandbox-objects
+      BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-tenant-objects
+      BROKER_EKS_CLUSTER: eks-demo
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/agent-broker/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/eks-demo/agent-broker/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-broker/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/eks-demo/agent-broker/pool-database-url
+      name: BROKER_POOL_DATABASE_URL
+  routing:
+    hosts:
+    - broker.agrt.dev
+    httpRoute:
+      enabled: true
+
+
+  podLabels:
+    sidecar.istio.io/inject: "true"
+
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://broker.agrt.dev
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: ap-northeast-2

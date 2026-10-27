@@ -1,0 +1,194 @@
+# Shared PostgreSQL for Agent Broker `postgres` resources (agent-platform docs/RESOURCE_BROKER.md).
+# Tenants get their own database and login role; the platform database lives elsewhere.
+externalSecrets:
+  enabled: true
+
+global:
+  security:
+    allowInsecureImages: true
+  postgresql:
+    auth:
+      # Superuser used only by the bootstrap Job. Broker uses `broker_admin`.
+      username: pool_owner
+      database: postgres
+      existingSecret: broker-pool-credentials
+      secretKeys:
+        adminPasswordKey: postgres-password
+        userPasswordKey: postgres-password
+
+postgresql:
+  fullnameOverride: postgres
+
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: 0.8.6-pg18-trixie
+    pullPolicy: IfNotPresent
+
+  # pgvector uses the Docker Official PostgreSQL entrypoint, not Bitnami's.
+  auth:
+    usePasswordFiles: false
+    enablePostgresUser: false
+  postgresqlDataDir: /var/lib/postgresql/data
+  serviceAccount:
+    create: false
+    name: default
+  volumePermissions:
+    enabled: false
+  shmVolume:
+    enabled: false
+
+  primary:
+    terminationGracePeriodSeconds: 60
+    automountServiceAccountToken: false
+    podSecurityContext:
+      fsGroup: 999
+    containerSecurityContext:
+      enabled: false
+    resourcesPreset: none
+    pdb:
+      create: false
+    networkPolicy:
+      enabled: false
+    extraEnvVars:
+      - name: POSTGRES_DB
+        value: postgres
+    customReadinessProbe:
+      exec:
+        command: [sh, -ec, 'pg_isready -U "${POSTGRES_USER}" -d postgres -h 127.0.0.1 -p 5432']
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    customLivenessProbe:
+      exec:
+        command: [sh, -ec, 'pg_isready -U "${POSTGRES_USER}" -d postgres -h 127.0.0.1 -p 5432']
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    persistence:
+      mountPath: /var/lib/postgresql
+      volumeName: data
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
+raw:
+  templates:
+    - |
+        {{- $ssmPrefix := required "ssmPrefix is required; include <platform>/values-<cluster>.yaml" .Values.global.ssmPrefix -}}
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: broker-pool-credentials
+          annotations:
+            argocd.argoproj.io/sync-wave: "-1"
+        spec:
+          refreshInterval: 1h
+          secretStoreRef:
+            kind: ClusterSecretStore
+            name: parameter-store
+          target:
+            name: broker-pool-credentials
+            creationPolicy: Owner
+          data:
+            - secretKey: postgres-password
+              remoteRef:
+                key: {{ $ssmPrefix }}/broker-pool/postgres-password
+            - secretKey: broker-admin-password
+              remoteRef:
+                key: {{ $ssmPrefix }}/agent-broker/pool-admin-password
+    - |
+        # Broker manages databases; Forge Sandboxes and Broker tenant namespaces use them.
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: postgres
+        spec:
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+          policyTypes: [Ingress]
+          ingress:
+            - from:
+                - podSelector: {}
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: agent-broker
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: agent-forge-workspaces
+                - namespaceSelector:
+                    matchLabels:
+                      opspresso.com/broker-tenant: "true"
+              ports:
+                - protocol: TCP
+                  port: 5432
+
+# Idempotent server setup: the non-superuser Broker administrator and pgvector in template1,
+# so every database Broker creates already has the extension.
+bootstrap:
+  enabled: true
+  image:
+    repository: pgvector/pgvector
+    tag: 0.8.6-pg18-trixie
+  jobResources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  templates:
+    - |
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: broker-pool-bootstrap
+          annotations:
+            argocd.argoproj.io/hook: Sync
+            argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+            argocd.argoproj.io/sync-wave: "1"
+        spec:
+          backoffLimit: 12
+          template:
+            spec:
+              restartPolicy: OnFailure
+              automountServiceAccountToken: false
+              containers:
+                - name: bootstrap
+                  image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        {{- with .Values.jobResources }}
+                  resources:
+        {{ toYaml . | nindent 12 }}
+        {{- end }}
+                  env:
+                    - name: PGPASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: broker-pool-credentials
+                          key: postgres-password
+                    - name: BROKER_ADMIN_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: broker-pool-credentials
+                          key: broker-admin-password
+                  command:
+                    - sh
+                    - -ec
+                    - |
+                      until pg_isready -h postgres -U pool_owner -d postgres; do sleep 2; done
+                      psql -h postgres -U pool_owner -d postgres -v ON_ERROR_STOP=1 -v admin_password="$BROKER_ADMIN_PASSWORD" <<'SQL'
+                      SELECT 'CREATE ROLE broker_admin LOGIN CREATEDB CREATEROLE'
+                      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'broker_admin')\gexec
+                      ALTER ROLE broker_admin WITH LOGIN CREATEDB CREATEROLE NOSUPERUSER PASSWORD :'admin_password';
+                      REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
+                      GRANT CONNECT ON DATABASE postgres TO broker_admin;
+                      SQL
+                      psql -h postgres -U pool_owner -d template1 -v ON_ERROR_STOP=1 \
+                        -c "CREATE EXTENSION IF NOT EXISTS vector;"
