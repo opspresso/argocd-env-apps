@@ -13,6 +13,8 @@ spec:
   template:
     metadata:
       name: "mcp-cloudwatch-{{cluster}}"
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: /charts/mcp-cloudwatch
       labels:
         app.kubernetes.io/instance: "apps-{{cluster}}"
         opspresso.com/cluster: "{{cluster}}"
@@ -38,3 +40,10 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+        # Retry transient failures, such as a CR applied before its CRD exists.
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
