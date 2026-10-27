@@ -467,6 +467,10 @@ k3s에는 선언하지 않는다. 계약은 `agent-platform`의 `docs/RESOURCE_B
 | `broker-pool-<cluster>` | `broker-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `broker_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
 | `broker-tenants-<cluster>` | `app-<project>-<env>` | `agent_broker.tenants` 항목마다 namespace, SA `app`, SecretStore `agent-broker`, ExternalSecret `app-env`, 기본 NetworkPolicy, ResourceQuota |
 
+- `agent_broker.connected`가 `true`일 때만 Studio(`BROKER_URL`, Broker OIDC client ID, MCP 내부 host)와 Forge(`BROKER_URL`, Sandbox의 풀 egress)가
+  Broker에 연결된다. Broker client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
+  `register-platform-client.cjs --service agent-broker`로 client를 등록해 SSM에 저장한 뒤 Broker를 켜고 `connected: true`로 바꾼다.
+  이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-broker-tenant-secrets` 역할을
   session tag `broker-project`·`broker-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
 - 테넌트 항목을 지워도 namespace는 지우지 않는다(`Prune=false`). 앱을 정리한 뒤 직접 삭제한다.

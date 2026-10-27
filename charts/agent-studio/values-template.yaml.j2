@@ -63,11 +63,11 @@ app:
       MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
-      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-broker.svc.cluster.local' if agent_broker is defined else ''}}
+      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-broker.svc.cluster.local' if (agent_broker is defined and agent_broker.connected | default(false)) else ''}}
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       LIBRIO_URL: http://agent-librio.agent-librio.svc.cluster.local:3000
-{%- if agent_broker is defined %}
+{%- if (agent_broker is defined and agent_broker.connected | default(false)) %}
       BROKER_URL: http://agent-broker.agent-broker.svc.cluster.local:3500
 {%- endif %}
       PLUGINS_REPO: opspresso/agent-plugins
@@ -135,7 +135,7 @@ app:
     - key: /k8s/{{cluster}}/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     # Studio registers each service client; the service and Studio read the same client ID.
-{% for service in ('forge', 'memory', 'librio') + (('broker',) if agent_broker is defined else ()) %}
+{% for service in ('forge', 'memory', 'librio') + (('broker',) if (agent_broker is defined and agent_broker.connected | default(false)) else ()) %}
     - key: /k8s/{{cluster}}/agent-{{service}}/oidc-client-id
       name: {{service | upper}}_OIDC_CLIENT_ID
 {% endfor %}

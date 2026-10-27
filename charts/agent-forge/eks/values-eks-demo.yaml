@@ -38,8 +38,6 @@ app:
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
-      # Run start materializes the Project's dev variables (agent-platform docs/RESOURCE_BROKER.md).
-      BROKER_URL: http://agent-broker.agent-broker.svc.cluster.local:3500
   sandbox:
     namespace: agent-forge-workspaces
     maxPods: 32
@@ -49,8 +47,7 @@ app:
     dnsCidrs:
       - 172.20.0.10/32
     allowPublic: True
-    # Sandbox apps connect to their Broker dev databases.
-    extraEgress: [{"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "broker-pool"}}}]}]
+    extraEgress: []
   routing:
     hosts:
     - forge.agrt.dev

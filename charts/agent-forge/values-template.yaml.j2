@@ -46,7 +46,7 @@ app:
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
-{%- if agent_broker is defined %}
+{%- if (agent_broker is defined and agent_broker.connected | default(false)) %}
       # Run start materializes the Project's dev variables (agent-platform docs/RESOURCE_BROKER.md).
       BROKER_URL: http://agent-broker.agent-broker.svc.cluster.local:3500
 {%- endif %}
@@ -59,7 +59,7 @@ app:
     dnsCidrs:
       - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
     allowPublic: {{workspace_allow_public | default(true)}}
-{%- if agent_broker is defined %}
+{%- if (agent_broker is defined and agent_broker.connected | default(false)) %}
     # Sandbox apps connect to their Broker dev databases.
     extraEgress: {{ ((workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "broker-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}]) | tojson }}
 {%- else %}

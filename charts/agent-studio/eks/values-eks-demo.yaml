@@ -43,11 +43,10 @@ app:
       MODELS_PUBLIC_URL: https://models.agrt.dev
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
-      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local,agent-broker.svc.cluster.local
+      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       LIBRIO_URL: http://agent-librio.agent-librio.svc.cluster.local:3000
-      BROKER_URL: http://agent-broker.agent-broker.svc.cluster.local:3500
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
       # PR review reaches GitHub with the caller's GitHub MCP grant.
@@ -106,9 +105,6 @@ app:
 
     - key: /k8s/eks-demo/agent-librio/oidc-client-id
       name: LIBRIO_OIDC_CLIENT_ID
-
-    - key: /k8s/eks-demo/agent-broker/oidc-client-id
-      name: BROKER_OIDC_CLIENT_ID
 
   ingressPeers:
     - namespaceSelector:
