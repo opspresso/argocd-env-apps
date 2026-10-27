@@ -186,11 +186,12 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 공급자·Git 장기 키는 Sandbox에 전달하지 않습니다. 자세한 권한·보존 계약은
 [Kubernetes Workspace 운영](workspace-kubernetes.md)을 따릅니다.
 
-Forge 고유 Git 연결에는 GitHub OAuth App이 필요합니다. Forge는 선택 환경변수
+Forge 고유 Git 연결에는 GitHub OAuth App이 필요합니다. Forge는
 `FORGE_GITHUB_CLIENT_ID`, `FORGE_GITHUB_CLIENT_SECRET`으로 이 앱을 읽습니다. OAuth App의 callback은
 `<AUTH_BASE_URL>/api/github/callback`, scope는 `repo workflow read:user`입니다.
-이 저장소는 두 값을 아직 Forge에 주입하지 않으며 ExternalSecret 키도 없습니다. 값이 없으면 Forge 고유
-Git 연결은 사용할 수 없습니다. 연결하려면 SSM 경로와 ExternalSecret 키를 별도 변경으로 추가합니다.
+ExternalSecret은 두 값을 `/k8s/<cluster>/agent-forge/github-client-id`,
+`/k8s/<cluster>/agent-forge/github-client-secret` SecureString에서 읽습니다. 두 parameter가 없으면
+Forge Secret 동기화가 실패하므로 배포 전에 만듭니다.
 
 내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.

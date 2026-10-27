@@ -99,6 +99,11 @@ app:
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/{{cluster}}/agent-forge/session-secret
       name: AUTH_SECRET
+    # Forge-owned GitHub OAuth app; callback https://<forge host>/api/github/callback.
+    - key: /k8s/{{cluster}}/agent-forge/github-client-id
+      name: FORGE_GITHUB_CLIENT_ID
+    - key: /k8s/{{cluster}}/agent-forge/github-client-secret
+      name: FORGE_GITHUB_CLIENT_SECRET
     # Static scrape credential for /metrics, shared with Alloy and the ServiceMonitor.
     - key: /k8s/{{cluster}}/agent-forge/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
