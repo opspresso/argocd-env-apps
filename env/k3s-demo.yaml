@@ -60,7 +60,7 @@ agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
-agent_librio_maintenance: false
+agent_librio_maintenance: true
 agent_forge_maintenance: false
 sample_node:
   hostname: sample-node.rovr.dev
