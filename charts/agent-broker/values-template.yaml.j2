@@ -23,6 +23,7 @@ app:
       OIDC_PROVIDER_ID: studio
       AWS_REGION: {{aws_region}}
       BROKER_CLUSTER: {{cluster}}
+      BROKER_SECRET_STORE: ssm
       BROKER_KMS_KEY_ID: alias/agent-broker
       BROKER_POOL_HOST: postgres.broker-pool.svc.cluster.local
       BROKER_POOL_PORT: '5432'
@@ -30,6 +31,7 @@ app:
       BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-sandbox-objects
       BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-objects
       BROKER_EKS_CLUSTER: {{cluster}}
+      BROKER_TENANT_SECRETS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-secrets
   externalSecrets:
     enabled: true
     data:
