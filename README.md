@@ -1,8 +1,8 @@
 # argocd-env-apps
 
-현재 k3s alpha와 미래 EKS 선언의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
+운영 클러스터 EKS `eks-demo`의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
-Agent Studio·Models·Memory·Librio·Forge의 k3s/EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
+Agent Studio·Models·Memory·Librio·Forge·Broker의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
 
 ## 저장소 구조
@@ -25,18 +25,19 @@ docs/             # 운영 문서
 > apps 를 등록 합니다.
 
 ```bash
-kubectl apply -n argocd -f https://raw.githubusercontent.com/opspresso/argocd-env-apps/main/apps-k3s.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/opspresso/argocd-env-apps/main/apps-eks.yaml
 ```
 
-현재 k3s는 `apps/k3s/`의 Application을 등록한다. 미래 EKS를 준비한 뒤에는
-`apps-eks.yaml`을 해당 클러스터에 등록하며 `apps/eks/`의 ApplicationSet이 선택한 env만 읽는다.
+운영 클러스터 `eks-demo`의 Argo CD는 `apps-eks.yaml`로 `apps/eks/`의 ApplicationSet을 등록한다.
+각 ApplicationSet은 `generators.git.files`에 나열한 env만 읽는다.
+k3s 선언(`apps-k3s.yaml`, `apps/k3s/`, `env/k3s-demo.yaml`, `charts/*/k3s/`)은 저장소에 남아 있지만 어느 클러스터에도 배포하지 않는다.
 
 replica 수, autoscaling 여부와 resource 사용 여부는 `env/<cluster>.yaml`이 원천이다.
 공통 `values.yaml`은 EKS를 기본으로 하며 EKS는 기존 env 설정을 적용한다.
-k3s·local 환경은 `replicas: 1`, `autoscaling: false`, `resources: false`로 선언한다.
-metrics backend는 `metrics.backend`로 선택하며, k3s는 `grafana-cloud`, EKS는
-`prometheus`를 사용한다.
-k3s Alloy가 `/api/metrics`(Forge는 `/metrics`)를 직접 수집하므로 ServiceMonitor CRD와 로컬 metrics DB가
+k3s 선언과 local fixture는 `replicas: 1`, `autoscaling: false`, `resources: false`로 선언한다.
+metrics backend는 `metrics.backend`로 선택하며, EKS는 `prometheus`, k3s 선언은
+`grafana-cloud`를 사용한다.
+`grafana-cloud`에서는 Alloy가 `/api/metrics`(Forge는 `/metrics`)를 직접 수집하므로 ServiceMonitor CRD와 로컬 metrics DB가
 필요하지 않다. `prometheus` backend만 ServiceMonitor를 생성한다.
 각 chart의 기본 values가 운영용 requests/limits를 제공하며, `resources: false`인
 환경에서는 템플릿이 해당 resource block을 제거한다. 컨테이너·초기화 컨테이너·worker·CronJob에도 같은 규칙을 적용한다.
@@ -46,7 +47,7 @@ HPA·VPA·KEDA autoscaler를 생성하지 않으며 PVC storage 요청은 유지
 
 ## 로컬 Kubernetes 개발 환경
 
-현재 클러스터는 k3s만 존재하며 EKS는 미래 배포 선언이다. `apps-local.yaml`, `apps/local/`, `env/local-demo.yaml`은
+`apps-local.yaml`, `apps/local/`, `env/local-demo.yaml`은
 제공하지 않는다. 템플릿의 `local` 분기는 `tests/fixtures/local-env.yaml`을 사용해
 MCP 인증 설정과 PostgreSQL 초기화 동작을 검증한다. 이 fixture는 배포 대상이 아니다.
 
@@ -92,7 +93,7 @@ phase 로 취급하지 않는다.
 sync 에 실패하기 때문이다.
 
 ApplicationSet 은 `env/*.yaml` 의 `phase` 필드로 어떤 `values-<phase>.yaml` 을 읽을지 정한다.
-`k3s-demo`는 `phase: alpha`, `eks-demo`는 `phase: prod`를 사용한다.
+`eks-demo`는 `phase: prod`, 배포하지 않는 `k3s-demo` 선언은 `phase: alpha`를 사용한다.
 앱과 MCP의 두 phase values를 별도로 관리한다.
 
 클러스터별 SSM 경로는 `values-template.yaml.j2`가 `env/<cluster>.yaml`의 `cluster`에서

@@ -16,7 +16,7 @@
    설정 이름과 이미지가 따로 반영되지 않도록 조정된 배포에서는 원본 저장소의
    `GITOPS_AUTO_DEPLOY=false`로 이미지 발행과 GitOps 반영을 분리한다. 기존 변수 상태를 기록한다.
 2. 실제 대상은 각 Argo Application의 namespace와 DB 연결 참조로 확인한다.
-   현재 k3s alpha가 운영 대상이며 EKS 값은 미래 환경 선언이다.
+   운영 대상은 EKS `eks-demo`(phase `prod`)다. k3s 선언은 배포하지 않는다.
 3. 활성 실행·업로드·queue·Sandbox 작업과 현재 스키마를 읽기 전용으로 확인한다.
    현재 스키마가 표와 다르면 실행하지 않고 해당 버전의 전환 절차를 확인한다.
 4. 기존 인증 secret, 암호화 key, issuer, provider ID를 보존한다. 공통 변수 이름은
@@ -25,10 +25,10 @@
 
 ## 중지와 변환
 
-1. `env/k3s-demo.yaml`의 네 `agent_<service>_maintenance` 값을 `true`로 설정한다.
-   `scripts/gitops.py deploy --dry-run`으로 alpha·prod의 새 이미지 버전 값을 생성하고,
+1. 대상 `env/<cluster>.yaml`(운영은 `env/eks-demo.yaml`)의 네 `agent_<service>_maintenance` 값을 `true`로 설정한다.
+   `scripts/gitops.py deploy --dry-run`으로 대상 phase(운영은 `prod`)의 새 이미지 버전 값을 생성하고,
    `scripts/build.sh`, 전체 Helm 검증과 pytest를 실행한다. 검증된 PR을 병합한다.
-   PostgreSQL·MinIO·PVC는 유지하며 `storage_gc_maintenance`는 설정하지 않는다.
+   PostgreSQL·object storage·PVC는 유지한다. k3s 선언의 `storage_gc_maintenance`는 설정하지 않는다.
 2. 네 Argo Application이 해당 revision을 반영했고 모든 서비스 Deployment의 desired/ready가
    모두 0인지 확인한다. 기존 Pod가 종료되기 전에 변환을 시작하지 않는다.
 3. 개인별 값을 출력하지 않고 기존 테이블의 행 수·식별자와 내용 digest를 기록한다.

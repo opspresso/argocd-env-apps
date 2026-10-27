@@ -1,13 +1,16 @@
 # Agent Platform 배포
 
-현재 실행 환경은 **k3s `k3s-demo` alpha**입니다. EKS 클러스터는 존재하지 않으며
-`eks-demo` prod 값은 향후 설치를 위한 선언입니다. EKS 렌더 성공은 실제 배포·격리 검증을 뜻하지 않습니다.
+운영 클러스터는 **EKS `eks-demo`**(Auto Mode, phase `prod`)입니다. 같은 클러스터의 Argo CD가 `apps-eks.yaml`로
+`apps/eks/`의 ApplicationSet을 동기화하며, values는 `values.yaml` → `values-prod.yaml` → `eks/values-eks-demo.yaml`
+순서로 적용됩니다. `eks-demo-a`·`eks-demo-b`는 향후 서비스 클러스터 선언입니다. k3s 선언(`apps-k3s.yaml`, `apps/k3s/`,
+`env/k3s-demo.yaml`, `charts/*/k3s/`)은 저장소에 남아 있지만 어느 클러스터에도 배포하지 않습니다.
+렌더 성공은 실제 배포·격리 검증을 뜻하지 않습니다.
 
 | 저장소 | 책임 |
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
-| `argocd-env-addons` | Argo CD, External Secrets, Gateway/TLS, CNI, 관측성 |
-| `argocd-env-apps` | 다섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL·MinIO |
+| `argocd-env-addons` | Argo CD, External Secrets, Istio Gateway, external-dns, CNI 정책, 관측성 |
+| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Broker 풀·테넌트 |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
@@ -16,11 +19,15 @@
 | Librio | `librio.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
+| Broker | `broker.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Broker](#agent-broker) |
+
+공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
+→ 각 앱의 HTTPRoute 순서로 전달됩니다.
 
 모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `AUTH_BASE_URL`,
 `AUTH_ALLOWED_HOSTS`, HTTPRoute는 같은 호스트를 가리킵니다. Forge는
 `ALLOWED_ORIGINS`를 사용합니다. 프록시는 원래 `Host`를 전달해야 합니다.
-`trusted_proxy_cidrs`는 실제 프록시 hop에 맞춰 EKS는 VPC CIDR, k3s 단일 Traefik은 빈 목록을 사용합니다.
+`trusted_proxy_cidrs`는 실제 프록시 hop에 맞춰 EKS는 VPC CIDR(`10.10.0.0/16`), k3s 선언의 단일 Traefik은 빈 목록을 사용합니다.
 
 ## 로그인과 모델 연결
 
@@ -117,14 +124,15 @@ Librio pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
 PostgreSQL readiness는 기존 DB와 새 DB 어느 쪽에도 의존하지 않는 `postgres` DB로 확인합니다.
 `max_connections` 변경은 기존 StatefulSet의 재시작을 수반합니다.
 
-k3s MinIO는 기존 PVC와 `agent-studio-static`, `agent-memory` 버킷을 보존하고
-`agent-librio` 버킷을 추가합니다. Studio Artifact와 Librio 원본은 각 앱의 인증된 API로 접근합니다.
+Studio 파일은 S3 `agent-studio-static`, Librio 원본·오디오는 S3 `agent-librio-static`에 둡니다.
+Studio Artifact와 Librio 원본은 각 앱의 인증된 API로 접근합니다. EKS에는 MinIO를 배포하지 않습니다.
+배포하지 않는 k3s 선언은 MinIO(`agent-studio-static`, `agent-librio` 버킷)를 사용합니다.
 Memory와 Forge에는 S3 자격 증명을 주입하지 않습니다.
 Librio 지식 그래프는 PostgreSQL을 사용하며 Neo4j 환경변수를 주입하지 않습니다.
 Neo4j 배포·Secret bootstrap은 제공하지 않습니다. 이전 리소스의 삭제 절차는
 [폐기된 실행·그래프 자원 정리](retired-agent-resources.md)를 따릅니다.
 
-미래 EKS의 S3 SDK는 Pod Identity를 사용합니다. MinIO endpoint와 정적 S3 키는 주입하지 않습니다.
+EKS의 S3 SDK는 Pod Identity를 사용합니다. MinIO endpoint와 정적 S3 키는 주입하지 않습니다.
 
 | ServiceAccount | IAM role | 버킷 |
 | --- | --- | --- |
@@ -134,17 +142,18 @@ Neo4j 배포·Secret bootstrap은 제공하지 않습니다. 이전 리소스의
 ## 인증과 Secret 준비
 
 External Secrets는 `/k8s/<cluster>/` 경로를 읽습니다. 앱 namespace와 Forge 실행 namespace에는
-각각 ECR generator와 `ecr-registry` Secret이 있습니다. k3s 기존 EC2 역할,
-미래 EKS External Secrets의 IAM 연결을 사용하며 앱에 ECR 장기 키를 전달하지 않습니다.
+각각 ECR generator와 `ecr-registry` Secret이 있습니다. EKS External Secrets의 IAM 연결을 사용하며
+앱에 ECR 장기 키를 전달하지 않습니다. 운영 클러스터의 경로는 `/k8s/eks-demo/`와 공통 `/k8s/common/`입니다.
 
 ```bash
-python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo
-python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply
+python3 scripts/bootstrap_agent_platform.py --cluster eks-demo
+python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 ```
 
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
 
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
+전체 이전 절차는 [클러스터 이전](cluster-migration.md)을 따릅니다.
 데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Librio 인증 secret,
 네 서비스의 OIDC client)을 원본에서 그대로 복사하고, 나머지(DB URL·metrics token)만 대상 클러스터 값으로 만듭니다.
 원본에 값이 하나라도 없거나 대상에 다른 값이 이미 있으면 쓰기 전에 중단합니다. 값은 출력하지 않습니다.
@@ -160,7 +169,7 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 
 | SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
 | --- | --- | --- |
-| `agent-platform/database-url` | 다섯 서비스 | bootstrap |
+| `agent-platform/database-url` | 여섯 서비스 | bootstrap |
 | `agent-<service>/metrics-bearer-token` | Studio·Memory·Librio·Forge와 수집기 | bootstrap |
 | `agent-models/auth-secret`, `encryption-key` | Models | bootstrap |
 | `agent-librio/better-auth-secret` | Librio web·worker | bootstrap |
@@ -210,8 +219,9 @@ Forge Secret 동기화가 실패하므로 배포 전에 만듭니다.
 내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
 앱 ingress는 해당 플랫폼 Gateway, 수집기, 같은 namespace와 명시된 서비스 peer만 허용합니다.
-k3s Gateway 리소스는 `traefik-gateway` namespace에 있지만 실제 출발 Pod는 `kube-system`에 있습니다.
-Gateway 접근은 `app.kubernetes.io/name=traefik`, `app.kubernetes.io/instance=traefik-kube-system`을
+EKS의 Gateway 출발 Pod는 `istio-system` namespace의 `istio-ingressgateway`입니다.
+k3s 선언의 Gateway 리소스는 `traefik-gateway` namespace에 있지만 실제 출발 Pod는 `kube-system`에 있습니다.
+그래서 k3s 선언의 Gateway 접근은 `app.kubernetes.io/name=traefik`, `app.kubernetes.io/instance=traefik-kube-system`을
 함께 가진 Pod로 제한하며 다른 `kube-system` Pod를 허용하지 않습니다.
 Studio에는 Forge·Librio namespace의 연결, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
 연결을 허용합니다. Sandbox는 Models에 직접 연결하지 않고 Forge Gateway를 거칩니다.
@@ -223,9 +233,9 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
 1. 네 앱의 필수 검사와 release image 게시를 확인합니다. 전환 동안 `GITOPS_AUTO_DEPLOY=false`로
    자동 버전 dispatch를 멈추고 Studio·Memory·Librio·Forge controller+Sandbox image를 모두 준비합니다.
 2. Terraform의 ECR/IAM, addons의 `.agrt.dev` DNS/TLS·ESO·Gateway·관측성 계약을 확인합니다.
-   이 절차로 EKS를 만들지 않습니다. k3s의 기존 node·PVC·bucket은 보존합니다.
+   이 절차로 클러스터를 만들지 않습니다. 대상 클러스터의 기존 node·PVC·bucket은 보존합니다.
 3. 기존 Studio 작업 신규 접수를 막고 진행 중 실행의 체크포인트·종료를 확인합니다.
-   새 앱을 올리기 전에 Secret, `agent_platform`, MinIO Librio 버킷을 준비합니다.
+   새 앱을 올리기 전에 Secret, `agent_platform`, Librio object storage 버킷을 준비합니다.
 4. 새 이미지로 Memory/Librio 초기화를 완료하고 실제 organization ID와 모델 설정을 검증합니다.
    사용자 연결은 로그인한 계정으로 설정합니다. 조직 ID가 준비되기 전에 Studio 연결을 활성화하지 않습니다.
 5. `scripts/gitops.py deploy --dry-run`으로 phase 버전과 이력을 생성하고 chart 변경과 함께 반영합니다.
@@ -234,7 +244,11 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
    로그인, Memory recall/remember, Librio 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
 7. 정상 동작을 확인한 뒤 앱 release의 자동 GitOps gate를 원래 설정으로 복원합니다.
 
-## Models 활성화와 Studio OIDC 전환 (alpha)
+## Models 활성화와 Studio OIDC 전환 (k3s)
+
+이 절은 Studio OIDC 이전 image를 쓰던 k3s 선언(`k3s-demo`, phase `alpha`)에 Models를 처음 켜는 절차입니다.
+명령의 경로·phase·DNS·Gateway는 k3s 기준입니다. `eks-demo`는 이 전환을 마친 데이터와 secret을
+[클러스터 이전](cluster-migration.md)으로 받으므로 이 절차를 실행하지 않습니다.
 
 `agent_models_maintenance: true`이면 Models Deployment는 0개이고 HPA가 없습니다.
 ConfigMap·ExternalSecret·HTTPRoute·NetworkPolicy는 유지합니다. `values-<phase>.yaml`의 버전 키는
@@ -409,6 +423,9 @@ Studio는 ticker도 정지합니다. 각 flag는 다른 앱·DB·storage를 삭�
 
 ## Studio worker 폐기와 독립 서비스 전환
 
+이 절은 Studio audio/Workspace worker를 쓰던 이전 버전의 DB를 변환하는 절차입니다. `eks-demo`의 현재 선언에는
+두 worker가 없습니다.
+
 이 전환에서 Studio의 audio/Workspace worker와 Librio·Forge의 `STUDIO_URL`이 제거됩니다.
 Argo CD의 `prune`이 두 worker Deployment를 삭제합니다. 아래 명령은 [순서와 명령](#순서와-명령)의
 `run_once`와 `ECR`, `V_<SERVICE>`를 사용합니다. 각 서비스의 새 release image 게시를 먼저 확인합니다.
@@ -442,13 +459,13 @@ python3 scripts/validate.py --all-charts
 pytest
 ```
 
-Helm/pytest는 alpha와 미래 EKS의 resource 정책, 같은 DB URL, 인증·metrics, 이미지 연동,
+Helm/pytest는 EKS와 k3s 선언의 resource 정책, 같은 DB URL, 인증·metrics, 이미지 연동,
 RBAC·NetworkPolicy·quota·보존 계약을 검사합니다. 실제 환경 검증은 별도입니다.
 Memory/Librio web은 `/api/live`와 DB readiness `/api/health`를 나누고, Librio worker는 초기화 후
 `/api/health`를 제공합니다. Forge `/health`는 DB/backend readiness, `/`는 독립 HTTP liveness입니다.
 Librio/Memory `/api/metrics`와 Forge `/metrics`는 `METRICS_BEARER_TOKEN` 전용 bearer를 요구합니다.
 Forge는 `agent-forge/metrics-bearer-token`을 `METRICS_BEARER_TOKEN`으로 받습니다. 이 값을 지원하지 않는
-Forge image는 Studio가 발급한 `workspace:read` token만 받으므로 k3s Alloy·EKS ServiceMonitor 수집이 실패합니다.
+Forge image는 Studio가 발급한 `workspace:read` token만 받으므로 metrics 수집(EKS ServiceMonitor, k3s 선언의 Alloy)이 실패합니다.
 health 성공만으로 원본 storage·provider·작업 성공을 판정하지 않습니다.
 
 DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.md)을 따릅니다.
@@ -457,8 +474,8 @@ PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collatio
 
 ## Agent Broker
 
-EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_broker`). Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로
-k3s에는 선언하지 않는다. 계약은 `agent-platform`의 `docs/RESOURCE_BROKER.md`, AWS 리소스는 `terraform-env-demo`의
+EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_broker`). 운영 클러스터 `eks-demo`에서 `broker.agrt.dev`로 제공한다.
+Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/RESOURCE_BROKER.md`, AWS 리소스는 `terraform-env-demo`의
 `demo/8-agent-broker`가 소유한다.
 
 | Application | namespace | 내용 |
