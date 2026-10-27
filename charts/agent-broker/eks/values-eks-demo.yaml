@@ -28,7 +28,6 @@ app:
       BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-sandbox-objects
       BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-tenant-objects
       BROKER_EKS_CLUSTER: eks-demo
-      BROKER_TENANT_SECRETS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-broker-tenant-secrets
   externalSecrets:
     enabled: true
     data:

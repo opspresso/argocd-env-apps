@@ -31,7 +31,6 @@ app:
       BROKER_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-sandbox-objects
       BROKER_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-objects
       BROKER_EKS_CLUSTER: {{cluster}}
-      BROKER_TENANT_SECRETS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-broker-tenant-secrets
   externalSecrets:
     enabled: true
     data:
