@@ -29,7 +29,7 @@ def identity(item):
     return item['kind'], item['metadata'].get('namespace', 'default'), item['metadata']['name']
 
 
-def test_gc_stops_all_eight_application_processes(tmp_path):
+def test_gc_stops_all_application_processes(tmp_path):
     _, paused = contexts()
     deployments = []
     for service in SERVICES:
@@ -37,8 +37,7 @@ def test_gc_stops_all_eight_application_processes(tmp_path):
         deployments.extend(item for item in docs if item['kind'] == 'Deployment')
         assert not any(item['kind'] in {'HorizontalPodAutoscaler', 'CronJob'} for item in docs)
     assert {item['metadata']['name'] for item in deployments} == {
-        'agent-studio', 'agent-studio-ticker', 'agent-studio-audio-worker', 'agent-studio-workspace-worker',
-        'agent-memory', 'agent-librio', 'agent-librio-worker', 'agent-forge'}
+        'agent-studio', 'agent-studio-ticker', 'agent-memory', 'agent-librio', 'agent-librio-worker', 'agent-forge'}
     assert all(item['spec']['replicas'] == 0 for item in deployments)
 
 

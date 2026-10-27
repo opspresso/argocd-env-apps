@@ -33,15 +33,10 @@ agent_memory:
   hostname: memory.agrt.dev
   allowed_hosts:
   - memory.agrt.dev
-audio_worker: true
-workspace_worker: true
 workspace_max_pods: 32
 workspace_memory_mb: 2048
 workspace_disk_mb: 2048
 workspace_cpus: 1
-workspace_worker_replicas: 2
-workspace_worker_concurrency: 16
-workspace_continuation_concurrency: 2
 postgresql:
   max_connections: 550
   storage: 20Gi

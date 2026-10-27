@@ -23,8 +23,7 @@ def test_maintenance_stops_studio_writers_without_removing_dependencies(platform
     values = yaml.safe_load(rendered)
     assert values["app"]["replicaCount"] == 0
     assert values["app"]["autoscaling"]["enabled"] is False
-    assert values["app"]["workloads"]["audioWorker"]["replicas"] == 0
-    assert values["app"]["workloads"]["workspaceWorker"]["replicas"] == 0
+    assert set(values["app"]["workloads"]) == {"scheduleTicker"}
     assert values["app"]["workloads"]["scheduleTicker"]["replicas"] == 0
 
     target = tmp_path / "maintenance.yaml"
@@ -37,9 +36,9 @@ def test_maintenance_stops_studio_writers_without_removing_dependencies(platform
     ], capture_output=True, text=True, check=True)
     docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
     deployments = {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "Deployment"}
-    names = ["agent-studio", "agent-studio-audio-worker", "agent-studio-workspace-worker", "agent-studio-ticker"]
-    assert "agent-studio-workspace-docker" not in deployments
-    for name in names:
-        assert deployments[name]["spec"]["replicas"] == 0
+    # Web and the schedule ticker are the only Studio writers; both must stop.
+    assert set(deployments) == {"agent-studio", "agent-studio-ticker"}
+    for deployment in deployments.values():
+        assert deployment["spec"]["replicas"] == 0
     assert not any(doc["kind"] == "HorizontalPodAutoscaler" and doc["metadata"]["name"] == "agent-studio" for doc in docs)
     assert not any(doc["kind"] == "CronJob" for doc in docs)

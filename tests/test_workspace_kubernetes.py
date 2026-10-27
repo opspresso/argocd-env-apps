@@ -71,10 +71,10 @@ def test_sandbox_configuration_restarts_controller(setting):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-def test_studio_has_only_observers_without_retired_execution_resources(platform):
+def test_studio_has_no_execution_resources(platform):
     from test_agent_platform import manifests
     docs = manifests("agent-studio", platform)
     assert not any(item["kind"] in {"PersistentVolumeClaim", "Namespace", "Role", "RoleBinding", "Job"} for item in docs)
     assert not any(item["metadata"].get("namespace") == "agent-studio-workspaces" for item in docs)
     deployments = {item["metadata"]["name"] for item in docs if item["kind"] == "Deployment"}
-    assert {"agent-studio", "agent-studio-audio-worker", "agent-studio-workspace-worker"} <= deployments
+    assert deployments == {"agent-studio", "agent-studio-ticker"}

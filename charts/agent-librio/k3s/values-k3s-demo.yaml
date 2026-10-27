@@ -41,8 +41,6 @@ app:
       OIDC_PROVIDER_ID: studio
       AUTH_ALLOWED_HOSTS: 'librio.agrt.dev'
       TRUSTED_PROXY_CIDRS: ''
-      # Internal Studio origin for the native librio:policy callback.
-      STUDIO_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
       S3_REGION: ap-northeast-2
 
       S3_ENDPOINT: http://minio.agent-studio.svc.cluster.local:9000

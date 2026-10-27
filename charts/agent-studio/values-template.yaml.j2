@@ -65,16 +65,13 @@ app:
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
-      WORKSPACE_OBSERVER_CONCURRENCY: '{{workspace_worker_concurrency | default(4)}}'
-      WORKSPACE_CONTINUATION_CONCURRENCY: '{{workspace_continuation_concurrency | default(2)}}'
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       LIBRIO_URL: http://agent-librio.agent-librio.svc.cluster.local:3000
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
-{% if workspace_worker %}
+      # PR review reaches GitHub with the caller's GitHub MCP grant.
       GITHUB_API_URL: https://api.github.com
       GITHUB_WEB_URL: https://github.com
-{% endif %}
   routing:
     hosts:
 {%- for host in allowed_hosts %}
@@ -158,17 +155,5 @@ app:
     scheduleTicker:
       enabled: true
       replicas: {{0 if maintenance else 1}}
-{% if audio_worker or workspace_worker %}
-{% if audio_worker %}
-    audioWorker:
-      enabled: true
-      replicas: {{0 if maintenance else 1}}
-{% endif %}
-{% if workspace_worker %}
-    workspaceWorker:
-      enabled: true
-      replicas: {{0 if maintenance else workspace_worker_replicas | default(1)}}
-{%- endif %}
-{%- endif %}
 
 {%- endif %}

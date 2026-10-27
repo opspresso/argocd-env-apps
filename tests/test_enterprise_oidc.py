@@ -75,8 +75,8 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
                    or (name.endswith("_BASE_URL") and name != "AUTH_BASE_URL") for name in names)
     if service != "models":
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
-    if service in ("librio", "forge"):
-        assert config["STUDIO_URL"] == "http://agent-studio.agent-studio.svc.cluster.local:3000"
+    # Librio and Forge enforce their own policy; they never call back into Studio.
+    assert "STUDIO_URL" not in config
 
 
 @pytest.mark.parametrize("service", CONSUMERS)

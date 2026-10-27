@@ -37,13 +37,10 @@ agent_memory:
     reranker: openrouter/rerank-v3.5
     decision: openrouter/jev-1.13
     dream: openrouter/gpt-6-luna
-audio_worker: true
-workspace_worker: true
 workspace_max_pods: 2
 workspace_memory_mb: 1024
 workspace_disk_mb: 2048
 workspace_cpus: 1
-workspace_worker_concurrency: 1
 postgresql:
   max_connections: 250
   storage: 5Gi

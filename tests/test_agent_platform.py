@@ -148,14 +148,12 @@ def test_librio_consumer_is_independent_of_web_and_shares_metrics_auth(platform)
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-def test_studio_observer_has_no_execution_or_cluster_authority(platform):
+def test_studio_has_no_execution_or_cluster_authority(platform):
     config = resource("agent-studio", platform, "ConfigMap", "agent-studio")["data"]
-    pod = resource("agent-studio", platform, "Deployment", "agent-studio-workspace-worker")["spec"]["template"]["spec"]
+    pod = resource("agent-studio", platform, "Deployment", "agent-studio")["spec"]["template"]["spec"]
     assert pod["automountServiceAccountToken"] is False
     assert len(pod["containers"]) == 1 and not pod.get("volumes")
-    worker = pod["containers"][0]
-    assert worker["command"] == ["node", "build/workspace-worker.cjs"]
-    assert worker["livenessProbe"]["exec"]["command"] == ["node", "build/workspace-heartbeat-check.cjs"]
+    assert not any(name.startswith(("WORKSPACE_", "AUDIO_")) and name.endswith("_CONCURRENCY") for name in config)
     assert config["FORGE_URL"] == "http://agent-forge.agent-forge.svc.cluster.local:3103"
     assert config["MEMORY_URL"] == "http://agent-memory.agent-memory.svc.cluster.local:3000"
     assert config["LIBRIO_URL"] == "http://agent-librio.agent-librio.svc.cluster.local:3000"

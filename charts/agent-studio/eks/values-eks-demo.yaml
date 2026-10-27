@@ -45,16 +45,13 @@ app:
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-librio.svc.cluster.local,agent-forge.svc.cluster.local
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
-      WORKSPACE_OBSERVER_CONCURRENCY: '16'
-      WORKSPACE_CONTINUATION_CONCURRENCY: '2'
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       LIBRIO_URL: http://agent-librio.agent-librio.svc.cluster.local:3000
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
-
+      # PR review reaches GitHub with the caller's GitHub MCP grant.
       GITHUB_API_URL: https://api.github.com
       GITHUB_WEB_URL: https://github.com
-
   routing:
     hosts:
     - studio.agrt.dev
@@ -121,15 +118,5 @@ app:
     region: ap-northeast-2
   workloads:
     scheduleTicker:
-      enabled: true
-      replicas: 0
-
-
-    audioWorker:
-      enabled: true
-      replicas: 0
-
-
-    workspaceWorker:
       enabled: true
       replicas: 0

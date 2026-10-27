@@ -27,30 +27,20 @@ def render(chart, platform="k3s", *settings):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-def test_workers_keep_selectors_images_and_env_precedence(platform):
-    docs = render("agent-studio", platform,
-                  "app.image.tag=v9.8.7", "app.workloads.audioWorker.replicas=2")
+def test_studio_runs_only_web_and_ticker_with_stable_identity(platform):
+    docs = render("agent-studio", platform, "app.image.tag=v9.8.7")
     deployments = {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "Deployment"}
-    for name in ["agent-studio-audio-worker", "agent-studio-workspace-worker"]:
-        deployment = deployments[name]
+    # Audio and Workspace execution belong to Librio and Forge; Studio keeps no worker process.
+    assert set(deployments) == {"agent-studio", "agent-studio-ticker"}
+    for name, deployment in deployments.items():
         selector = {"app.kubernetes.io/name": name, "app.kubernetes.io/instance": "custom-release"}
         assert deployment["spec"]["selector"]["matchLabels"] == selector
         assert selector.items() <= deployment["spec"]["template"]["metadata"]["labels"].items()
-        container = deployment["spec"]["template"]["spec"]["containers"][0]
-        assert container["image"].endswith(":v9.8.7")
-        assert "ports" not in container
-        refs = [{"configMapRef": {"name": "agent-studio"}},
-                {"secretRef": {"name": "agent-studio-external"}}]
-        assert container["envFrom"] == refs
-    assert deployments["agent-studio-audio-worker"]["spec"]["replicas"] == 2
-    assert not any(doc["kind"] in {"Service", "Pod"} and "worker" in doc["metadata"]["name"] for doc in docs)
-    assert not any(doc["kind"] == "Job" for doc in docs)
-
-
-def test_disabled_observers_do_not_create_retired_storage():
-    docs = render("agent-studio", "k3s", "app.workloads.audioWorker.enabled=false", "app.workloads.workspaceWorker.enabled=false")
-    assert not any(doc["kind"] == "Deployment" and doc["metadata"]["name"].endswith("-worker") for doc in docs)
-    assert not any(doc["kind"] in {"PersistentVolumeClaim", "Namespace"} for doc in docs)
+    web = deployments["agent-studio"]["spec"]["template"]["spec"]["containers"][0]
+    assert web["image"].endswith(":v9.8.7")
+    assert web["envFrom"] == [{"configMapRef": {"name": "agent-studio"}},
+                              {"secretRef": {"name": "agent-studio-external"}}]
+    assert not any(doc["kind"] in {"Job", "PersistentVolumeClaim", "Namespace"} for doc in docs)
 
 
 @pytest.mark.parametrize("backend", ["docker", "kubernetes"])
@@ -63,15 +53,13 @@ def test_retired_settings_cannot_restore_a_studio_executor(backend):
     assert not any(doc["kind"] in {"RoleBinding", "PersistentVolumeClaim", "Namespace"} for doc in docs)
 
 
-def test_config_changes_restart_both_workers():
-    def checksums(value):
+def test_config_changes_restart_studio_web():
+    def checksum(value):
         docs = render("agent-studio", "k3s", f"app.configmap.data.FORGE_URL={value}")
-        return {doc["metadata"]["name"]: doc["spec"]["template"]["metadata"]["annotations"]["checksum/config"]
-                for doc in docs if doc["kind"] == "Deployment" and doc["metadata"]["name"].endswith("-worker")}
+        web = next(doc for doc in docs if doc["kind"] == "Deployment" and doc["metadata"]["name"] == "agent-studio")
+        return web["spec"]["template"]["metadata"]["annotations"]["checksum/config"]
 
-    before, after = checksums("http://forge-before"), checksums("http://forge-after")
-    assert len(before) == 2
-    assert all(before[name] != after[name] for name in before)
+    assert checksum("http://forge-before") != checksum("http://forge-after")
 
 
 def test_argocd_network_policy_can_be_disabled():

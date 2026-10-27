@@ -5,7 +5,7 @@ from test_agent_platform import resource
 import pytest
 
 
-@pytest.mark.parametrize("platform,expected", [("eks", 498), ("k3s", 196)])
+@pytest.mark.parametrize("platform,expected", [("eks", 446), ("k3s", 162)])
 def test_database_budget_covers_application_growth_and_rollout_overlap(platform, expected):
     def maximum_replicas(chart):
         if platform == "eks":
@@ -15,11 +15,9 @@ def test_database_budget_covers_application_growth_and_rollout_overlap(platform,
     config = {chart: resource(chart, platform, "ConfigMap", chart)["data"]
               for chart in ("agent-studio", "agent-memory", "agent-librio", "agent-models")}
     studio_pool = int(config["agent-studio"]["DATABASE_POOL_SIZE"])
-    workspace = resource("agent-studio", platform, "Deployment", "agent-studio-workspace-worker")["spec"]["replicas"]
-    audio = resource("agent-studio", platform, "Deployment", "agent-studio-audio-worker")["spec"]["replicas"]
-    # Content locks use a separate max4 pool in Studio. Only HTTP web runs readiness.
-    # The Workspace readiness subprocess issues one query, then closes its pool.
-    studio = maximum_replicas("agent-studio") * (studio_pool + 1 + 4) + (workspace + audio) * (studio_pool + 4) + workspace
+    # Studio web is the only Studio process with a database; the ticker only calls HTTP.
+    # Content locks use a separate max4 pool in Studio, plus one readiness connection.
+    studio = maximum_replicas("agent-studio") * (studio_pool + 1 + 4)
     # Memory: query pool + readiness 1 + background session locks 2 + OIDC refresh locks 2.
     memory = maximum_replicas("agent-memory") * (int(config["agent-memory"]["DATABASE_POOL_SIZE"]) + 1 + 2 + 2)
     # Librio web and worker both build the maintenance pool 2 and OIDC refresh pool 2.

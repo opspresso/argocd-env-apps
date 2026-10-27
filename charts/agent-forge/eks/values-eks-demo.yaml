@@ -37,8 +37,6 @@ app:
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
-      # Internal Studio origin for the native forge:policy callback.
-      STUDIO_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
   sandbox:
     namespace: agent-forge-workspaces

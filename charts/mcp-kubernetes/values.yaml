@@ -136,7 +136,7 @@ raw:
                   matchExpressions:
                     - key: app.kubernetes.io/name
                       operator: In
-                      values: [agent-studio, agent-studio-audio-worker, agent-studio-workspace-worker]
+                      values: [agent-studio]
             ports:
               - protocol: TCP
                 port: 8080
