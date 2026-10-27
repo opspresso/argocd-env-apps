@@ -10,12 +10,12 @@ role: service
 replicas: 1
 autoscaling: true
 resources: true
-grafana_url: https://grafana.demo.opspresso.com
+grafana_url: https://grafana.demo.rovr.dev
 
 aws_account_id: "396608815058"
 aws_region: ap-northeast-2
 
 hostname:
-  internal: demo-in.opspresso.com
-  public: demo.opspresso.com
-  this: demo-a.opspresso.com
+  internal: demo-in.rovr.dev
+  public: demo.rovr.dev
+  this: demo-a.rovr.dev

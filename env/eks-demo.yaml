@@ -17,9 +17,9 @@ grafana_url: http://grafana.addon-grafana.svc.cluster.local
 aws_account_id: '396608815058'
 aws_region: ap-northeast-2
 hostname:
-  internal: demo-in.opspresso.com
-  public: demo.opspresso.com
-  this: demo-0.opspresso.com
+  internal: demo-in.rovr.dev
+  public: demo.rovr.dev
+  this: demo-0.rovr.dev
 agent_studio:
   service:
     key: agentops
