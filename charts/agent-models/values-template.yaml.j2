@@ -9,8 +9,10 @@ app:
     enabled: {{false if maintenance else autoscaling}}
   image:
     repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-models
+{% if env == 'k3s' %}
   imagePullSecrets:
     - name: ecr-registry
+{% endif %}
 {% if not resources %}
   resources: null
 {% endif %}
