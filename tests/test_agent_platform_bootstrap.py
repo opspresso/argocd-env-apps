@@ -67,3 +67,46 @@ def test_inconsistent_existing_database_url_fails_before_any_write():
         with pytest.raises(RuntimeError, match="Inconsistent connection parameters"):
             bootstrap.bootstrap("k3s-demo", "ap-northeast-2", apply=True)
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
+
+
+SOURCE = "/k8s/k3s-demo"
+TARGET = "/k8s/eks-demo"
+
+
+def source_values():
+    return {f"{SOURCE}/{path}": f"value-of-{path}" for path in bootstrap.CONTINUITY}
+
+
+def test_copy_from_moves_continuity_values_and_generates_only_cluster_specific_ones(capsys):
+    existing = {**source_values(), f"{TARGET}/agent-studio/postgres-password": "target-password"}
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo") == 0
+    writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"] for call in aws.call_args_list
+              if call.args[2] == "put-parameter"}
+    for path in bootstrap.CONTINUITY:
+        assert writes[f"{TARGET}/{path}"]["Value"] == f"value-of-{path}"
+    assert all(entry["Overwrite"] is False and entry["Type"] == "SecureString" for entry in writes.values())
+    assert all(name.startswith(TARGET) for name in writes)
+    assert "target-password" in writes[f"{TARGET}/agent-platform/database-url"]["Value"]
+    assert f"{TARGET}/agent-studio/postgres-password" not in writes
+    assert writes[f"{TARGET}/agent-studio/metrics-bearer-token"]["Value"] not in source_values().values()
+    output = capsys.readouterr().out
+    assert all(entry["Value"] not in output for entry in writes.values())
+    assert "Prepare from Studio" not in output
+
+
+def test_copy_from_refuses_a_target_value_that_differs_from_the_source():
+    existing = {**source_values(), f"{TARGET}/agent-models/encryption-key": "another-key"}
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        with pytest.raises(RuntimeError, match="agent-models/encryption-key"):
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo")
+    assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
+
+
+def test_copy_from_requires_every_source_value_before_any_write():
+    existing = source_values()
+    del existing[f"{SOURCE}/agent-forge/organization-id"]
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        with pytest.raises(RuntimeError, match="agent-forge/organization-id"):
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo")
+    assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)

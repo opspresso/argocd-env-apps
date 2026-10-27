@@ -31,6 +31,16 @@ def aws(region, *arguments, payload=None):
 
 SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-librio", "agent-forge")
 
+# Values that existing data or registrations depend on. A migrated database stays readable only when the
+# new cluster uses the same keys, Forge organization, Studio-issued clients and Models role selections.
+CONTINUITY = (
+    "agent-forge/checkpoint-secret", "agent-forge/credential-secret", "agent-forge/model-secret",
+    "agent-forge/session-secret", "agent-forge/organization-id", "agent-forge/model-roles",
+    "agent-forge/github-client-id", "agent-forge/github-client-secret",
+    "agent-models/auth-secret", "agent-models/encryption-key", "agent-librio/better-auth-secret",
+    *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
+)
+
 
 def parameter_values(prefix, existing):
     values = {}
@@ -68,11 +78,22 @@ def read_parameters(region, names):
     return {entry["Name"]: entry["Value"] for entry in entries}
 
 
-def bootstrap(cluster, region, apply=False):
+def continuity_values(region, source, prefix):
+    """Source values for CONTINUITY, keyed by target path; every source value must exist."""
+    names = [f"/k8s/{source}/{path}" for path in CONTINUITY]
+    values = read_parameters(region, names)
+    missing = [name for name in names if name not in values]
+    if missing:
+        raise RuntimeError("Source cluster lacks continuity parameters: " + ", ".join(missing))
+    return {f"{prefix}/{path}": values[f"/k8s/{source}/{path}"] for path in CONTINUITY}
+
+
+def bootstrap(cluster, region, apply=False, copy_from=None):
     prefix = f"/k8s/{cluster}"
-    names = list(parameter_values(prefix, {}))
+    copied = continuity_values(region, copy_from, prefix) if copy_from else {}
+    names = list(dict.fromkeys([*parameter_values(prefix, {}), *copied]))
     existing = read_parameters(region, names)
-    desired = parameter_values(prefix, existing)
+    desired = {**parameter_values(prefix, {**copied, **existing}), **copied}
     mismatches = [name for name, value in existing.items() if value != desired[name]]
     if mismatches:
         raise RuntimeError("Inconsistent connection parameters; review without rotating: " + ", ".join(mismatches))
@@ -82,8 +103,11 @@ def bootstrap(cluster, region, apply=False):
             aws(region, "ssm", "put-parameter", payload={
                 "Name": name, "Value": desired[name], "Type": "SecureString", "Overwrite": False
             })
-        print(f"{'Created' if apply else 'Missing'}: {name}")
+        source = f" (from {copy_from})" if name in copied else ""
+        print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
+    if copy_from:
+        return 0 if apply or not missing else 1
     # Studio issues each service client, and Forge roles name central Models selections.
     # Operators prepare these after registration; they are never random secret material.
     for service in SERVICE_CLIENTS:
@@ -96,7 +120,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cluster", default="k3s-demo")
     parser.add_argument("--apply", action="store_true", help="Create missing SecureStrings; never overwrite")
+    parser.add_argument("--copy-from", metavar="CLUSTER",
+                        help="Copy data-continuity values (keys, Forge organization, OIDC clients) from this cluster")
     args = parser.parse_args()
+    if args.copy_from == args.cluster:
+        parser.error("--copy-from must name a different cluster")
     env_path = Path(__file__).resolve().parents[1] / "env" / f"{args.cluster}.yaml"
     env = yaml.safe_load(env_path.read_text())
     if env.get("env") not in {"eks", "k3s"} or env.get("cluster") != args.cluster:
@@ -104,7 +132,7 @@ def main():
     account = aws(env["aws_region"], "sts", "get-caller-identity")["Account"]
     if account != str(env["aws_account_id"]):
         parser.error("AWS account does not match the selected cluster")
-    return bootstrap(args.cluster, env["aws_region"], args.apply)
+    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from)
 
 
 if __name__ == "__main__":

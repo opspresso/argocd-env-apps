@@ -143,6 +143,16 @@ python3 scripts/bootstrap_agent_platform.py --cluster k3s-demo --apply
 ```
 
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
+
+기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
+데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Librio 인증 secret,
+네 서비스의 OIDC client)을 원본에서 그대로 복사하고, 나머지(DB URL·metrics token)만 대상 클러스터 값으로 만듭니다.
+원본에 값이 하나라도 없거나 대상에 다른 값이 이미 있으면 쓰기 전에 중단합니다. 값은 출력하지 않습니다.
+
+```bash
+python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from k3s-demo
+python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from k3s-demo --apply
+```
 기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, Models의 세션 secret과 base64 32바이트 암호화 키,
 Forge 체크포인트·세션 키를 서로 독립적으로 생성합니다. DB URL이 기존 비밀번호와 모순되면 쓰기 전에 중단합니다.
 서비스 OIDC client와 Forge `model-roles`는 생성하지 않고 준비할 경로만 출력합니다.

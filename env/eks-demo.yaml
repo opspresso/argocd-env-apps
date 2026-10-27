@@ -33,6 +33,12 @@ agent_memory:
   hostname: memory.agrt.dev
   allowed_hosts:
   - memory.agrt.dev
+  # Agent Models selection IDs (<provider>/<model>) enabled in this installation.
+  models:
+    embedding: openrouter/text-embedding-3-small
+    reranker: openrouter/rerank-v3.5
+    decision: openrouter/jev-1.13
+    dream: openrouter/gpt-6-luna
 workspace_max_pods: 32
 workspace_memory_mb: 2048
 workspace_disk_mb: 2048
@@ -45,6 +51,12 @@ agent_librio:
   hostname: librio.agrt.dev
   allowed_hosts:
   - librio.agrt.dev
+  models:
+    embedding: openrouter/text-embedding-3-small
+    reranker: openrouter/rerank-v3.5
+    extraction: openrouter/gpt-6-luna
+    transcription: openrouter/gpt-4o-transcribe
+    summary: openrouter/gpt-6.1-sol
 agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:

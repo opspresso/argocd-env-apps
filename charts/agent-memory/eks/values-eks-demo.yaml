@@ -28,6 +28,10 @@ app:
       DECISION_TIMEOUT_MS: '5000'
       MEMORY_LANGUAGE: ko
       DREAM_TIME_ZONE: Asia/Seoul
+      EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
+      RERANKER_MODEL: "openrouter/rerank-v3.5"
+      DECISION_MODEL: "openrouter/jev-1.13"
+      DREAM_MODEL: "openrouter/gpt-6-luna"
   routing:
     hosts:
     - memory.agrt.dev
