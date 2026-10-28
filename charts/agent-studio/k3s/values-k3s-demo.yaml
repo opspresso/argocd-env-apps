@@ -28,6 +28,7 @@ app:
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: ap-northeast-2
       AUTH_BASE_URL: https://studio.agrt.dev
+      AUTH_PASSWORD: 'true'
 
       AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
       # PUBLIC_BASE_URL: https://studio.agrt.dev
