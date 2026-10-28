@@ -7,7 +7,7 @@
 ## EKS 워크로드
 
 requests는 `eks-demo`의 유휴 peak working set에 여유를 더한 값입니다. memory limit은 48 동시 요청 부하
-시험 peak(Studio 1.1Gi, Memory 530Mi, Models 400Mi, Librio 230Mi, Forge 185Mi)보다 크게 둡니다.
+시험 peak(Studio 1.1Gi, Memory 530Mi, Models 400Mi, Knowledge 230Mi, Forge 185Mi)보다 크게 둡니다.
 Models의 400Mi는 v0.1.10의 요청 signal 누수 수정 전에 측정한 값입니다. 수정 후 같은 부하를 반복했을 때 working set은
 54~79Mi에서 늘지 않았고 재시작은 없었습니다. Models limit 1Gi는 이 값보다 크므로 유지합니다.
 CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request를 50m로 유지합니다.
@@ -16,13 +16,13 @@ CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request�
 | --- | --- | --- | --- |
 | Studio web | 50m / 256Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
 | Memory web | 50m / 160Mi | 1Gi | 2~6, app CPU 70% |
-| Librio web | 25m / 192Mi | 1Gi | 2, app CPU 70% |
-| Librio queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
+| Knowledge web | 25m / 192Mi | 1Gi | 2, app CPU 70% |
+| Knowledge queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
 | Forge controller/gateway/worker | 25m / 256Mi | 1Gi | 2, app CPU 70% |
 | Models | 10m / 128Mi | 1Gi | 2, app CPU 70% |
-| Broker | 10m / 128Mi | 512Mi | 2 |
+| Delivery | 10m / 128Mi | 512Mi | 2 |
 | PostgreSQL | 50m / 512Mi | 2Gi | 단일 StatefulSet, 550 connections |
-| Broker pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
+| Delivery pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은
@@ -41,13 +41,13 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Studio web | 4 | 0 | 1 | content 4 | 0 | 9 |
 | Memory web | 4 | 0 | 1 | background 2 + OIDC 2 | 0 | 9 |
-| Librio web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
-| Librio worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
+| Knowledge web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
+| Knowledge worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
 | Forge | 12 | 0 | 0 | OIDC 2 | 0 | 14 |
 | Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
 
 Studio schedule ticker는 HTTP만 호출하고 DB에 연결하지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
-연결을 하나씩 사용합니다. Librio maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
+연결을 하나씩 사용합니다. Knowledge maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
 같은 pool을 만듭니다. 1시간 주기 platform retention은 worker에서만 query pool로 실행합니다.
 worker health는 process-only입니다. Forge pool 12와 OIDC 잠금 pool은 코드에 고정돼 있고
 readiness는 query pool을 사용합니다. Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도
@@ -57,14 +57,14 @@ Models의 DB 작업은 사용량 예약·정산과 세션의 짧은 transaction�
 그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 k3s 4, EKS 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
 5초 뒤 실패하므로 pool을 줄인 뒤 연결 대기 시간과 오류를 관찰합니다.
 
-Librio AI admission pool9는 요청용8+정리/정책제어1 연결입니다. 전체8·batch4 제한은
+Knowledge AI admission pool9는 요청용8+정리/정책제어1 연결입니다. 전체8·batch4 제한은
 공유 PostgreSQL에서 합산되며 interactive 용량을 남깁니다. pool을5로 줄이면 같은 프로세스의
 batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·batch 정책과 함께 조정해야 합니다.
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| k3s 선언(미배포) | `Studio9+Memory9+Librio(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
-| EKS `eks-demo` | `Studio6×9+Memory6×9+Librio(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
+| k3s 선언(미배포) | `Studio9+Memory9+Knowledge(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
+| EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
 
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
 프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.

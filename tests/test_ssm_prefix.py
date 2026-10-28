@@ -85,7 +85,7 @@ def test_data_charts_render_only_the_selected_clusters_secrets(chart, env_file, 
     assert policy_errors(result.stdout, context["env"]) == []
 
 
-@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_application_secrets_follow_a_new_cluster_name(chart):
     context = yaml.safe_load((ROOT / "env/k3s-demo.yaml").read_text())
     context["cluster"] = "k3s-other"

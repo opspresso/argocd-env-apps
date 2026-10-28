@@ -10,16 +10,16 @@
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
 | `argocd-env-addons` | Argo CD, External Secrets, Istio Gateway, external-dns, CNI 정책, 관측성 |
-| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Broker 풀·tenant admission 정책 |
+| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Delivery 풀·tenant admission 정책 |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
-| Studio | `studio.agrt.dev` | Agent·Chat, 승인, 로그인(OIDC 발급), MCP로 Memory·Librio·Forge 호출 |
+| Studio | `studio.agrt.dev` | Agent·Chat, 승인, 로그인(OIDC 발급), MCP로 Memory·Knowledge·Forge 호출 |
 | Memory | `memory.agrt.dev` | 사용자·팀·조직의 단기/장기 메모리, recall/remember/handoff |
-| Librio | `librio.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
+| Knowledge | `knowledge.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
-| Broker | `broker.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Broker](#agent-broker) |
+| Delivery | `delivery.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Delivery](#agent-delivery) |
 
 공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
 → 각 앱의 HTTPRoute 순서로 전달됩니다.
@@ -31,10 +31,10 @@
 
 ## 로그인과 모델 연결
 
-Studio만 외부 로그인 제공자(Google 또는 기업 OIDC)와 연결합니다. Memory·Librio·Forge·Models는
+Studio만 외부 로그인 제공자(Google 또는 기업 OIDC)와 연결합니다. Memory·Knowledge·Forge·Models는
 Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌더합니다.
 
-| 설정 | Memory·Librio·Forge·Models |
+| 설정 | Memory·Knowledge·Forge·Models |
 | --- | --- |
 | `OIDC_ISSUER` | `https://<agent_studio.hostname>/api/auth` |
 | `OIDC_PROVIDER_ID` | `studio`. callback은 `https://<서비스 호스트>/api/auth/callback/studio` |
@@ -42,17 +42,17 @@ Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌�
 | `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3400` (Models 제외) |
 
 `gen_values.py`는 이 네 서비스의 `oidc`, `google_sign_in`, `sign_in_domains`를 거부합니다.
-Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `LIBRIO_OIDC_CLIENT_ID`,
+Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `KNOWLEDGE_OIDC_CLIENT_ID`,
 `FORGE_OIDC_CLIENT_ID`로 읽습니다. Studio에는 `MODELS_URL`과 브라우저용
 `MODELS_PUBLIC_URL=https://<agent_models.hostname>`을 설정합니다.
 
 공급자 주소·API 키·wire ID·가격은 Models만 소유합니다. 소비 서비스에는 공급자 설정을 주입하지 않습니다.
-Memory·Librio의 모델 역할은 `env/<cluster>.yaml`의 `agent_memory.models`, `agent_librio.models`에
+Memory·Knowledge의 모델 역할은 `env/<cluster>.yaml`의 `agent_memory.models`, `agent_knowledge.models`에
 Models 선택 ID(`<provider>/<model>`)로 선언합니다. 선언하지 않은 역할은 렌더하지 않습니다.
 Models에서 해당 선택을 먼저 활성화합니다. 각 서비스 **설정**의 override가 env보다 우선하므로
 GitOps 값을 적용하려면 override를 reset합니다. Embedding 모델이나 차원을 바꾸면 기존 embedding을 다시 생성합니다.
 
-| 키 | Memory env | Librio env |
+| 키 | Memory env | Knowledge env |
 | --- | --- | --- |
 | `embedding` | `EMBEDDING_MODEL` | `EMBEDDING_MODEL` |
 | `reranker` | `RERANKER_MODEL` | `RERANKER_MODEL` |
@@ -61,7 +61,7 @@ GitOps 값을 적용하려면 override를 reset합니다. Embedding 모델이나
 | `extraction` | - | `KNOWLEDGE_EXTRACTION_MODEL`(검증 모델을 따로 두지 않으면 검증도 사용) |
 | `transcription`, `summary` | - | `AUDIO_PROCESSING_OPTIONS`의 기본 처리 옵션 항목 |
 
-Librio의 전사·회의록 모델은 작업을 요청하는 쪽(Studio 등)이 작업마다 모델 ID로 고릅니다.
+Knowledge의 전사·회의록 모델은 작업을 요청하는 쪽(Studio 등)이 작업마다 모델 ID로 고릅니다.
 `AUDIO_PROCESSING_OPTIONS`는 그 모델의 처리 옵션만 정하며 모델을 선택하지 않습니다.
 
 Forge의 `FORGE_MODEL_CHANNELS`는 `/k8s/<cluster>/agent-forge/model-roles`에서 읽습니다.
@@ -104,7 +104,7 @@ callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `
 | --- | --- | --- |
 | Studio | baseline 13 | baseline 12: `node build/upgrade-platform-auth.cjs --apply`. baseline 11: `node build/upgrade-enterprise-profile.cjs --apply`(12 단계 포함) |
 | Memory | 현재 fingerprint | 기업 프로필 이전: `upgrade-enterprise-profile.mjs` 후 `upgrade-model-work.mjs`. 그 다음 기준선: `upgrade-model-work.mjs` |
-| Librio | 현재 fingerprint | v0.18.1, v0.19.0–v0.20.1: `node scripts/upgrade-platform-auth.mjs --apply` |
+| Knowledge | 현재 fingerprint | v0.18.1, v0.19.0–v0.20.1: `node scripts/upgrade-platform-auth.mjs --apply` |
 | Forge | version 11 | v4–v10을 시작할 때 자동으로 단계별 확장 |
 
 Studio의 현재 baseline은 `SELECT version FROM agent_studio_schema`로 확인합니다. 해당 image에서 도구를
@@ -114,8 +114,8 @@ Studio의 현재 baseline은 `SELECT version FROM agent_studio_schema`로 확인
 
 네 서비스의 `DATABASE_URL`은 `/k8s/<cluster>/agent-platform/database-url` 하나입니다.
 PostgreSQL의 새 빈 `agent_platform` DB를 사용하고, 업무 테이블은 각각
-`agent_studio_`, `agent_memory_`, `agent_librio_`, `agent_forge_` 접두어로 구분합니다.
-Librio pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
+`agent_studio_`, `agent_memory_`, `agent_knowledge_`, `agent_forge_` 접두어로 구분합니다.
+Knowledge pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
 
 `postgres` StatefulSet, `data-postgres-0` PVC, 기존 `agent_studio` DB 사용자와 비밀번호는 유지합니다.
 `postgres-bootstrap`은 새 DB가 없을 때만 만들고 `vector` extension을 활성화합니다.
@@ -124,11 +124,11 @@ Librio pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
 PostgreSQL readiness는 기존 DB와 새 DB 어느 쪽에도 의존하지 않는 `postgres` DB로 확인합니다.
 `max_connections` 변경은 기존 StatefulSet의 재시작을 수반합니다.
 
-Studio 파일은 S3 `agent-studio-static`, Librio 원본·오디오는 S3 `agent-librio-static`에 둡니다.
-Studio Artifact와 Librio 원본은 각 앱의 인증된 API로 접근합니다. EKS에는 MinIO를 배포하지 않습니다.
-배포하지 않는 k3s 선언은 MinIO(`agent-studio-static`, `agent-librio` 버킷)를 사용합니다.
+Studio 파일은 S3 `agent-studio-static`, Knowledge 원본·오디오는 S3 `agent-knowledge-static`에 둡니다.
+Studio Artifact와 Knowledge 원본은 각 앱의 인증된 API로 접근합니다. EKS에는 MinIO를 배포하지 않습니다.
+배포하지 않는 k3s 선언은 MinIO(`agent-studio-static`, `agent-knowledge` 버킷)를 사용합니다.
 Memory와 Forge에는 S3 자격 증명을 주입하지 않습니다.
-Librio 지식 그래프는 PostgreSQL을 사용하며 Neo4j 환경변수를 주입하지 않습니다.
+Knowledge 지식 그래프는 PostgreSQL을 사용하며 Neo4j 환경변수를 주입하지 않습니다.
 Neo4j 배포·Secret bootstrap은 제공하지 않습니다. 이전 리소스의 삭제 절차는
 [폐기된 실행·그래프 자원 정리](retired-agent-resources.md)를 따릅니다.
 
@@ -137,7 +137,7 @@ EKS의 S3 SDK는 Pod Identity를 사용합니다. MinIO endpoint와 정적 S3 �
 | ServiceAccount | IAM role | 버킷 |
 | --- | --- | --- |
 | `agent-studio/agent-studio` | `pod-role--agent-studio` | `agent-studio-static` |
-| `agent-librio/agent-librio` | `pod-role--agent-librio` | `agent-librio-static` |
+| `agent-knowledge/agent-knowledge` | `pod-role--agent-knowledge` | `agent-knowledge-static` |
 
 ## 인증과 Secret 준비
 
@@ -154,7 +154,7 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
 전체 이전 절차는 [클러스터 이전](cluster-migration.md)을 따릅니다.
-데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Librio 인증 secret,
+데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Knowledge 인증 secret,
 네 서비스의 OIDC client)을 원본에서 그대로 복사하고, 나머지(DB URL·metrics token)만 대상 클러스터 값으로 만듭니다.
 원본에 값이 하나라도 없거나 대상에 다른 값이 이미 있으면 쓰기 전에 중단합니다. 값은 출력하지 않습니다.
 
@@ -170,36 +170,36 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
 | --- | --- | --- |
 | `agent-platform/database-url` | 여섯 서비스 | bootstrap |
-| `agent-<service>/metrics-bearer-token` | Studio·Memory·Librio·Forge와 수집기 | bootstrap |
+| `agent-<service>/metrics-bearer-token` | Studio·Memory·Knowledge·Forge와 수집기 | bootstrap |
 | `agent-models/auth-secret`, `encryption-key` | Models | bootstrap |
-| `agent-librio/better-auth-secret` | Librio web·worker | bootstrap |
+| `agent-knowledge/better-auth-secret` | Knowledge web·worker | bootstrap |
 | `agent-forge/checkpoint-secret`, `credential-secret`, `model-secret`, `session-secret` | Forge | bootstrap |
 | `agent-forge/organization-id` | Studio·Forge | bootstrap |
-| `agent-{models,memory,librio,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
-| `agent-{models,memory,librio,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
+| `agent-{models,memory,knowledge,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
+| `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
 | `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
-| `agent-broker/auth-secret` | Broker | bootstrap(`agent_broker`가 있는 클러스터) |
-| `agent-broker/pool-admin-password`, `pool-database-url` | Broker, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
-| `broker-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
-| `agent-broker/oidc-client-id`, `oidc-client-secret` | Broker, Studio | Studio 등록 후 |
+| `agent-delivery/auth-secret` | Delivery | bootstrap(`agent_delivery`가 있는 클러스터) |
+| `agent-delivery/pool-admin-password`, `pool-database-url` | Delivery, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
+| `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
+| `agent-delivery/oidc-client-id`, `oidc-client-secret` | Delivery, Studio | Studio 등록 후 |
 
 Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
-Memory·Librio 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
+Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
 
 ## 실행과 네트워크
 
 Studio는 web(`agent-studio`)과 schedule ticker(`agent-studio-ticker`)만 실행합니다.
-오디오 처리는 Librio, Workspace 실행은 Forge가 소유하고 Studio는 MCP로 두 서비스를 호출합니다.
+오디오 처리는 Knowledge, Workspace 실행은 Forge가 소유하고 Studio는 MCP로 두 서비스를 호출합니다.
 Studio에는 audio/Workspace worker, Sandbox 실행 권한, Docker daemon, Kubernetes token이 없습니다.
 ticker는 scan/plugin sync를 매분, reindex를 매시간 호출합니다. PR 리뷰는 호출자의 GitHub MCP grant로
 `GITHUB_API_URL`·`GITHUB_WEB_URL`에 연결합니다.
 
-Librio·Forge는 자기 정책을 직접 판단하며 Studio 정책 callback을 호출하지 않습니다. 그래서 두 서비스에는
+Knowledge·Forge는 자기 정책을 직접 판단하며 Studio 정책 callback을 호출하지 않습니다. 그래서 두 서비스에는
 `STUDIO_URL`을 설정하지 않습니다.
 
-Librio는 웹과 별도 `agent-librio-worker` 하나를 사용합니다. 문서/Audio 소비는 worker에서만 활성화합니다.
+Knowledge는 웹과 별도 `agent-knowledge-worker` 하나를 사용합니다. 문서/Audio 소비는 worker에서만 활성화합니다.
 웹과 worker는 같은 이미지·모델·AI admission 정책을 사용합니다. quota는 동일 PostgreSQL에서
 interactive/batch와 전체 provider 상한을 합산합니다. pg-boss에는 별도 DB를 만들지 않습니다.
 
@@ -216,14 +216,14 @@ ExternalSecret은 두 값을 `/k8s/<cluster>/agent-forge/github-client-id`,
 `/k8s/<cluster>/agent-forge/github-client-secret` SecureString에서 읽습니다. 두 parameter가 없으면
 Forge Secret 동기화가 실패하므로 배포 전에 만듭니다.
 
-내부 Service와 Pod 포트는 Studio·Memory·Librio(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
+내부 Service와 Pod 포트는 Studio·Memory·Knowledge(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
 앱 ingress는 해당 플랫폼 Gateway, 수집기, 같은 namespace와 명시된 서비스 peer만 허용합니다.
 EKS의 Gateway 출발 Pod는 `istio-system` namespace의 `istio-ingressgateway`입니다.
 k3s 선언의 Gateway 리소스는 `traefik-gateway` namespace에 있지만 실제 출발 Pod는 `kube-system`에 있습니다.
 그래서 k3s 선언의 Gateway 접근은 `app.kubernetes.io/name=traefik`, `app.kubernetes.io/instance=traefik-kube-system`을
 함께 가진 Pod로 제한하며 다른 `kube-system` Pod를 허용하지 않습니다.
-Studio에는 Forge·Librio namespace의 연결, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
+Studio에는 Forge·Knowledge namespace의 연결, Forge에는 Sandbox의 인증된 Gateway 연결, Models에는 네 소비 서비스의
 연결을 허용합니다. Sandbox는 Models에 직접 연결하지 않고 Forge Gateway를 거칩니다.
 신뢰된 control-plane의 외부 LLM·MCP egress는 기존 동작을 유지합니다.
 Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod 포트만 허용합니다.
@@ -231,17 +231,17 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
 ## 최초 전환 순서
 
 1. 네 앱의 필수 검사와 release image 게시를 확인합니다. 전환 동안 `GITOPS_AUTO_DEPLOY=false`로
-   자동 버전 dispatch를 멈추고 Studio·Memory·Librio·Forge controller+Sandbox image를 모두 준비합니다.
+   자동 버전 dispatch를 멈추고 Studio·Memory·Knowledge·Forge controller+Sandbox image를 모두 준비합니다.
 2. Terraform의 ECR/IAM, addons의 `.agrt.dev` DNS/TLS·ESO·Gateway·관측성 계약을 확인합니다.
    이 절차로 클러스터를 만들지 않습니다. 대상 클러스터의 기존 node·PVC·bucket은 보존합니다.
 3. 기존 Studio 작업 신규 접수를 막고 진행 중 실행의 체크포인트·종료를 확인합니다.
-   새 앱을 올리기 전에 Secret, `agent_platform`, Librio object storage 버킷을 준비합니다.
-4. 새 이미지로 Memory/Librio 초기화를 완료하고 실제 organization ID와 모델 설정을 검증합니다.
+   새 앱을 올리기 전에 Secret, `agent_platform`, Knowledge object storage 버킷을 준비합니다.
+4. 새 이미지로 Memory/Knowledge 초기화를 완료하고 실제 organization ID와 모델 설정을 검증합니다.
    사용자 연결은 로그인한 계정으로 설정합니다. 조직 ID가 준비되기 전에 Studio 연결을 활성화하지 않습니다.
 5. `scripts/gitops.py deploy --dry-run`으로 phase 버전과 이력을 생성하고 chart 변경과 함께 반영합니다.
    phase 값을 직접 편집하지 않습니다. 동일 배포에서 새 이미지·DB URL·서비스 경계를 전환합니다.
 6. Argo CD `Synced/Healthy`, 정확한 image tag, DB readiness와 metrics를 확인합니다.
-   로그인, Memory recall/remember, Librio 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
+   로그인, Memory recall/remember, Knowledge 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
 7. 정상 동작을 확인한 뒤 앱 release의 자동 GitOps gate를 원래 설정으로 복원합니다.
 
 ## Models 활성화와 Studio OIDC 전환 (k3s)
@@ -262,11 +262,11 @@ ConfigMap·ExternalSecret·HTTPRoute·NetworkPolicy는 유지합니다. `values-
 | 서비스 | 새 image + 현재 `main` 설정 | 새 image + 새 설정 |
 | --- | --- | --- |
 | Studio | 부팅함. `DATABASE_URL`·`AES_ENCRYPTION_KEY`·`STAGE`·`ADMIN_EMAILS`·Google 로그인이 있음. 이전 서비스와의 위임 호출은 실패 | 부팅함. `*_OIDC_CLIENT_ID` SSM이 없으면 ExternalSecret이 갱신되지 않고 서비스 호출만 실패 |
-| Memory·Librio | 시작 실패. production은 `OIDC_ISSUER`·`OIDC_CLIENT_ID`·`OIDC_CLIENT_SECRET`을 요구 | client SSM과 schema 변환 후 부팅 |
+| Memory·Knowledge | 시작 실패. production은 `OIDC_ISSUER`·`OIDC_CLIENT_ID`·`OIDC_CLIENT_SECRET`을 요구 | client SSM과 schema 변환 후 부팅 |
 | Forge | 시작 실패. Studio OIDC 필수, 이전 `model-channels` 형식 거부 | client SSM과 `model-roles` 후 부팅. schema는 시작 시 확장 |
 | Models | 해당 없음 | `auth-secret`·`encryption-key`·client SSM 후 부팅 |
 
-Studio·Memory·Librio의 새 image는 기존 schema를 자동 변환하지 않습니다. 변환 도구를 새 image로
+Studio·Memory·Knowledge의 새 image는 기존 schema를 자동 변환하지 않습니다. 변환 도구를 새 image로
 실행한 직후 새 버전을 시작합니다. 변환 후 이전 image는 readiness에 실패합니다.
 
 ### 순서와 명령
@@ -295,13 +295,13 @@ run_once() { ns=$1; image=$2; shift 2
    `models.agrt.dev`가 있는지 확인합니다.
 3. **image 게시**: 다섯 서비스의 자동 GitOps를 멈추고 release tag를 push합니다. image만 ECR에 게시됩니다.
    ```bash
-   for r in agent-studio agent-memory agent-librio agent-forge agent-models; do
+   for r in agent-studio agent-memory agent-knowledge agent-forge agent-models; do
      gh variable set GITOPS_AUTO_DEPLOY --body false -R "opspresso/$r"; done
    # 각 저장소에서 git tag vX.Y.Z && git push origin vX.Y.Z, release workflow 성공 확인
    aws ecr describe-images --repository-name agent-forge --image-ids imageTag="$V_FORGE" imageTag="sandbox-$V_FORGE"
    ```
 4. **Studio 먼저 전환**: schema를 변환하고 바로 alpha에 배포합니다. 이 순간부터 7단계까지 Studio에서
-   Memory·Librio·Forge 호출과 모델 실행은 실패합니다.
+   Memory·Knowledge·Forge 호출과 모델 실행은 실패합니다.
    ```bash
    baseline=$(kubectl -n agent-studio exec postgres-0 -- psql -U agent_studio -d agent_platform -Atc \
      'SELECT version FROM agent_studio_schema')
@@ -320,14 +320,14 @@ run_once() { ns=$1; image=$2; shift 2
    부팅이 `Unsupported stored secret format`으로 중단되면 Studio 운영 문서의 Settings 시크릿 전환을 실행합니다.
 5. **client 등록**: Studio 관리자로 **Settings → Platform connections**에서 네 서비스를 등록합니다.
    provider ID는 `studio`, 서비스 URL은 `https://models.agrt.dev`, `https://memory.agrt.dev`,
-   `https://librio.agrt.dev`, `https://forge.agrt.dev`입니다. callback은 `<URL>/api/auth/callback/studio`입니다.
+   `https://knowledge.agrt.dev`, `https://forge.agrt.dev`입니다. callback은 `<URL>/api/auth/callback/studio`입니다.
    같은 기능의 API는 관리자 세션의 `POST /api/platform/clients`
    (`{"service":"agent-memory","baseUrl":"https://memory.agrt.dev","providerId":"studio"}`)입니다.
    응답의 `client.id`와 `secret`은 한 번만 표시되므로 바로 6단계에 저장합니다.
 6. **SSM**: 값을 명령줄 이력에 남기지 않도록 입력 파일이나 prompt로 전달합니다.
    ```bash
    set -euo pipefail  # stop at the first failed write; never keep a stale credential
-   for s in agent-models agent-memory agent-librio agent-forge; do
+   for s in agent-models agent-memory agent-knowledge agent-forge; do
      read -rs -p "$s client id: " id; echo; read -rs -p "$s client secret: " secret; echo
      # Re-registration issues a new client, so the stored pair is always replaced.
      aws ssm put-parameter --type SecureString --overwrite --name "/k8s/k3s-demo/$s/oidc-client-id" --value "$id"
@@ -344,19 +344,19 @@ run_once() { ns=$1; image=$2; shift 2
    git rebase origin/main
    for p in alpha prod; do
      TG_PROJECT=agent-memory TG_VERSION="$V_MEMORY" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
-     TG_PROJECT=agent-librio TG_VERSION="$V_LIBRIO" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
+     TG_PROJECT=agent-knowledge TG_VERSION="$V_KNOWLEDGE" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
      TG_PROJECT=agent-forge  TG_VERSION="$V_FORGE"  TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run
      TG_PROJECT=agent-models TG_VERSION="$V_MODELS" TG_PHASE=$p python3 scripts/gitops.py deploy --dry-run; done
    TG_PROJECT=agent-studio TG_VERSION="$V_STUDIO" TG_PHASE=prod python3 scripts/gitops.py deploy --dry-run
    ./scripts/build.sh && ./scripts/validate.py --all-charts && pytest
    git commit -am "Deploy Agent platform Studio OIDC and Models" && git push
    ```
-   병합 직전에 Memory·Librio schema를 변환합니다. 이 시점부터 새 버전이 Ready가 될 때까지 두 서비스는 503입니다.
+   병합 직전에 Memory·Knowledge schema를 변환합니다. 이 시점부터 새 버전이 Ready가 될 때까지 두 서비스는 503입니다.
    ```bash
    kubectl -n agent-studio exec postgres-0 -- psql -U agent_studio -d agent_platform -Atc 'SELECT fingerprint FROM agent_memory_schema'
    run_once agent-memory "$ECR/agent-memory:$V_MEMORY" node scripts/upgrade-enterprise-profile.mjs --apply  # 이전 fingerprint일 때만
    run_once agent-memory "$ECR/agent-memory:$V_MEMORY" node scripts/upgrade-model-work.mjs --apply          # 9eeb878d…일 때
-   run_once agent-librio "$ECR/agent-librio:$V_LIBRIO" node scripts/upgrade-platform-auth.mjs --apply      # v0.18.1·v0.19.0–v0.20.1
+   run_once agent-knowledge "$ECR/agent-knowledge:$V_KNOWLEDGE" node scripts/upgrade-platform-auth.mjs --apply      # v0.18.1·v0.19.0–v0.20.1
    ```
    도구가 기준선을 거절하고 데이터 보존이 필요 없으면 `node scripts/reset-database.mjs`로 해당 서비스 namespace만
    다시 만듭니다. 이어서 PR을 병합합니다. PostgreSQL은 `max_connections` 변경으로 한 번 재시작합니다.
@@ -364,12 +364,12 @@ run_once() { ns=$1; image=$2; shift 2
    ```bash
    kubectl get externalsecret -A | grep agent-        # 모두 SecretSynced
    kubectl -n agent-memory annotate externalsecret agent-memory-external force-sync="$(date +%s)" --overwrite  # 필요할 때
-   curl -fsS https://memory.agrt.dev/api/health && curl -fsS https://librio.agrt.dev/api/health
+   curl -fsS https://memory.agrt.dev/api/health && curl -fsS https://knowledge.agrt.dev/api/health
    curl -fsS https://forge.agrt.dev/health
    kubectl -n agent-models exec deploy/agent-models -- node -e "fetch('http://127.0.0.1:3400/api/ready').then(r => process.exit(r.ok ? 0 : 1))"
    curl -fsS --resolve models.agrt.dev:443:"$(dig +short studio.agrt.dev)" https://models.agrt.dev/api/ready
    ```
-   각 서비스에 Studio로 로그인하고 Studio의 Memory·Librio·Forge 연결 상태를 확인합니다.
+   각 서비스에 Studio로 로그인하고 Studio의 Memory·Knowledge·Forge 연결 상태를 확인합니다.
 9. **Models DNS 전환**: `terraform-env-demo` 변경을 병합하고 전체 apply로 `models.agrt.dev`를 k3s A 레코드로
    바꿉니다. 이어서 GitHub Pages를 끕니다. 카탈로그는 Models image가 같은 경로로 제공합니다.
    ```bash
@@ -379,7 +379,7 @@ run_once() { ns=$1; image=$2; shift 2
    curl -fsS https://models.agrt.dev/api/ready && curl -fsS https://models.agrt.dev/models.json | jq -r .version
    ```
 10. **모델 연결**: Models 콘솔에서 공급자를 연결하고 모델을 선택합니다. 이전 공급자 키는 여기서 다시 입력합니다.
-    Memory·Librio 역할은 `env/<cluster>.yaml`의 `models`로 선언합니다. Forge는 `model-roles`에 선택 ID를
+    Memory·Knowledge 역할은 `env/<cluster>.yaml`의 `models`로 선언합니다. Forge는 `model-roles`에 선택 ID를
     `--overwrite`로 저장하고 ExternalSecret에 반영한 뒤 `agent-forge/model-roles-version` annotation을
     SSM 파라미터 버전으로 올려 재시작합니다. ExternalSecret의 refreshInterval은 15분입니다.
     ```bash
@@ -390,9 +390,9 @@ run_once() { ns=$1; image=$2; shift 2
     annotation 변경 커밋은 Secret 갱신을 확인한 뒤 병합합니다. 실제 호출과 Models 사용량 집계를 확인합니다.
 11. **자동 배포 복원**: `values-prod.yaml`이 alpha와 같은 버전인지 확인하고 자동 GitOps를 복원합니다.
     ```bash
-    for c in agent-studio agent-memory agent-librio agent-forge agent-models; do
+    for c in agent-studio agent-memory agent-knowledge agent-forge agent-models; do
       diff <(yq .app.image.tag charts/$c/values-alpha.yaml) <(yq .app.image.tag charts/$c/values-prod.yaml); done
-    for r in agent-studio agent-memory agent-librio agent-forge agent-models; do
+    for r in agent-studio agent-memory agent-knowledge agent-forge agent-models; do
       gh variable delete GITOPS_AUTO_DEPLOY -R "opspresso/$r"; done
     ```
 12. 11단계를 모든 클러스터에서 확인한 뒤 더 이상 참조하지 않는 SSM 파라미터를 삭제합니다.
@@ -404,11 +404,11 @@ run_once() { ns=$1; image=$2; shift 2
    | --- | --- |
    | `/k8s/<cluster>/agent-forge/credentials`, `delegators`, `issuer-policies`, `delegation-secret`, `policy-secret` | 공유 HMAC 위임·정책 callback |
    | `/k8s/<cluster>/agent-forge/model-channels` | 공급자 정보를 포함한 이전 Forge 모델 채널 |
-   | `/k8s/<cluster>/agent-librio/delegation-secret`, `issuer-policies`, `policy-secret`, `audio-models` | 위임·정책 callback·이전 음성 모델 |
+   | `/k8s/<cluster>/agent-knowledge/delegation-secret`, `issuer-policies`, `policy-secret`, `audio-models` | 위임·정책 callback·이전 음성 모델 |
    | `/k8s/<cluster>/agent-memory/delegation-secret` | 위임 |
-   | `/k8s/<cluster>/agent-memory/organization-id`, `agent-librio/organization-id` | 사용하지 않음. Studio가 installation API로 읽음 |
+   | `/k8s/<cluster>/agent-memory/organization-id`, `agent-knowledge/organization-id` | 사용하지 않음. Studio가 installation API로 읽음 |
    | `/k8s/common/agent-memory/embedding-api-key`, `reranker-api-key`, `decision-api-key`, `knowledge-extraction-api-key` | 공급자 키. Models 공급자 연결로 이동 |
-   | `/k8s/common/agent-memory/google-client-id`, `google-client-secret` | Memory·Librio·Forge Google 로그인 |
+   | `/k8s/common/agent-memory/google-client-id`, `google-client-secret` | Memory·Knowledge·Forge Google 로그인 |
    | `/k8s/common/agent-studio/llm-provider-{openai,anthropic,google,xai,openrouter,selfhosted}-api-key` | Studio 공급자 키. Models 공급자 연결로 이동 |
 
    공급자 키는 Models의 공급자 연결에 다시 입력한 뒤 삭제합니다. `/k8s/common/agent-studio/`의
@@ -426,29 +426,29 @@ Studio는 ticker도 정지합니다. 각 flag는 다른 앱·DB·storage를 삭�
 이 절은 Studio audio/Workspace worker를 쓰던 이전 버전의 DB를 변환하는 절차입니다. `eks-demo`의 현재 선언에는
 두 worker가 없습니다.
 
-이 전환에서 Studio의 audio/Workspace worker와 Librio·Forge의 `STUDIO_URL`이 제거됩니다.
+이 전환에서 Studio의 audio/Workspace worker와 Knowledge·Forge의 `STUDIO_URL`이 제거됩니다.
 Argo CD의 `prune`이 두 worker Deployment를 삭제합니다. 아래 명령은 [순서와 명령](#순서와-명령)의
 `run_once`와 `ECR`, `V_<SERVICE>`를 사용합니다. 각 서비스의 새 release image 게시를 먼저 확인합니다.
 
-1. **Librio DB 변환**: `agent_librio_maintenance: true`로 Librio web과 worker를 먼저 정지합니다.
+1. **Knowledge DB 변환**: `agent_knowledge_maintenance: true`로 Knowledge web과 worker를 먼저 정지합니다.
    두 Deployment의 desired/ready가 0인지 확인한 뒤 새 image로 변환합니다.
    ```bash
-   run_once agent-librio "$ECR/agent-librio:$V_LIBRIO" node scripts/upgrade-audio-profiles.mjs --apply
+   run_once agent-knowledge "$ECR/agent-knowledge:$V_KNOWLEDGE" node scripts/upgrade-audio-profiles.mjs --apply
    ```
-   결과는 `upgraded` 또는 `current`여야 합니다. 다른 결과면 Librio를 재개하지 않고 원인을 확인합니다.
-   변환 후에는 Librio를 v0.21.x로 되돌리지 않습니다. 새 버전을 기록하고 maintenance를 `false`로 되돌립니다.
+   결과는 `upgraded` 또는 `current`여야 합니다. 다른 결과면 Knowledge를 재개하지 않고 원인을 확인합니다.
+   변환 후에는 Knowledge를 v0.21.x로 되돌리지 않습니다. 새 버전을 기록하고 maintenance를 `false`로 되돌립니다.
 2. **Forge**: 새 image를 배포합니다. schema v11→v12는 Forge가 시작할 때 자동으로 적용합니다.
 3. **Studio**: 새 Studio image를 배포한 뒤 platform auth를 변환합니다.
    ```bash
    run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply
    ```
-   이 도구는 서비스 API scope를 추가하고 Forge·Librio의 policy/control scope를 제거합니다.
+   이 도구는 서비스 API scope를 추가하고 Forge·Knowledge의 policy/control scope를 제거합니다.
    여러 번 실행해도 결과가 같습니다.
 4. **확인**: `agent-studio` namespace에 `agent-studio`와 `agent-studio-ticker` Deployment만 있는지 확인합니다.
-   Librio 원본 upload→전사/회의록과 Forge 실행→로그→취소를 Studio MCP 호출로 확인합니다.
+   Knowledge 원본 upload→전사/회의록과 Forge 실행→로그→취소를 Studio MCP 호출로 확인합니다.
    ```bash
    kubectl -n agent-studio get deploy
-   curl -fsS https://librio.agrt.dev/api/health && curl -fsS https://forge.agrt.dev/health
+   curl -fsS https://knowledge.agrt.dev/api/health && curl -fsS https://forge.agrt.dev/health
    ```
 
 ## 검증
@@ -461,9 +461,9 @@ pytest
 
 Helm/pytest는 EKS와 k3s 선언의 resource 정책, 같은 DB URL, 인증·metrics, 이미지 연동,
 RBAC·NetworkPolicy·quota·보존 계약을 검사합니다. 실제 환경 검증은 별도입니다.
-Memory/Librio web은 `/api/live`와 DB readiness `/api/health`를 나누고, Librio worker는 초기화 후
+Memory/Knowledge web은 `/api/live`와 DB readiness `/api/health`를 나누고, Knowledge worker는 초기화 후
 `/api/health`를 제공합니다. Forge `/health`는 DB/backend readiness, `/`는 독립 HTTP liveness입니다.
-Librio/Memory `/api/metrics`와 Forge `/metrics`는 `METRICS_BEARER_TOKEN` 전용 bearer를 요구합니다.
+Knowledge/Memory `/api/metrics`와 Forge `/metrics`는 `METRICS_BEARER_TOKEN` 전용 bearer를 요구합니다.
 Forge는 `agent-forge/metrics-bearer-token`을 `METRICS_BEARER_TOKEN`으로 받습니다. 이 값을 지원하지 않는
 Forge image는 Studio가 발급한 `workspace:read` token만 받으므로 metrics 수집(EKS ServiceMonitor, k3s 선언의 Alloy)이 실패합니다.
 health 성공만으로 원본 storage·provider·작업 성공을 판정하지 않습니다.
@@ -472,37 +472,37 @@ DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.
 PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collation 버전도 확인합니다.
 경고를 없애려고 데이터나 인덱스 재구성 없이 버전만 덮어쓰지 않습니다.
 
-## Agent Broker
+## Agent Delivery
 
-EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_broker`). 운영 클러스터 `eks-demo`에서 `broker.agrt.dev`로 제공한다.
-Broker는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/RESOURCE_BROKER.md`, AWS 리소스는 `terraform-env-demo`의
-`demo/8-agent-broker`가 소유한다.
+EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_delivery`). 운영 클러스터 `eks-demo`에서 `delivery.agrt.dev`로 제공한다.
+Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
+`demo/8-agent-delivery`가 소유한다.
 
 | Application | namespace | 내용 |
 | --- | --- | --- |
-| `agent-broker-<cluster>` | `agent-broker` | Broker web·API·MCP. `agent_broker_maintenance: true`이면 0개 |
-| `broker-pool-<cluster>` | `broker-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `broker_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
-| `broker-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `broker-tenant-secret-stores` |
+| `agent-delivery-<cluster>` | `agent-delivery` | Delivery web·API·MCP. `agent_delivery_maintenance: true`이면 0개 |
+| `delivery-pool-<cluster>` | `delivery-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `delivery_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
+| `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
-- `agent_broker.connected`가 `true`일 때만 Studio(`BROKER_URL`, Broker OIDC client ID, MCP 내부 host)와 Forge(`BROKER_URL`, Sandbox의 풀 egress)가
-  Broker에 연결된다. Broker client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
-  `register-platform-client.cjs --service agent-broker`로 client를 등록해 SSM에 저장한 뒤 Broker를 켜고 `connected: true`로 바꾼다.
+- `agent_delivery.connected`가 `true`일 때만 Studio(`DELIVERY_URL`, Delivery OIDC client ID, MCP 내부 host)와 Forge(`DELIVERY_URL`, Sandbox의 풀 egress)가
+  Agent Delivery에 연결된다. Delivery OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
+  `register-platform-client.cjs --service agent-delivery`로 client를 등록해 SSM에 저장한 뒤 Delivery를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
-- 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-broker`, ExternalSecret `app-env`,
-  NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Broker Delivery가
+- 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-delivery`, ExternalSecret `app-env`,
+  NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Delivery가
   `projects/<project>/<env>.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
   (`agent-platform`의 `docs/APP_DELIVERY.md`).
-- 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-broker-tenant-secrets` 역할을
-  session tag `broker-project`·`broker-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
-- Broker는 `agent_broker.delivery`의 namespace(`app-delivery`)에 Argo Workflows Workflow를 제출한다. 그래서 Broker Pod는
+- 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-delivery-tenant-secrets` 역할을
+  session tag `delivery-project`·`delivery-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
+- Delivery는 `agent_delivery.delivery`의 namespace(`app-delivery`)에 Argo Workflows Workflow를 제출한다. 그래서 Delivery Pod는
   ServiceAccount token을 마운트하고(`automountServiceAccountToken: true`), `NODE_EXTRA_CA_CERTS`로 API server CA를 신뢰한다.
-  제출 권한(Role `agent-broker`)은 `argocd-env-projects`의 `charts/delivery`가 준다.
+  제출 권한(Role `agent-delivery`)은 `argocd-env-projects`의 `charts/delivery`가 준다.
 - AWS는 session tag가 가리키는 Project 경로를 읽게 할 뿐, tag가 정당한지는 확인하지 않는다. 그래서 클러스터의
-  ValidatingAdmissionPolicy `broker-tenant-secret-stores`가 모든 SecretStore·ClusterSecretStore를 검사한다.
+  ValidatingAdmissionPolicy `delivery-tenant-secret-stores`가 모든 SecretStore·ClusterSecretStore를 검사한다.
   - 테넌트 namespace의 SecretStore는 tenant 역할만 쓸 수 있다.
-  - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/broker-project`·`broker-env`)이
+  - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/delivery-project`·`delivery-env`)이
     session tag와 같은 namespace의 SecretStore에서만 허용한다. 다른 namespace와 ClusterSecretStore는 거부한다.
   - 이름까지 확인하므로 다른 namespace에 테넌트 label을 붙여도 다른 Project를 흉내 낼 수 없다.
 - 풀 bootstrap은 `postgres`·`template1` database의 PUBLIC CONNECT를 회수한다.
-- 풀은 `agent-broker`, `agent-forge-workspaces`, `opspresso.com/broker-tenant=true` namespace에서만 접속을 받는다.
-  Forge Sandbox egress에는 `agent_broker`가 있을 때 풀 5432 허용이 추가된다.
+- 풀은 `agent-delivery`, `agent-forge-workspaces`, `opspresso.com/delivery-tenant=true` namespace에서만 접속을 받는다.
+  Forge Sandbox egress에는 `agent_delivery`가 있을 때 풀 5432 허용이 추가된다.

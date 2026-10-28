@@ -29,7 +29,7 @@ def aws(region, *arguments, payload=None):
     return json.loads(result.stdout)
 
 
-SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-librio", "agent-forge")
+SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-knowledge", "agent-forge")
 
 # Values that existing data or registrations depend on. A migrated database stays readable only when the
 # new cluster uses the same keys, Forge organization, Studio-issued clients and Models role selections.
@@ -37,12 +37,12 @@ CONTINUITY = (
     "agent-forge/checkpoint-secret", "agent-forge/credential-secret", "agent-forge/model-secret",
     "agent-forge/session-secret", "agent-forge/organization-id", "agent-forge/model-roles",
     "agent-forge/github-client-id", "agent-forge/github-client-secret",
-    "agent-models/auth-secret", "agent-models/encryption-key", "agent-librio/better-auth-secret",
+    "agent-models/auth-secret", "agent-models/encryption-key", "agent-knowledge/better-auth-secret",
     *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
 )
 
 
-def parameter_values(prefix, existing, broker=False):
+def parameter_values(prefix, existing, delivery=False):
     values = {}
 
     def secret(path, generate=lambda: secrets.token_hex(32)):
@@ -54,26 +54,26 @@ def parameter_values(prefix, existing, broker=False):
     values[f"{prefix}/agent-platform/database-url"] = (
         f"postgresql://agent_studio:{quote(postgres, safe='')}"
         "@postgres.agent-studio.svc.cluster.local:5432/agent_platform")
-    for service in ("agent-studio", "agent-memory", "agent-librio", "agent-forge"):
+    for service in ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge"):
         secret(f"{service}/metrics-bearer-token")
-    for path in ("agent-librio/better-auth-secret", "agent-forge/checkpoint-secret",
+    for path in ("agent-knowledge/better-auth-secret", "agent-forge/checkpoint-secret",
                  "agent-forge/credential-secret", "agent-forge/model-secret", "agent-forge/session-secret",
                  "agent-models/auth-secret"):
         secret(path)
     # Models requires canonical base64 of exactly 32 bytes.
     secret("agent-models/encryption-key", lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
     # Forge owns issuer-qualified principals; its organization is a configured namespace.
-    # Memory/Librio organization IDs must instead come from their initialized installations.
+    # Memory/Knowledge organization IDs must instead come from their initialized installations.
     values[f"{prefix}/agent-forge/organization-id"] = existing.get(
         f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
-    if broker:
-        secret("agent-broker/auth-secret")
-        secret("broker-pool/postgres-password")
-        # Broker administers the pool as a non-superuser; the pool bootstrap sets this password.
-        admin = secret("agent-broker/pool-admin-password")
-        values[f"{prefix}/agent-broker/pool-database-url"] = (
-            f"postgresql://broker_admin:{quote(admin, safe='')}"
-            "@postgres.broker-pool.svc.cluster.local:5432/postgres")
+    if delivery:
+        secret("agent-delivery/auth-secret")
+        secret("delivery-pool/postgres-password")
+        # Delivery administers the pool as a non-superuser; the pool bootstrap sets this password.
+        admin = secret("agent-delivery/pool-admin-password")
+        values[f"{prefix}/agent-delivery/pool-database-url"] = (
+            f"postgresql://delivery_admin:{quote(admin, safe='')}"
+            "@postgres.delivery-pool.svc.cluster.local:5432/postgres")
     return values
 
 
@@ -96,12 +96,12 @@ def continuity_values(region, source, prefix):
     return {f"{prefix}/{path}": values[f"/k8s/{source}/{path}"] for path in CONTINUITY}
 
 
-def bootstrap(cluster, region, apply=False, copy_from=None, broker=False):
+def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False):
     prefix = f"/k8s/{cluster}"
     copied = continuity_values(region, copy_from, prefix) if copy_from else {}
-    names = list(dict.fromkeys([*parameter_values(prefix, {}, broker), *copied]))
+    names = list(dict.fromkeys([*parameter_values(prefix, {}, delivery), *copied]))
     existing = read_parameters(region, names)
-    desired = {**parameter_values(prefix, {**copied, **existing}, broker), **copied}
+    desired = {**parameter_values(prefix, {**copied, **existing}, delivery), **copied}
     mismatches = [name for name, value in existing.items() if value != desired[name]]
     if mismatches:
         raise RuntimeError("Inconsistent connection parameters; review without rotating: " + ", ".join(mismatches))
@@ -115,12 +115,12 @@ def bootstrap(cluster, region, apply=False, copy_from=None, broker=False):
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
     if copy_from:
-        if broker:
-            print(f"Prepare from Studio Platform connections: {prefix}/agent-broker/oidc-client-id, oidc-client-secret")
+        if delivery:
+            print(f"Prepare from Studio Platform connections: {prefix}/agent-delivery/oidc-client-id, oidc-client-secret")
         return 0 if apply or not missing else 1
     # Studio issues each service client, and Forge roles name central Models selections.
     # Operators prepare these after registration; they are never random secret material.
-    for service in SERVICE_CLIENTS + (("agent-broker",) if broker else ()):
+    for service in SERVICE_CLIENTS + (("agent-delivery",) if delivery else ()):
         print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
     print(f"Prepare and validate separately: {prefix}/agent-forge/model-roles")
     return 0 if apply or not missing else 1
@@ -142,7 +142,7 @@ def main():
     account = aws(env["aws_region"], "sts", "get-caller-identity")["Account"]
     if account != str(env["aws_account_id"]):
         parser.error("AWS account does not match the selected cluster")
-    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_broker" in env)
+    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_delivery" in env)
 
 
 if __name__ == "__main__":

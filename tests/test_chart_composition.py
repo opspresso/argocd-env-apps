@@ -30,7 +30,7 @@ def render(chart, platform="k3s", *settings):
 def test_studio_runs_only_web_and_ticker_with_stable_identity(platform):
     docs = render("agent-studio", platform, "app.image.tag=v9.8.7")
     deployments = {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "Deployment"}
-    # Audio and Workspace execution belong to Librio and Forge; Studio keeps no worker process.
+    # Audio and Workspace execution belong to Knowledge and Forge; Studio keeps no worker process.
     assert set(deployments) == {"agent-studio", "agent-studio-ticker"}
     for name, deployment in deployments.items():
         selector = {"app.kubernetes.io/name": name, "app.kubernetes.io/instance": "custom-release"}

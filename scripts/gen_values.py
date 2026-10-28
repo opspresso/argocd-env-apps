@@ -22,7 +22,7 @@ def parse_args():
 
 def validate_agent_oidc(context):
     """Studio alone connects to an external IdP; the other services sign in through Studio."""
-    for service in ("memory", "librio", "forge", "models"):
+    for service in ("memory", "knowledge", "forge", "models"):
         settings = context.get(f"agent_{service}")
         if isinstance(settings, dict):
             for key in ("oidc", "google_sign_in", "sign_in_domains"):
@@ -80,12 +80,12 @@ def gen_values(t, reponame, platform=PLATFORM):
                     raise ValueError("{} must declare a supported env".format(env_path))
                 if v.get("cluster") != os.path.splitext(env_file)[0]:
                     raise ValueError("{} cluster must match its filename".format(env_path))
-                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_librio_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "storage_gc_maintenance"):
+                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_knowledge_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "storage_gc_maintenance"):
                     if key in v and not isinstance(v[key], bool):
                         raise ValueError("{} {} must be a boolean".format(env_path, key))
                 if v.get("storage_gc_maintenance"):
                     paused = all(v.get(f"agent_{service}_maintenance") is True
-                                 for service in ("studio", "memory", "librio", "forge"))
+                                 for service in ("studio", "memory", "knowledge", "forge"))
                     if v.get("env") != "k3s" or not paused or v.get("minio", {}).get("console") is not False:
                         raise ValueError("storage_gc_maintenance requires k3s, all Agent services paused and minio.console false")
                 validate_agent_oidc(v)

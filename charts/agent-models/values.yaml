@@ -171,5 +171,5 @@ app:
   servicePeers:
   - agent-studio
   - agent-memory
-  - agent-librio
+  - agent-knowledge
   - agent-forge

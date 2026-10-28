@@ -1,0 +1,4 @@
+app:
+  fullnameOverride: agent-knowledge
+  raw:
+    enabled: False

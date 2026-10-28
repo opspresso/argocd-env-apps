@@ -26,7 +26,7 @@ NetworkPolicy는 ingress/egress를 기본 거부합니다. 실행 Pod에는 다�
 Sandbox가 읽는 `FORGE_SANDBOX_API_URL`은 Service 포트를 사용합니다.
 NetworkPolicy는 DNAT 뒤의 Pod 포트를 사용하므로 두 값을 혼동하지 않습니다.
 native CLI는 이 주소의 인증된 모델 Gateway를 호출합니다. 같은 namespace의 다른 서비스나
-Kubernetes API, Studio·Memory·Librio·PostgreSQL에는 직접 연결할 수 없습니다.
+Kubernetes API, Studio·Memory·Knowledge·PostgreSQL에는 직접 연결할 수 없습니다.
 폐쇄망은 `workspace_allow_public: false`, 추가 내부 목적지는 `workspace_extra_egress`에 정확히 선언합니다.
 
 앱 namespace ingress는 별도 정책입니다. Forge에 Studio와 Sandbox의 연결을 허용합니다.

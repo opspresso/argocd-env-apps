@@ -39,14 +39,14 @@ def resource(chart, platform, kind, name, **overrides):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_application_credentials_match_cluster_dependencies(chart, platform):
     secret = resource(chart, platform, "ExternalSecret", f"{chart}-external")
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
     assert refs["DATABASE_URL"] == f"/k8s/{platform}-demo/agent-platform/database-url"
     config = resource(chart, platform, "ConfigMap", chart)["data"]
     assert not any("BEDROCK" in key or "DYNAMO" in key or "NEO4J" in key for key in config)
-    if chart in {"agent-studio", "agent-librio"}:
+    if chart in {"agent-studio", "agent-knowledge"}:
         if platform == "eks":
             assert "S3_ENDPOINT" not in config and "S3_ACCESS_KEY_ID" not in refs
             assert config["S3_BUCKET_NAME"] == f"{chart}-static"
@@ -63,7 +63,7 @@ def test_application_credentials_match_cluster_dependencies(chart, platform):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_authentication_hosts_match_public_routes(chart, platform):
     config = resource(chart, platform, "ConfigMap", chart)["data"]
     route = resource(chart, platform, "HTTPRoute", chart)["spec"]
@@ -78,7 +78,7 @@ def test_authentication_hosts_match_public_routes(chart, platform):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart", ["agent-memory", "agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-memory", "agent-knowledge", "agent-forge"])
 def test_metrics_auth_and_dependency_independent_liveness(chart, platform):
     service = resource(chart, platform, "Service", chart)
     deployment = resource(chart, platform, "Deployment", chart)
@@ -122,26 +122,26 @@ def test_mcp_accepts_only_trusted_agent_execution_processes(chart, platform):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-def test_librio_consumer_is_independent_of_web_and_shares_metrics_auth(platform):
-    worker = resource("agent-librio", platform, "Deployment", "agent-librio-worker")
-    web = resource("agent-librio", platform, "Deployment", "agent-librio")
+def test_knowledge_consumer_is_independent_of_web_and_shares_metrics_auth(platform):
+    worker = resource("agent-knowledge", platform, "Deployment", "agent-knowledge-worker")
+    web = resource("agent-knowledge", platform, "Deployment", "agent-knowledge")
     assert worker["spec"]["replicas"] == 1
     pod = worker["spec"]["template"]["spec"]
     container = pod["containers"][0]
     assert container["command"] == ["node", "build/worker.cjs"]
     assert container["image"] == web["spec"]["template"]["spec"]["containers"][0]["image"]
     assert pod["terminationGracePeriodSeconds"] > 30
-    assert pod["serviceAccountName"] == "agent-librio"
-    assert container["envFrom"] == [{"configMapRef": {"name": "agent-librio"}}, {"secretRef": {"name": "agent-librio-external"}}]
+    assert pod["serviceAccountName"] == "agent-knowledge"
+    assert container["envFrom"] == [{"configMapRef": {"name": "agent-knowledge"}}, {"secretRef": {"name": "agent-knowledge-external"}}]
     env = {entry["name"]: entry["value"] for entry in container["env"]}
     assert env["AUDIO_WORKER_ENABLED"] == env["DOCUMENT_WORKER_ENABLED"] == "true"
-    config = resource("agent-librio", platform, "ConfigMap", "agent-librio")["data"]
+    config = resource("agent-knowledge", platform, "ConfigMap", "agent-knowledge")["data"]
     assert config["AUDIO_WORKER_ENABLED"] == config["DOCUMENT_WORKER_ENABLED"] == "false"
-    service = resource("agent-librio", platform, "Service", "agent-librio-worker")
+    service = resource("agent-knowledge", platform, "Service", "agent-knowledge-worker")
     assert service["spec"]["selector"] == worker["spec"]["selector"]["matchLabels"]
-    assert resource("agent-librio", platform, "Service", "agent-librio")["spec"]["selector"] != service["spec"]["selector"]
+    assert resource("agent-knowledge", platform, "Service", "agent-knowledge")["spec"]["selector"] != service["spec"]["selector"]
     if platform == "eks":
-        monitor = resource("agent-librio", platform, "ServiceMonitor", "agent-librio")
+        monitor = resource("agent-knowledge", platform, "ServiceMonitor", "agent-knowledge")
         assert monitor["spec"]["selector"]["matchLabels"].items() <= service["metadata"]["labels"].items()
     else:
         assert not container.get("resources")
@@ -156,14 +156,14 @@ def test_studio_has_no_execution_or_cluster_authority(platform):
     assert not any(name.startswith(("WORKSPACE_", "AUDIO_")) and name.endswith("_CONCURRENCY") for name in config)
     assert config["FORGE_URL"] == "http://agent-forge.agent-forge.svc.cluster.local:3103"
     assert config["MEMORY_URL"] == "http://agent-memory.agent-memory.svc.cluster.local:3000"
-    assert config["LIBRIO_URL"] == "http://agent-librio.agent-librio.svc.cluster.local:3000"
+    assert config["KNOWLEDGE_URL"] == "http://agent-knowledge.agent-knowledge.svc.cluster.local:3000"
     assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
     assert config["MODELS_PUBLIC_URL"] == "https://models.agrt.dev"
     assert not any(name.startswith("LLM_PROVIDER_") or "_DELEGATION_" in name for name in config)
     refs = {entry["secretKey"]: entry["remoteRef"]["key"]
             for entry in resource("agent-studio", platform, "ExternalSecret", "agent-studio-external")["spec"]["data"]}
     # Studio and each service read the same registered client ID.
-    for service in ("forge", "memory", "librio"):
+    for service in ("forge", "memory", "knowledge"):
         assert refs[f"{service.upper()}_OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-{service}/oidc-client-id"
     assert not any(name.startswith("LLM_PROVIDER_") or name.endswith(("_DELEGATION_SECRET", "_POLICY_SECRET")) for name in refs)
     assert not any(doc["kind"] in {"Role", "RoleBinding", "Job"} for doc in manifests("agent-studio", platform))
@@ -183,7 +183,7 @@ def test_forge_and_sandbox_use_exactly_the_same_release(platform, tag):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_namespace_registry_refresh_and_explicit_ingress(chart, platform):
     registry = resource(chart, platform, "ExternalSecret", "ecr-registry")["spec"]
     assert registry["refreshInterval"] == "1h"
@@ -199,7 +199,7 @@ def test_namespace_registry_refresh_and_explicit_ingress(chart, platform):
                             "podSelector": {"matchLabels": {"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-kube-system"}}}]
         assert "traefik-gateway" not in peers
     if chart == "agent-studio":
-        assert {"agent-forge", "agent-librio"} <= peers
+        assert {"agent-forge", "agent-knowledge"} <= peers
     assert "agent-forge-workspaces" in peers if chart == "agent-forge" else "agent-forge-workspaces" not in peers
 
 
@@ -214,7 +214,7 @@ def test_eks_databases_keep_the_existing_persistent_storage(chart, name):
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart", ["agent-librio", "agent-forge"])
+@pytest.mark.parametrize("chart", ["agent-knowledge", "agent-forge"])
 @pytest.mark.parametrize("maintenance", [False, True])
 def test_new_service_maintenance_stops_only_its_processes(platform, chart, maintenance, tmp_path):
     from test_agent_memory_maintenance import render
@@ -222,7 +222,7 @@ def test_new_service_maintenance_stops_only_its_processes(platform, chart, maint
     environment[chart.replace("-", "_") + "_maintenance"] = maintenance
     docs = render(chart, environment, tmp_path)
     deployments = [doc for doc in docs if doc["kind"] == "Deployment"]
-    expected = {chart, "agent-librio-worker"} if chart == "agent-librio" else {chart}
+    expected = {chart, "agent-knowledge-worker"} if chart == "agent-knowledge" else {chart}
     assert {doc["metadata"]["name"] for doc in deployments} == expected
     if maintenance:
         assert all(doc["spec"]["replicas"] == 0 for doc in deployments)
@@ -232,14 +232,14 @@ def test_new_service_maintenance_stops_only_its_processes(platform, chart, maint
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-def test_librio_pool_preserves_provider_slots_and_cleanup_capacity(platform):
-    config = resource("agent-librio", platform, "ConfigMap", "agent-librio")["data"]
+def test_knowledge_pool_preserves_provider_slots_and_cleanup_capacity(platform):
+    config = resource("agent-knowledge", platform, "ConfigMap", "agent-knowledge")["data"]
     assert int(config["AI_ADMISSION_POOL_SIZE"]) >= int(config["AI_PROVIDER_MAX_CONCURRENCY"]) + 1
     assert 0 < int(config["AI_BATCH_MAX_CONCURRENCY"]) < int(config["AI_PROVIDER_MAX_CONCURRENCY"])
 
 
 @pytest.mark.parametrize("platform", ["eks", "k3s"])
-@pytest.mark.parametrize("chart,port", [("agent-studio", 3000), ("agent-memory", 3000), ("agent-librio", 3000), ("agent-forge", 3103)])
+@pytest.mark.parametrize("chart,port", [("agent-studio", 3000), ("agent-memory", 3000), ("agent-knowledge", 3000), ("agent-forge", 3103)])
 def test_agent_service_route_and_pod_share_the_same_port(chart, port, platform):
     service = resource(chart, platform, "Service", chart)["spec"]
     deployment = resource(chart, platform, "Deployment", chart)["spec"]["template"]["spec"]
@@ -251,8 +251,8 @@ def test_agent_service_route_and_pod_share_the_same_port(chart, port, platform):
     assert service_port["port"] == resolved_target == port
     assert service_port["name"] in container_ports
     assert all(backend["port"] == port for rule in route["rules"] for backend in rule.get("backendRefs", []))
-    if chart == "agent-librio":
-        worker = resource(chart, platform, "Service", "agent-librio-worker")["spec"]["ports"][0]
+    if chart == "agent-knowledge":
+        worker = resource(chart, platform, "Service", "agent-knowledge-worker")["spec"]["ports"][0]
         assert worker["port"] == worker["targetPort"] == port
     if chart == "agent-studio":
         ticker = resource(chart, platform, "Deployment", "agent-studio-ticker")["spec"]["template"]["spec"]["containers"][0]
@@ -281,7 +281,7 @@ def test_studio_metrics_require_the_shared_bearer(platform):
     secret = resource("agent-studio", platform, "ExternalSecret", "agent-studio-external")
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
     assert refs["METRICS_BEARER_TOKEN"] == f"/k8s/{platform}-demo/agent-studio/metrics-bearer-token"
-    assert "MEMORY_ORGANIZATION_ID" not in refs and "LIBRIO_ORGANIZATION_ID" not in refs
+    assert "MEMORY_ORGANIZATION_ID" not in refs and "KNOWLEDGE_ORGANIZATION_ID" not in refs
     if platform == "eks":
         monitor = resource("agent-studio", platform, "ServiceMonitor", "agent-studio")["spec"]
         assert monitor["endpoints"][0]["authorization"]["credentials"] == {

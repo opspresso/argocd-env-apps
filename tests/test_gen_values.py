@@ -49,7 +49,7 @@ def test_missing_template_fails(project):
     "env: eks\nreplicas: 2\n",
     "env: typo\ncluster: eks-demo\nreplicas: 2\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nresources: 'false'\n",
-    "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_librio_maintenance: 'false'\n",
+    "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_knowledge_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_forge_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_studio_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nmetrics: {backend: typo}\n",
@@ -80,9 +80,9 @@ def test_storage_gc_requires_all_writers_and_console_paused(project, change):
     root, chart, args = project
     context = {'env': 'k3s', 'cluster': 'k3s-demo', 'replicas': 1, 'storage_gc_maintenance': True,
                'minio': {'console': False}, **{f'agent_{name}_maintenance': True
-                                            for name in ('studio', 'memory', 'librio', 'forge')}}
+                                            for name in ('studio', 'memory', 'knowledge', 'forge')}}
     if change == 'missing_writer':
-        context['agent_librio_maintenance'] = False
+        context['agent_knowledge_maintenance'] = False
     elif change == 'console_enabled':
         context['minio']['console'] = True
     elif change == 'eks':

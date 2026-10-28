@@ -8,7 +8,7 @@ import yaml
 from test_agent_memory_maintenance import render
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVICES = ('studio', 'memory', 'librio', 'forge')
+SERVICES = ('studio', 'memory', 'knowledge', 'forge')
 
 
 def contexts():
@@ -37,7 +37,7 @@ def test_gc_stops_all_application_processes(tmp_path):
         deployments.extend(item for item in docs if item['kind'] == 'Deployment')
         assert not any(item['kind'] in {'HorizontalPodAutoscaler', 'CronJob'} for item in docs)
     assert {item['metadata']['name'] for item in deployments} == {
-        'agent-studio', 'agent-studio-ticker', 'agent-memory', 'agent-librio', 'agent-librio-worker', 'agent-forge'}
+        'agent-studio', 'agent-studio-ticker', 'agent-memory', 'agent-knowledge', 'agent-knowledge-worker', 'agent-forge'}
     assert all(item['spec']['replicas'] == 0 for item in deployments)
 
 

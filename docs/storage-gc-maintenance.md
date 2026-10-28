@@ -11,7 +11,7 @@ PostgreSQL·MinIO 서버와 PVC를 유지하며 EKS의 설정·배포 지원을 
 ```yaml
 agent_studio_maintenance: true
 agent_memory_maintenance: true
-agent_librio_maintenance: true
+agent_knowledge_maintenance: true
 agent_forge_maintenance: true
 storage_gc_maintenance: true
 minio:
@@ -22,7 +22,7 @@ minio:
 `storage_gc_maintenance`는 k3s에서 네 서비스가 모두 maintenance이고 콘솔이 꺼져 있을 때만
 허용됩니다. 잘못된 조합은 생성기가 산출물을 쓰기 전에 거부합니다.
 
-- Studio web·ticker, Memory web, Librio web·worker, Forge controller의 총 6개 Deployment가
+- Studio web·ticker, Memory web, Knowledge web·worker, Forge controller의 총 6개 Deployment가
   0개가 됩니다. HPA도 비활성화합니다.
 - MinIO console의 Deployment·Service·NetworkPolicy는 제거됩니다.
 - MinIO 서버의 기존 NetworkPolicy를 같은 이름·Pod selector의 `ingress: []` 정책으로 교체합니다.

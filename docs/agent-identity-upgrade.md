@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | Studio | `v0.166.0` | version 11 | `node build/upgrade-enterprise-profile.cjs --apply` |
 | Memory | `v0.58.0` | fingerprint `6e8f4473aac6760b7bae77750f952d05a4bf2241c1b15908caa6d71b2f1d74dc` | `node scripts/upgrade-enterprise-profile.mjs --apply` |
-| Librio | `v0.19.0` | fingerprint `f3a3fc210e67c9b987a5999a28d79a1fb305c902249e230a81ac535f9a3b3432` | `node scripts/upgrade-enterprise-profile.mjs --apply` |
+| Knowledge | `v0.19.0` | fingerprint `f3a3fc210e67c9b987a5999a28d79a1fb305c902249e230a81ac535f9a3b3432` | `node scripts/upgrade-enterprise-profile.mjs --apply` |
 | Forge | `v0.10.0` | version 7 | `node build/scripts/database.js init` — 시작 시 사용하는 같은 변환 |
 
 ## 준비
@@ -37,8 +37,8 @@
    `<service>-external` Secret의 `DATABASE_URL`만 참조하고 `ecr-registry` imagePullSecret을
    사용한다. ServiceAccount token은 마운트하지 않는다. 자동 재시도 없이 실패를 확인한다.
    변환 도구는 스키마를 검증하고 같은 DB transaction과 advisory lock 안에서 적용한다.
-5. Studio version 12, Forge version 8, Memory·Librio의 해당 이미지 fingerprint와 기존 행의 내용 보존을 확인한다.
-   Memory·Librio의 저장된 `BETTER_AUTH_URL` override는 같은 값을 `AUTH_BASE_URL`로 옮긴다.
+5. Studio version 12, Forge version 8, Memory·Knowledge의 해당 이미지 fingerprint와 기존 행의 내용 보존을 확인한다.
+   Memory·Knowledge의 저장된 `BETTER_AUTH_URL` override는 같은 값을 `AUTH_BASE_URL`로 옮긴다.
    서로 다른 두 값이 있으면 도구가 거절하므로 운영자가 원인을 확인한다.
 
 ## 재개와 확인

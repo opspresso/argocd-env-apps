@@ -1,4 +1,0 @@
-app:
-  fullnameOverride: agent-librio
-  raw:
-    enabled: False
