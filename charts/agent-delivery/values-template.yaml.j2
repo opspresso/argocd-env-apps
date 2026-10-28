@@ -53,7 +53,7 @@ app:
       name: OIDC_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-delivery/pool-database-url
       name: DELIVERY_POOL_DATABASE_URL
-{%- if agent_delivery.delivery is defined and agent_delivery.delivery.github_app %}
+{%- if agent_delivery.delivery is defined and agent_delivery.delivery.github_app | default(false) %}
     - key: /k8s/{{cluster}}/agent-delivery/github-app-id
       name: DELIVERY_GITHUB_APP_ID
     - key: /k8s/{{cluster}}/agent-delivery/github-app-private-key
