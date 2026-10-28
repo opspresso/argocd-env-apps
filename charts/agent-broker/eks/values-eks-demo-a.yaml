@@ -1,4 +1,0 @@
-app:
-  fullnameOverride: agent-broker
-  raw:
-    enabled: False

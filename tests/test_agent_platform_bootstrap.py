@@ -29,7 +29,7 @@ def test_check_reports_missing_without_writes_or_fabricated_installation_ids(cap
     assert "organization-id" not in output.replace(f"{PREFIX}/agent-forge/organization-id", "")
     desired = bootstrap.parameter_values(PREFIX, {})
     assert f"{PREFIX}/agent-memory/organization-id" not in desired
-    assert f"{PREFIX}/agent-librio/organization-id" not in desired
+    assert f"{PREFIX}/agent-knowledge/organization-id" not in desired
     assert f"{PREFIX}/agent-forge/model-roles" not in desired
     # Studio issues OIDC clients; random values would never match a registration.
     assert not any("oidc-client" in name for name in desired)
@@ -112,19 +112,19 @@ def test_copy_from_requires_every_source_value_before_any_write():
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 
-def test_broker_clusters_get_pool_credentials_with_a_matching_admin_url(capsys):
+def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys):
     with patch.object(bootstrap, "aws", side_effect=fake_ssm({})) as aws:
-        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, broker=True) == 0
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True) == 0
     writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"]["Value"] for call in aws.call_args_list
               if call.args[2] == "put-parameter"}
-    admin = writes[f"{TARGET}/agent-broker/pool-admin-password"]
-    assert writes[f"{TARGET}/agent-broker/pool-database-url"] == (
-        f"postgresql://broker_admin:{admin}@postgres.broker-pool.svc.cluster.local:5432/postgres")
-    assert len(writes[f"{TARGET}/agent-broker/auth-secret"]) >= 32
-    assert writes[f"{TARGET}/broker-pool/postgres-password"] != admin
-    assert f"{TARGET}/agent-broker/oidc-client-id" in capsys.readouterr().out
+    admin = writes[f"{TARGET}/agent-delivery/pool-admin-password"]
+    assert writes[f"{TARGET}/agent-delivery/pool-database-url"] == (
+        f"postgresql://delivery_admin:{admin}@postgres.delivery-pool.svc.cluster.local:5432/postgres")
+    assert len(writes[f"{TARGET}/agent-delivery/auth-secret"]) >= 32
+    assert writes[f"{TARGET}/delivery-pool/postgres-password"] != admin
+    assert f"{TARGET}/agent-delivery/oidc-client-id" in capsys.readouterr().out
     assert not any("oidc-client" in name for name in writes)
 
 
-def test_clusters_without_broker_get_no_broker_parameters():
-    assert not any("broker" in name for name in bootstrap.parameter_values(TARGET, {}))
+def test_clusters_without_delivery_get_no_delivery_parameters():
+    assert not any("delivery" in name for name in bootstrap.parameter_values(TARGET, {}))

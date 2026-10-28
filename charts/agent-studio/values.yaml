@@ -277,4 +277,4 @@ app:
   servicePeers:
   - agent-studio
   - agent-forge
-  - agent-librio
+  - agent-knowledge

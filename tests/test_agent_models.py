@@ -36,7 +36,7 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
     ingress = resource("agent-models", platform, "NetworkPolicy", "agent-models")["spec"]["ingress"][0]
     assert ingress["ports"] == [{"protocol": "TCP", "port": 3400}]
     peers = {peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in ingress["from"] if "namespaceSelector" in peer}
-    assert peers == {"agent-studio", "agent-memory", "agent-librio", "agent-forge", "kube-system" if platform == "k3s" else "istio-system"}
+    assert peers == {"agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "kube-system" if platform == "k3s" else "istio-system"}
     assert not any(doc["kind"] == "PersistentVolumeClaim" for doc in manifests("agent-models", platform))
     assert resource("agent-models", platform, "HTTPRoute", "agent-models")["spec"]["hostnames"] == ["models.agrt.dev"]
 

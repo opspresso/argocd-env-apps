@@ -1,0 +1,271 @@
+app:
+  fullnameOverride: agent-knowledge
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-knowledge
+    tag: latest
+  resources:
+    requests:
+      cpu: 25m
+      memory: 192Mi
+    limits:
+      memory: 1Gi
+  service:
+    name: http
+    port: 3000
+    targetPort: 3000
+  controller:
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 0
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 5
+    timeoutSeconds: 6
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /api/live
+      port: 3000
+    timeoutSeconds: 2
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  startupProbe:
+    httpGet:
+      path: /api/live
+      port: 3000
+    timeoutSeconds: 2
+    periodSeconds: 5
+    failureThreshold: 60
+  terminationGracePeriodSeconds: 660
+  lifecycle:
+    preStop:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - sleep 15
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 2
+    metrics:
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: app
+        target:
+          type: Utilization
+          averageUtilization: 70
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 900
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+  serviceMonitor:
+    enabled: true
+    endpoints:
+    - interval: 15s
+      path: /api/metrics
+      port: http
+      authorization:
+        type: Bearer
+        credentials:
+          name: agent-knowledge-external
+          key: METRICS_BEARER_TOKEN
+  routing:
+    httpRoute:
+      parentRefs:
+      - name: istio-ingressgateway
+        namespace: istio-system
+  serviceAccount:
+    create: true
+    name: agent-knowledge
+  podAntiAffinity:
+    topologyKey: kubernetes.io/hostname
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  externalSecrets:
+    enabled: true
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: parameter-store
+  raw:
+    enabled: true
+    parentTemplates:
+    - |
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: ECRAuthorizationToken
+      metadata:
+        name: agent-knowledge-ecr
+        namespace: {{ include "app.namespace" . }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-2"
+      spec:
+        region: {{ .Values.registry.region }}
+      ---
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: ecr-registry
+        namespace: {{ include "app.namespace" . }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        refreshInterval: 1h
+        target:
+          name: ecr-registry
+          template:
+            type: kubernetes.io/dockerconfigjson
+            data:
+              .dockerconfigjson: |
+                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
+        dataFrom:
+          - sourceRef:
+              generatorRef:
+                apiVersion: generators.external-secrets.io/v1alpha1
+                kind: ECRAuthorizationToken
+                name: agent-knowledge-ecr
+    - |
+      {{- if .Values.workloads.worker.enabled }}
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: agent-knowledge-worker
+        namespace: {{ include "app.namespace" . }}
+        labels:
+      {{ include "app.labels" . | indent 4 }}
+          app.kubernetes.io/component: worker
+      spec:
+        ports:
+          - name: http
+            port: 3000
+            targetPort: 3000
+        selector:
+          app.kubernetes.io/name: agent-knowledge-worker
+          app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- end }}
+    - |
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: {{ include "app.fullname" . }}
+        namespace: {{ include "app.namespace" . }}
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        policyTypes: [Ingress]
+        ingress:
+          - from:
+              - podSelector: {}
+      {{- with .Values.ingressPeers }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- range .Values.servicePeers }}
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ . | quote }}
+      {{- end }}
+            ports:
+              - protocol: TCP
+                port: {{ .Values.service.targetPort }}
+  registry:
+    region: ap-northeast-2
+  automountServiceAccountToken: true
+  workloads:
+    worker:
+      enabled: false
+      replicas: 1
+      fullnameOverride: agent-knowledge-worker
+      containerName: worker
+      command:
+      - node
+      - build/worker.cjs
+      service:
+        enabled: false
+      serviceAccount:
+        name: agent-knowledge
+      automountServiceAccountToken: true
+      podAnnotations:
+        sidecar.istio.io/inject: 'false'
+      terminationGracePeriodSeconds: 60
+      podAntiAffinity:
+        topologyKey: kubernetes.io/hostname
+      controller:
+        strategy:
+          rollingUpdate:
+            maxSurge: 1
+            maxUnavailable: 0
+      envFrom:
+      - configMapRef:
+          name: agent-knowledge
+      - secretRef:
+          name: agent-knowledge-external
+      env:
+      - name: DOCUMENT_WORKER_ENABLED
+        value: 'true'
+      - name: AUDIO_WORKER_ENABLED
+        value: 'true'
+      resources:
+        requests:
+          cpu: 25m
+          memory: 256Mi
+        limits:
+          memory: 2Gi
+      overrides: |
+        enabled: {{ .Values.workloads.worker.enabled }}
+        replicaCount: {{ .Values.workloads.worker.replicas }}
+        image: {{ toYaml .Values.image | nindent 2 }}
+        imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 2 }}
+        podAnnotations:
+          checksum/config: {{ toYaml .Values.configmap | sha256sum }}
+        {{- if not .Values.resources }}
+        resources: null
+        {{- end }}
+      startupProbe:
+        httpGet:
+          path: /api/health
+          port: 3000
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 60
+      readinessProbe:
+        httpGet:
+          path: /api/health
+          port: 3000
+        periodSeconds: 10
+        timeoutSeconds: 2
+        failureThreshold: 3
+      livenessProbe:
+        httpGet:
+          path: /api/health
+          port: 3000
+        periodSeconds: 10
+        timeoutSeconds: 2
+        failureThreshold: 3
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-alloy
+  servicePeers:
+  - agent-studio

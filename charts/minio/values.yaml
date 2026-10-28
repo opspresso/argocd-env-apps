@@ -14,7 +14,7 @@ minio:
     repository: bitnamilegacy/minio-client
 
   mode: standalone
-  defaultBuckets: agent-studio-static,agent-memory,agent-librio
+  defaultBuckets: agent-studio-static,agent-memory,agent-knowledge
 
   auth:
     rootUser: agent-studio

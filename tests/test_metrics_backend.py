@@ -4,7 +4,7 @@ import yaml
 from test_platform_resources import render
 
 
-@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-librio", "agent-forge", "sample-node", "sample-grpc"])
+@pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "sample-node", "sample-grpc"])
 @pytest.mark.parametrize("platform,has_monitor", [("eks", True), ("k3s", False)])
 def test_service_monitor_requires_a_local_prometheus_operator(chart, platform, has_monitor):
     result = render(f"charts/{chart}", ["values.yaml", f"{platform}/values-{platform}-demo.yaml"],

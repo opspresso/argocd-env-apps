@@ -12,7 +12,7 @@ from gen_values import validate_agent_oidc
 from test_agent_platform import resource
 
 ROOT = Path(__file__).resolve().parents[1]
-CONSUMERS = ["memory", "librio", "forge", "models"]
+CONSUMERS = ["memory", "knowledge", "forge", "models"]
 
 
 def configured(platform):
@@ -75,7 +75,7 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
                    or (name.endswith("_BASE_URL") and name != "AUTH_BASE_URL") for name in names)
     if service != "models":
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
-    # Librio and Forge enforce their own policy; they never call back into Studio.
+    # Knowledge and Forge enforce their own policy; they never call back into Studio.
     assert "STUDIO_URL" not in config
 
 

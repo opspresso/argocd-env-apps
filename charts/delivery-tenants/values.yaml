@@ -1,0 +1,62 @@
+# The admission policy that keeps the Delivery tenant secrets role inside its own Project namespace.
+# argocd-env-projects charts/app creates the namespaces app-<project>-<env> and their SecretStores
+# (agent-platform docs/APP_DELIVERY.md); this policy guards every SecretStore in the cluster.
+global:
+  delivery:
+    tenantSecretsRoleArn: ""
+
+raw:
+  # The raw chart renders one document per template, so all tenant objects form one v1 List.
+  templates:
+    - |
+      # The tenant secrets role reads any Project's path that its session tags name, so the cluster,
+      # not AWS, decides which store may assume it. The policy therefore checks every SecretStore and
+      # ClusterSecretStore, not only stores in tenant namespaces:
+      # - a tenant namespace may only use the tenant role, and
+      # - the tenant role is only valid in namespace app-<project>-<env> whose labels equal the tags.
+      # Matching the name as well as the labels stops a relabelled namespace from posing as a Project.
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicy
+      metadata:
+        name: delivery-tenant-secret-stores
+      spec:
+        failurePolicy: Fail
+        matchConstraints:
+          resourceRules:
+            - apiGroups: [external-secrets.io]
+              apiVersions: ["*"]
+              operations: [CREATE, UPDATE]
+              resources: [secretstores, clustersecretstores]
+        variables:
+          - name: aws
+            expression: "has(object.spec.provider) && has(object.spec.provider.aws) ? object.spec.provider.aws : null"
+          - name: tenantRole
+            expression: "variables.aws != null && has(variables.aws.role) && variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.delivery.tenantSecretsRoleArn }}'"
+          - name: labels
+            expression: "namespaceObject != null && has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
+          - name: tenantNamespace
+            expression: "'opspresso.com/delivery-tenant' in variables.labels && variables.labels['opspresso.com/delivery-tenant'] == 'true'"
+          - name: tags
+            expression: "variables.aws != null && has(variables.aws.sessionTags) ? variables.aws.sessionTags : []"
+        validations:
+          - expression: "!variables.tenantNamespace || variables.tenantRole"
+            message: Tenant SecretStores must use the AWS provider with the Delivery tenant secrets role.
+          - expression: >-
+              !variables.tenantRole || (
+                variables.tenantNamespace &&
+                'opspresso.com/delivery-project' in variables.labels &&
+                'opspresso.com/delivery-env' in variables.labels &&
+                namespaceObject.metadata.name == 'app-' + variables.labels['opspresso.com/delivery-project'] + '-' + variables.labels['opspresso.com/delivery-env'] &&
+                size(variables.tags) == 2 &&
+                variables.tags.exists(t, t.key == 'delivery-project' && t.value == variables.labels['opspresso.com/delivery-project']) &&
+                variables.tags.exists(t, t.key == 'delivery-env' && t.value == variables.labels['opspresso.com/delivery-env'])
+              )
+            message: The Delivery tenant secrets role is only valid in namespace app-<project>-<env> with session tags equal to its Delivery labels.
+    - |
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicyBinding
+      metadata:
+        name: delivery-tenant-secret-stores
+      spec:
+        policyName: delivery-tenant-secret-stores
+        validationActions: [Deny]

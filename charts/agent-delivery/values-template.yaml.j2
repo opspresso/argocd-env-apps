@@ -1,0 +1,81 @@
+{% set maintenance = agent_delivery_maintenance | default(false) -%}
+app:
+  fullnameOverride: agent-delivery
+  raw:
+    enabled: {{agent_delivery is defined}}
+{% if agent_delivery is defined %}
+  replicaCount: {{0 if maintenance else replicas}}
+  autoscaling:
+    enabled: {{false if maintenance else autoscaling}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-delivery
+{% if env == 'k3s' %}
+  imagePullSecrets:
+    - name: ecr-registry
+{% endif %}
+{% if not resources %}
+  resources: null
+{% endif %}
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://{{agent_delivery.hostname}}
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: {{aws_region}}
+      DELIVERY_CLUSTER: {{cluster}}
+      DELIVERY_SECRET_STORE: ssm
+      DELIVERY_KMS_KEY_ID: alias/agent-delivery
+      DELIVERY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      DELIVERY_POOL_PORT: '5432'
+      DELIVERY_BUCKET: agent-delivery-objects
+      DELIVERY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-delivery-sandbox-objects
+      DELIVERY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-delivery-tenant-objects
+      DELIVERY_EKS_CLUSTER: {{cluster}}
+{% if agent_delivery.delivery is defined %}
+      # App Delivery (agent-platform docs/APP_DELIVERY.md). The service account CA lets fetch trust the API server.
+      DELIVERY_WORKFLOW_NAMESPACE: {{agent_delivery.delivery.namespace}}
+      DELIVERY_WORKFLOW_TEMPLATE: {{agent_delivery.delivery.template}}
+      DELIVERY_APP_DOMAIN: {{agent_delivery.delivery.domain}}
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+{% endif %}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/agent-delivery/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/{{cluster}}/agent-delivery/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/{{cluster}}/agent-delivery/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/{{cluster}}/agent-delivery/pool-database-url
+      name: DELIVERY_POOL_DATABASE_URL
+  routing:
+    hosts:
+    - {{agent_delivery.hostname}}
+    httpRoute:
+      enabled: true
+{% if env == 'k3s' %}
+      parentRefs:
+      - name: traefik-gateway
+        namespace: traefik-gateway
+{% endif %}
+{% if env != 'k3s' %}
+  podLabels:
+    sidecar.istio.io/inject: "true"
+{% endif %}
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{agent_delivery.hostname}}
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: {{aws_region}}
+{% endif %}

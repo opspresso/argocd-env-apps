@@ -1,0 +1,70 @@
+app:
+  fullnameOverride: agent-delivery
+  raw:
+    enabled: True
+
+  replicaCount: 0
+  autoscaling:
+    enabled: False
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-delivery
+
+
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://delivery.agrt.dev
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: ap-northeast-2
+      DELIVERY_CLUSTER: eks-demo
+      DELIVERY_SECRET_STORE: ssm
+      DELIVERY_KMS_KEY_ID: alias/agent-delivery
+      DELIVERY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      DELIVERY_POOL_PORT: '5432'
+      DELIVERY_BUCKET: agent-delivery-objects
+      DELIVERY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-delivery-sandbox-objects
+      DELIVERY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-delivery-tenant-objects
+      DELIVERY_EKS_CLUSTER: eks-demo
+
+      # App Delivery (agent-platform docs/APP_DELIVERY.md). The service account CA lets fetch trust the API server.
+      DELIVERY_WORKFLOW_NAMESPACE: app-delivery
+      DELIVERY_WORKFLOW_TEMPLATE: app-delivery
+      DELIVERY_APP_DOMAIN: apps.rovr.dev
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/agent-delivery/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/eks-demo/agent-delivery/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-delivery/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/eks-demo/agent-delivery/pool-database-url
+      name: DELIVERY_POOL_DATABASE_URL
+  routing:
+    hosts:
+    - delivery.agrt.dev
+    httpRoute:
+      enabled: true
+
+
+  podLabels:
+    sidecar.istio.io/inject: "true"
+
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://delivery.agrt.dev
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: ap-northeast-2

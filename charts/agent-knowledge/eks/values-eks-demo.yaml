@@ -1,0 +1,91 @@
+app:
+  fullnameOverride: agent-knowledge
+  raw:
+    enabled: True
+
+  replicaCount: 0
+  autoscaling:
+    enabled: False
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-knowledge
+
+
+  ingressPeers:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: ap-northeast-2
+  configmap:
+    enabled: true
+    data:
+      AWS_REGION: ap-northeast-2
+      DATABASE_POOL_SIZE: '4'
+      DATABASE_QUEUE_POOL_SIZE: '2'
+      AI_ADMISSION_POOL_SIZE: '9'
+      AUTH_BASE_URL: https://knowledge.agrt.dev
+      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
+      AUTH_ALLOWED_HOSTS: 'knowledge.agrt.dev'
+      TRUSTED_PROXY_CIDRS: '10.10.0.0/16'
+      S3_REGION: ap-northeast-2
+
+      S3_BUCKET_NAME: agent-knowledge-static
+      S3_FORCE_PATH_STYLE: 'false'
+
+      # Providers, credentials, wire IDs and prices belong to Agent Models.
+      # agent_knowledge.models names the selection for each role; a Settings override takes precedence.
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      EMBEDDING_MIN_SCORE: '0.2'
+      RERANKER_TIMEOUT_MS: '5000'
+      RERANKER_MIN_SCORE: '0.05'
+      EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
+      RERANKER_MODEL: "openrouter/rerank-v3.5"
+      KNOWLEDGE_EXTRACTION_MODEL: "openrouter/gpt-6-luna"
+      # Processing defaults for the audio models a caller may request; selection is per job.
+      AUDIO_PROCESSING_OPTIONS: "[{\"id\": \"openrouter/gpt-4o-transcribe\", \"kind\": \"transcription\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"kind\": \"summary\"}]"
+      DOCUMENT_WORKER_ENABLED: 'false'
+      AUDIO_WORKER_ENABLED: 'false'
+      KNOWLEDGE_ENRICHMENT_CONCURRENCY: '4'
+      # Every replica uses the same PostgreSQL admission policy.
+      AI_PROVIDER_MAX_CONCURRENCY: '8'
+      AI_BATCH_MAX_CONCURRENCY: '4'
+  routing:
+    hosts:
+    - knowledge.agrt.dev
+    httpRoute:
+      enabled: true
+
+
+  podLabels:
+    sidecar.istio.io/inject: "true"
+
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://knowledge.agrt.dev
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/agent-knowledge/better-auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/eks-demo/agent-knowledge/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-knowledge/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/eks-demo/agent-knowledge/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
+
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-eks-demo
+  workloads:
+    worker:
+      enabled: true
+      replicas: 0

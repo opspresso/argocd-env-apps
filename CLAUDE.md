@@ -96,7 +96,7 @@ charts/<project>/
   `app` chart 버전을 올릴 때 wrapper `version` 도 함께 올린다.
 - wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → incubator `raw` 순서로 선택하며,
   필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL·MinIO는 공식 또는 주요
-  배포처의 전용 차트를 사용한다. Studio ticker·Librio worker는 `app.workloads`, 추가 리소스는 `app.raw`로 관리한다.
+  배포처의 전용 차트를 사용한다. Studio ticker·Knowledge worker는 `app.workloads`, 추가 리소스는 `app.raw`로 관리한다.
 - 한 chart 를 두 번 쓰거나 이름을 바꿔 붙일 때는 `alias` 로 values 키를 정한다
   (예: postgresql 의 `raw` → `bootstrap`).
 
@@ -122,7 +122,7 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 - `agent_studio_maintenance`는 Agent Studio만 위한 boolean이다. `true`이면 해당 클러스터의
   앱과 ticker를 0개로 내리고 HPA를 끈다.
   다른 앱과 PostgreSQL은 건드리지 않는다. 기본값은 `false`다.
-  Memory·Librio·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
+  Memory·Knowledge·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
 - `storage_gc_maintenance`는 k3s 선언에서 네 Agent maintenance가 모두 `true`이고 `minio.console: false`일 때만 허용한다.
   MinIO 서버·PVC는 유지하고 S3 ingress를 닫는다. [중지·재개 절차](docs/storage-gc-maintenance.md)를 따른다.
 - `metrics.backend`는 수집 방식을 정한다. EKS는 `prometheus`, k3s 선언은 Alloy가 직접 수집하는

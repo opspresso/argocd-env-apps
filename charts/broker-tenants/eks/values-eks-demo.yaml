@@ -1,3 +1,0 @@
-global:
-  broker:
-    tenantSecretsRoleArn: arn:aws:iam::396608815058:role/agent-broker-tenant-secrets

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: delivery-tenants
+description: Admission policy for the Agent Delivery tenant secrets role
+type: application
+version: v1.0.0
+appVersion: v1.0.0
+dependencies:
+- name: raw
+  repository: https://charts.helm.sh/incubator
+  version: 0.2.5

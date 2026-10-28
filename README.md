@@ -2,7 +2,7 @@
 
 운영 클러스터 EKS `eks-demo`의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
-Agent Studio·Models·Memory·Librio·Forge·Broker의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
+Agent Studio·Models·Memory·Knowledge·Forge·Delivery의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
 
 ## 저장소 구조
@@ -57,12 +57,12 @@ MCP 인증 설정과 PostgreSQL 초기화 동작을 검증한다. 이 fixture는
 선택한다. PostgreSQL·MinIO·Neo4j 등 데이터 서비스는 공식 또는 주요 배포처의 전용 차트를
 사용한다. 공통 차트에 필요한 기능이 없으면 공통 차트를 확장하며, wrapper에는 `templates/`를 두지 않는다.
 
-Studio의 scan·plugin sync·reindex ticker와 Librio의 queue worker는
+Studio의 scan·plugin sync·reindex ticker와 Knowledge의 queue worker는
 `app.workloads`를 사용한다. Forge가 별도 실행 namespace의 Sandbox를 소유하며 RBAC·네트워크
 정책·보존용 PVC는 `raw`가 렌더한다. Studio에는 Docker daemon이나 Sandbox 실행 권한이 없다.
 `app.image`를 단일 버전 원천으로 유지하여 각 서비스 worker가 같은 release image를 사용한다.
 Forge Sandbox는 controller의 full v-tag에 `sandbox-` 접두어를 붙인다.
-Memory에는 queue worker가 없으며 문서·전사 처리는 Librio가 담당한다.
+Memory에는 queue worker가 없으며 문서·전사 처리는 Knowledge가 담당한다.
 
 Agent 서비스의 공통 인증 설정·기업 프로필 스키마를 기존 데이터와 함께 전환하려면
 [기업 프로필 전환 절차](docs/agent-identity-upgrade.md)를 따른다.
@@ -226,7 +226,7 @@ values 파일 누락이나 chart 오류를 Argo CD sync 가 아니라 CI 에서 
 
 ## 서비스 실행 경계
 
-Studio는 web과 ticker만 실행하고 MCP로 Librio·Forge를 호출한다. Librio는 별도 queue
+Studio는 web과 ticker만 실행하고 MCP로 Knowledge·Forge를 호출한다. Knowledge는 별도 queue
 worker 하나로 문서·오디오를 처리한다. Forge는 HTTP·MCP·Gateway·worker를 한 서비스로 실행한다.
 Sandbox는 `agent-forge-workspaces`의 controller-owned Pod와 제한된 emptyDir를 사용한다.
 Models는 공급자 호출과 사용량을 소유하며 네 서비스는 Studio OIDC와 내부 `MODELS_URL`로 연결한다.
