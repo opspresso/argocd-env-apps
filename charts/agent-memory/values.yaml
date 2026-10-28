@@ -22,21 +22,21 @@ app:
   readinessProbe:
     failureThreshold: 3
     httpGet:
-      path: /api/health
+      path: /api/ready
       port: 3000
     initialDelaySeconds: 5
     timeoutSeconds: 6
     periodSeconds: 10
   livenessProbe:
     httpGet:
-      path: /api/live
+      path: /api/health
       port: 3000
     timeoutSeconds: 2
     initialDelaySeconds: 10
     periodSeconds: 10
   startupProbe:
     httpGet:
-      path: /api/live
+      path: /api/health
       port: 3000
     timeoutSeconds: 2
     periodSeconds: 5
