@@ -80,6 +80,9 @@ agent_delivery:
     namespace: app-delivery
     template: app-delivery
     domain: apps.rovr.dev
+    # A GitHub App issues checkout tokens for private app repositories. Set true only after
+    # /k8s/<cluster>/agent-delivery/github-app-id and github-app-private-key exist in SSM.
+    github_app: false
 delivery_pool:
   storage: 10Gi
   storageClass: gp3
