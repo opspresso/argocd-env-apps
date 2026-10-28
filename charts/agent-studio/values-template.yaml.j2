@@ -32,6 +32,9 @@ app:
       # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: {{aws_region}}
       AUTH_BASE_URL: https://{{agent_studio.hostname}}
+{%- if agent_studio.password_sign_in | default(true) %}
+      AUTH_PASSWORD: 'true'
+{%- endif %}
 {% if oidc is not none %}
       OIDC_ISSUER: {{ oidc.issuer | tojson }}
       OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
