@@ -49,6 +49,8 @@ app:
       # Agent Models owns provider connections, credentials, selections and usage.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       MODELS_PUBLIC_URL: https://models.agrt.dev
+      # Service consoles that may frame Studio's Helper panel (agent-platform/docs/HELPER_EMBED.md).
+      HELPER_EMBED_ORIGINS: 'https://memory.agrt.dev,https://knowledge.agrt.dev,https://forge.agrt.dev'
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local
