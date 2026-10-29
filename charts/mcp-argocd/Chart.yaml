@@ -2,13 +2,13 @@ apiVersion: v2
 name: mcp-argocd
 description: Argo CD MCP server Agent Studio calls — cluster-internal, read-only
 type: application
-version: v1.5.0
+version: v1.5.1
 appVersion: v1.0.0
 
 dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
-    version: "v2.0.0"
+    version: "v2.0.2"
   - repository: https://opspresso.github.io/helm-charts/
     name: raw
     version: "0.2.5"
