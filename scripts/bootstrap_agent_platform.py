@@ -85,7 +85,8 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         values[f"{prefix}/rovr/database-url"] = (
             f"postgresql://rovr:{quote(password, safe='')}"
             "@postgres.agent-studio.svc.cluster.local:5432/rovr?sslmode=disable")
-        for path in ("rovr/session-secret", "rovr/run-token-secret", "rovr/metrics-bearer-token"):
+        # secret-key seals the provider keys accounts store; replacing it makes them unreadable.
+        for path in ("rovr/session-secret", "rovr/run-token-secret", "rovr/metrics-bearer-token", "rovr/secret-key"):
             secret(path)
     return values
 

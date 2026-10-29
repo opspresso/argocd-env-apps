@@ -57,6 +57,8 @@ app:
       name: ROVR_SESSION_SECRET
     - key: /k8s/{{cluster}}/rovr/run-token-secret
       name: ROVR_RUN_TOKEN_SECRET
+    - key: /k8s/{{cluster}}/rovr/secret-key
+      name: ROVR_SECRET_KEY
     - key: /k8s/{{cluster}}/rovr/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
     # One GitHub App for sign-in, repository access and webhooks; see rovr docs/github-app.md.
@@ -70,6 +72,7 @@ app:
       name: GITHUB_APP_CLIENT_SECRET
     - key: /k8s/{{cluster}}/rovr/github-webhook-secret
       name: GITHUB_WEBHOOK_SECRET
+    # Platform key for accounts that have not stored their own in rovr Settings.
     - key: /k8s/{{cluster}}/rovr/anthropic-api-key
       name: ANTHROPIC_API_KEY
 {% if rovr.openai | default(false) %}
