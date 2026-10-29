@@ -64,10 +64,10 @@ app:
       # Agent Models owns provider connections, credentials, selections and usage.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
-      # Service consoles that may frame Studio's Helper panel (agent-platform/docs/HELPER_EMBED.md).
+      # Service consoles that may frame Studio's Helper panel and that open_console may open (agent-platform/docs/HELPER_EMBED.md).
 {%- set helper_consoles = [] %}
-{%- for service in [agent_memory, agent_knowledge, agent_forge, agent_delivery] if service is defined and service.hostname is defined %}
-{%- set _ = helper_consoles.append("https://" ~ service.hostname) %}
+{%- for name, service in [("agent-memory", agent_memory), ("agent-knowledge", agent_knowledge), ("agent-forge", agent_forge), ("agent-delivery", agent_delivery)] if service is defined and service.hostname is defined %}
+{%- set _ = helper_consoles.append(name ~ "=https://" ~ service.hostname) %}
 {%- endfor %}
       HELPER_EMBED_ORIGINS: '{{ helper_consoles | join(",") }}'
       MAX_RUN_DURATION_MS: '600000'
