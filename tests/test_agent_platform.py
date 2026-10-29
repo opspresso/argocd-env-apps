@@ -85,8 +85,8 @@ def test_metrics_auth_and_dependency_independent_liveness(chart, platform):
     assert service["spec"]["selector"].items() <= deployment["spec"]["template"]["metadata"]["labels"].items()
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     forge = chart == "agent-forge"
-    assert container["readinessProbe"]["httpGet"]["path"] == ("/health" if forge else "/api/health")
-    assert container["livenessProbe"]["httpGet"]["path"] == ("/" if forge else "/api/live")
+    assert container["readinessProbe"]["httpGet"]["path"] == ("/health" if forge else "/api/ready")
+    assert container["livenessProbe"]["httpGet"]["path"] == ("/" if forge else "/api/health")
     assert container["startupProbe"]["httpGet"] == container["livenessProbe"]["httpGet"]
     secret_name, secret_key = ("agent-forge-metrics", "token") if forge else (f"{chart}-external", "METRICS_BEARER_TOKEN")
     secret = resource(chart, platform, "ExternalSecret", secret_name)
