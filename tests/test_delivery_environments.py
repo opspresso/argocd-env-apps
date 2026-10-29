@@ -43,3 +43,10 @@ def test_eks_demo_uses_the_default_profile():
         {"name": "dev", "primary": False, "approval": "none", "sandbox": True, "requiresPrevious": False},
         {"name": "prod", "primary": True, "approval": "owner", "sandbox": False, "requiresPrevious": True},
     ]
+
+
+def test_no_cluster_sets_the_v1_workflow_template():
+    # Agent Delivery v2 refuses to start while DELIVERY_WORKFLOW_TEMPLATE is set.
+    for path in sorted((ROOT / "charts/agent-delivery").glob("*/values-*.yaml")):
+        data = yaml.safe_load(path.read_text())["app"].get("configmap", {}).get("data", {})
+        assert "DELIVERY_WORKFLOW_TEMPLATE" not in data, path.name
