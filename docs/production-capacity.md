@@ -71,6 +71,8 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이며 worker의 surge는 replica 수 이하입니다.
 예산은 동시에 두 세대가 연결을 보유한다고 가정하며 테스트가 선언한 surge를 검사합니다.
 종료 중인 Pod의 연결 해제와 연속 rollout은 별도 관측 대상입니다. 표를 실제 접속 수의 보장으로 해석하지 않습니다.
+EKS에서 운영 여유 20을 뺀 나머지 여유는 16개입니다. Studio query pool을 4에서 6으로 늘리면
+최대 6 replica의 두 세대에 연결 24개가 추가되므로 현재 한도와 운영 여유를 함께 만족하지 못합니다.
 
 `test_production_capacity.py`는 선언된 서비스의 실제 렌더에서 HPA·worker replica·pool 값을 읽습니다.
 maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Knowledge worker의 설정 증가가 DB 예산을 초과하면 실패합니다.
