@@ -9,11 +9,11 @@ dependencies:
   repository: oci://registry-1.docker.io/bitnamicharts
   version: 17.0.21
 - name: raw
-  repository: https://charts.helm.sh/incubator
+  repository: https://opspresso.github.io/helm-charts/
   version: 0.2.5
   condition: externalSecrets.enabled
 - name: raw
   alias: storageGc
-  repository: https://charts.helm.sh/incubator
+  repository: https://opspresso.github.io/helm-charts/
   version: 0.2.5
   condition: storageGc.enabled

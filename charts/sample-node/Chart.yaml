@@ -13,7 +13,7 @@ dependencies:
     name: redis
     version: "22.0.7"
     condition: redis.enabled
-  - repository: https://charts.helm.sh/incubator
+  - repository: https://opspresso.github.io/helm-charts/
     name: raw
     version: "0.2.5"
     condition: raw.enabled

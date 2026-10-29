@@ -94,7 +94,7 @@ charts/<project>/
 - 자체 SemVer 를 쓴다 (`v1.3.0`). upstream chart 버전을 그대로 쓰는 addons 저장소와 다르다.
 - 애플리케이션 chart 는 `opspresso/helm-charts` 의 `app` chart 를 dependency 로 쓴다.
   `app` chart 버전을 올릴 때 wrapper `version` 도 함께 올린다.
-- wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → incubator `raw` 순서로 선택하며,
+- wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → `raw` 순서로 선택하며,
   필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL·MinIO는 공식 또는 주요
   배포처의 전용 차트를 사용한다. Studio ticker·Knowledge worker는 `app.workloads`, 추가 리소스는 `app.raw`로 관리한다.
 - 한 chart 를 두 번 쓰거나 이름을 바꿔 붙일 때는 `alias` 로 values 키를 정한다
