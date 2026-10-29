@@ -46,6 +46,7 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 | Forge | 12 | 0 | 0 | 별도 pool 없음 | 0 | 12 |
 | Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
 | Delivery (EKS) | 4 | 0 | 1 | OIDC 4 | 0 | 9 |
+| rovr (EKS) | 10 | 0 | 0 | leader lock은 query pool 공유 | 0 | 10 |
 
 Studio schedule ticker는 HTTP만 호출하고 DB에 연결하지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
 연결을 하나씩 사용합니다. Knowledge maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
@@ -65,7 +66,7 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
 | k3s 선언(미배포) | `Studio9+Memory9+Knowledge(20+19)+Forge12+Models10 = 79` | 158 | 20 | 250 |
-| EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×12+Models2×14+Delivery2×9 = 237` | 474 | 20 | 550 |
+| EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×12+Models2×14+Delivery2×9+rovr2×10 = 257` | 514 | 20 | 550 |
 
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이며 worker의 surge는 replica 수 이하입니다.
 예산은 동시에 두 세대가 연결을 보유한다고 가정하며 테스트가 선언한 surge를 검사합니다.
@@ -85,7 +86,9 @@ maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Kn
 | Forge | `agent-forge/src/main.ts`, `src/infrastructure/database/refreshLeases.ts`: query 12를 공유 |
 | Models | `agent-models/src/lib/config.ts`의 `maxDatabaseConnections`: query + OIDC 4 + readiness 1 + lease 1 |
 | Delivery | `agent-delivery/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
+| rovr | `charts/rovr/values.yaml`의 `ROVR_DATABASE_MAX_CONNS`: leader lock을 포함한 단일 pool |
 
+rovr는 별도 DB를 사용하지만 같은 PostgreSQL instance에 연결하므로 위 예산에 포함합니다.
 Delivery의 tenant PostgreSQL은 EKS에서 별도 `delivery-pool`입니다. 리소스 생성·삭제의 관리자 연결과
 배포 앱의 연결 수는 위 플랫폼 DB 예산에 포함되지 않으므로 별도로 계산합니다. 로컬 Compose처럼 같은 PostgreSQL
 instance를 사용하면 두 예산을 합산해야 합니다. bootstrap·관리 작업의 동시 연결도 운영 여유 안에 들어가는지 확인합니다.

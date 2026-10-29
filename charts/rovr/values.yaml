@@ -1,0 +1,452 @@
+app:
+  fullnameOverride: rovr
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/rovr
+    tag: latest
+  # Two replicas serve the web app and API; one of them leads the orchestrator
+  # (PostgreSQL advisory lock), so the count is fixed and there is no HPA.
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  # 8080 is the public listener (web app, API, sign-in, webhooks). 8081 is the
+  # internal listener for sandbox callbacks and the model proxy; the HTTPRoute
+  # targets only 8080 and NetworkPolicy admits only sandboxes to 8081.
+  service:
+    name: http
+    port: 8080
+    targetPort: 8080
+    extraPorts:
+    - name: internal
+      port: 8081
+      targetPort: internal
+      protocol: TCP
+  extraPorts:
+  - name: internal
+    containerPort: 8081
+    protocol: TCP
+  controller:
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    periodSeconds: 2
+    failureThreshold: 30
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8080
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  # The image has no shell; rovr-server itself turns unready and waits a few
+  # seconds on SIGTERM before it stops accepting connections.
+  terminationGracePeriodSeconds: 30
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+      - ALL
+  serviceAccount:
+    create: true
+  # The server creates sandbox Jobs through the Kubernetes API.
+  automountServiceAccountToken: true
+  podAntiAffinity:
+    topologyKey: kubernetes.io/hostname
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  routing:
+    httpRoute:
+      parentRefs:
+      - name: istio-ingressgateway
+        namespace: istio-system
+  serviceMonitor:
+    enabled: false
+    endpoints:
+    - interval: 30s
+      path: /metrics
+      port: http
+      authorization:
+        type: Bearer
+        credentials:
+          name: rovr-external
+          key: METRICS_BEARER_TOKEN
+  externalSecrets:
+    enabled: false
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: parameter-store
+  configmap:
+    enabled: true
+    data:
+      ROVR_LISTEN: ":8080"
+      ROVR_INTERNAL_LISTEN: ":8081"
+      ROVR_DATABASE_MAX_CONNS: "10"
+      ROVR_ACCOUNT_MAX_RUNNING: "10"
+      ROVR_RECONCILE_INTERVAL: 15s
+      # Harness + tests + 10m must fit in sandbox.deadline (90m).
+      ROVR_HARNESS_TIMEOUT: 60m
+      ROVR_TEST_TIMEOUT: 20m
+      ROVR_LEADER_MODEL: claude-opus-5-5
+  additionalConfigmap:
+    enabled: true
+    names:
+    - rovr-sandbox
+  # Restart the server when the sandbox settings or its image change.
+  podAnnotations:
+    checksum/sandbox: '{{ dict "sandbox" .Values.sandbox "image" .Values.image | toYaml | sha256sum }}'
+
+  # Sandboxes: one Job per run in their own namespace. Values here are the
+  # defaults; values-template.yaml.j2 sets per-cluster ones.
+  sandbox:
+    namespace: rovr-sandboxes
+    # Running sandbox Jobs at once, across all accounts.
+    maxRuns: 2
+    # Task disks kept between runs (one per open task).
+    maxWorkspaces: 8
+    cpu: "2"
+    memory: 4Gi
+    ephemeralStorage: 8Gi
+    disk: 10Gi
+    storageClass: ""
+    deadline: 90m
+    nodePool: ""
+    dnsCidrs: []
+    allowPublic: true
+  # The shared PostgreSQL; rovr gets its own database and role there.
+  database:
+    namespace: agent-studio
+    host: postgres
+    name: rovr
+    role: rovr
+  registry:
+    region: ap-northeast-2
+  ssmPrefix: ""
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+
+  raw:
+    enabled: false
+    parentTemplates:
+    - |
+      {{- $ns := .Values.sandbox.namespace }}
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: {{ $ns }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-3"
+          argocd.argoproj.io/sync-options: Prune=false,Delete=false
+        labels:
+          pod-security.kubernetes.io/enforce: restricted
+          sidecar.istio.io/inject: "false"
+      ---
+      # Sandbox Pods run as this account. It has no RBAC bindings and its token
+      # is never mounted.
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: sandbox
+        namespace: {{ $ns }}
+      automountServiceAccountToken: false
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: rovr-sandbox
+        namespace: {{ $ns }}
+      rules:
+        - apiGroups: [batch]
+          resources: [jobs]
+          verbs: [get, list, create, delete]
+        - apiGroups: [""]
+          resources: [pods]
+          verbs: [get, list]
+        # One Secret per run holds its token; the Job owns it.
+        - apiGroups: [""]
+          resources: [secrets]
+          verbs: [create]
+        # list: the leader sweeps workspaces of finished tasks.
+        - apiGroups: [""]
+          resources: [persistentvolumeclaims]
+          verbs: [list, create, delete]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: rovr-sandbox
+        namespace: {{ $ns }}
+      subjects:
+        - kind: ServiceAccount
+          name: {{ include "app.fullname" . }}
+          namespace: {{ .Release.Namespace }}
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: rovr-sandbox
+      ---
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: rovr-sandbox
+        namespace: {{ $ns }}
+      spec:
+        hard:
+          pods: {{ .Values.sandbox.maxRuns | quote }}
+          count/jobs.batch: {{ .Values.sandbox.maxRuns | quote }}
+          persistentvolumeclaims: {{ .Values.sandbox.maxWorkspaces | quote }}
+          requests.storage: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.disk | atoi) .Values.sandbox.maxWorkspaces) | quote }}
+      {{- if .Values.resources }}
+          requests.cpu: {{ mulf (.Values.sandbox.cpu | float64) .Values.sandbox.maxRuns | quote }}
+          limits.cpu: {{ mulf (.Values.sandbox.cpu | float64) .Values.sandbox.maxRuns | quote }}
+          requests.memory: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.memory | atoi) .Values.sandbox.maxRuns) | quote }}
+          limits.memory: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.memory | atoi) .Values.sandbox.maxRuns) | quote }}
+          requests.ephemeral-storage: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.ephemeralStorage | atoi) .Values.sandbox.maxRuns) | quote }}
+          limits.ephemeral-storage: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.ephemeralStorage | atoi) .Values.sandbox.maxRuns) | quote }}
+      {{- end }}
+      ---
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: sandbox-isolation
+        namespace: {{ $ns }}
+      spec:
+        podSelector: {}
+        policyTypes: [Ingress, Egress]
+        ingress: []
+        egress: []
+      ---
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: sandbox-egress
+        namespace: {{ $ns }}
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: rovr-sandbox
+        policyTypes: [Egress]
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: kube-system
+                podSelector:
+                  matchLabels:
+                    k8s-app: kube-dns
+      {{- range .Values.sandbox.dnsCidrs }}
+              - ipBlock:
+                  cidr: {{ . | quote }}
+      {{- end }}
+            ports:
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
+      {{- if .Values.sandbox.allowPublic }}
+          # GitHub, model providers and package registries. Private, link-local and
+          # metadata ranges stay closed, so no cluster or VPC service is reachable.
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
+            ports:
+              - {protocol: TCP, port: 80}
+              - {protocol: TCP, port: 443}
+      {{- end }}
+          # The rovr internal listener: run callbacks and the model proxy.
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ include "app.namespace" . | quote }}
+                podSelector:
+                  matchLabels:
+      {{- include "app.selectorLabels" . | nindent 14 }}
+            ports:
+              - {protocol: TCP, port: 8081}
+    - |
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: ECRAuthorizationToken
+      metadata:
+        name: rovr-sandbox-ecr
+        namespace: {{ .Values.sandbox.namespace }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-2"
+      spec:
+        region: {{ .Values.registry.region }}
+      ---
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: ecr-registry
+        namespace: {{ .Values.sandbox.namespace }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        refreshInterval: 1h
+        target:
+          name: ecr-registry
+          template:
+            type: kubernetes.io/dockerconfigjson
+            data:
+              .dockerconfigjson: |
+                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
+        dataFrom:
+          - sourceRef:
+              generatorRef:
+                apiVersion: generators.external-secrets.io/v1alpha1
+                kind: ECRAuthorizationToken
+                name: rovr-sandbox-ecr
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: rovr-sandbox
+      data:
+        # One version source: the server image tag. The sandbox image is built and
+        # released with it as sandbox-<tag>.
+        ROVR_SANDBOX_IMAGE: {{ printf "%s:sandbox-%s" .Values.image.repository .Values.image.tag | quote }}
+        ROVR_SANDBOX_NAMESPACE: {{ .Values.sandbox.namespace | quote }}
+        ROVR_SANDBOX_SERVER_URL: {{ printf "http://%s.%s.svc.cluster.local:8081" (include "app.fullname" .) (include "app.namespace" .) | quote }}
+        ROVR_SANDBOX_SERVICE_ACCOUNT: sandbox
+        ROVR_SANDBOX_IMAGE_PULL_SECRET: ecr-registry
+        ROVR_SANDBOX_CPU: {{ .Values.sandbox.cpu | quote }}
+        ROVR_SANDBOX_MEMORY: {{ .Values.sandbox.memory | quote }}
+        ROVR_SANDBOX_EPHEMERAL_STORAGE: {{ .Values.sandbox.ephemeralStorage | quote }}
+        ROVR_SANDBOX_DISK: {{ .Values.sandbox.disk | quote }}
+        ROVR_SANDBOX_STORAGE_CLASS: {{ .Values.sandbox.storageClass | quote }}
+        ROVR_SANDBOX_DEADLINE: {{ .Values.sandbox.deadline | quote }}
+        ROVR_SANDBOX_NODE_POOL: {{ .Values.sandbox.nodePool | quote }}
+    - |
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: {{ include "app.fullname" . }}
+        namespace: {{ include "app.namespace" . }}
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        policyTypes: [Ingress]
+        ingress:
+          - from:
+              - podSelector: {}
+      {{- with .Values.ingressPeers }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+            ports:
+              - protocol: TCP
+                port: 8080
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ .Values.sandbox.namespace | quote }}
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: rovr-sandbox
+            ports:
+              - protocol: TCP
+                port: 8081
+    - |
+      {{- $db := .Values.database }}
+      # rovr's own database and role on the shared PostgreSQL. The Job runs in
+      # the PostgreSQL namespace, so the administrator password never leaves it.
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: rovr-postgresql
+        namespace: {{ $db.namespace }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-2"
+      spec:
+        refreshInterval: 1h
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: parameter-store
+        target:
+          name: rovr-postgresql
+          creationPolicy: Owner
+        data:
+          - secretKey: password
+            remoteRef:
+              key: {{ .Values.ssmPrefix }}/rovr/postgres-password
+      ---
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: rovr-db-bootstrap
+        namespace: {{ $db.namespace }}
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        backoffLimit: 12
+        ttlSecondsAfterFinished: 3600
+        template:
+          metadata:
+            labels:
+              sidecar.istio.io/inject: "false"
+          spec:
+            restartPolicy: OnFailure
+            automountServiceAccountToken: false
+            containers:
+              - name: bootstrap
+                image: pgvector/pgvector:0.8.6-pg18-trixie
+      {{- if .Values.resources }}
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    memory: 256Mi
+      {{- end }}
+                env:
+                  - name: PGPASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: postgresql-credentials
+                        key: postgres-password
+                  - name: ROVR_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: rovr-postgresql
+                        key: password
+                command:
+                  - sh
+                  - -ec
+                  - |
+                    until pg_isready -h {{ $db.host }} -U agent_studio -d postgres; do sleep 2; done
+                    psql -h {{ $db.host }} -U agent_studio -d postgres -v ON_ERROR_STOP=1 -v pw="$ROVR_PASSWORD" <<'SQL'
+                    SELECT 'CREATE ROLE {{ $db.role }} LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $db.role }}')\gexec
+                    ALTER ROLE {{ $db.role }} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'pw';
+                    SELECT 'CREATE DATABASE {{ $db.name }} OWNER {{ $db.role }}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ $db.name }}')\gexec
+                    REVOKE ALL ON DATABASE {{ $db.name }} FROM PUBLIC;
+                    GRANT CONNECT, TEMPORARY ON DATABASE {{ $db.name }} TO {{ $db.role }};
+                    SQL

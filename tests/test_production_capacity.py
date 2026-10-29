@@ -18,6 +18,10 @@ def charts_for(platform):
                  if (ROOT / "apps" / platform / f"{chart}.yaml").exists())
 
 
+def rovr_declared(platform):
+    return (ROOT / "apps" / platform / "rovr.yaml").exists()
+
+
 def database_connections(platform):
     """Per-generation ceilings from rendered settings and the services' owned-pool contracts.
 
@@ -48,6 +52,11 @@ def database_connections(platform):
     connections = {chart: maximum_replicas(chart) * per_process[chart] for chart in charts}
     worker = resource("agent-knowledge", platform, "Deployment", "agent-knowledge-worker")["spec"]["replicas"]
     connections["agent-knowledge-worker"] = worker * knowledge
+    # rovr uses a separate database on the same PostgreSQL instance; its leader lock shares this pool.
+    if rovr_declared(platform):
+        rovr_config = resource("rovr", platform, "ConfigMap", "rovr")["data"]
+        replicas = resource("rovr", platform, "Deployment", "rovr")["spec"]["replicas"]
+        connections["rovr"] = replicas * int(rovr_config["ROVR_DATABASE_MAX_CONNS"])
     return connections
 
 
@@ -60,7 +69,8 @@ def test_database_budget_covers_application_growth_and_rollout_overlap(platform)
     assert capacity >= total + OPERATIONS_RESERVE, (platform, connections, total, capacity)
 
 
-@pytest.mark.parametrize("platform,chart", [(platform, chart) for platform in ("eks", "k3s") for chart in charts_for(platform)])
+@pytest.mark.parametrize("platform,chart", [(platform, chart) for platform in ("eks", "k3s")
+                                           for chart in charts_for(platform) + (("rovr",) if rovr_declared(platform) else ())])
 def test_rollouts_never_exceed_the_two_generations_in_the_budget(chart, platform):
     """The budget doubles every process; no rollout may surge beyond its own replica count."""
     from test_agent_platform import manifests
@@ -108,7 +118,7 @@ def test_forge_refresh_leases_share_the_fixed_query_pool(monkeypatch):
         value = deepcopy(original(chart, platform, kind, name, **overrides))
         if kind == "HorizontalPodAutoscaler" and chart != "agent-forge":
             value["spec"]["maxReplicas"] = 0
-        if kind == "Deployment" and name == "agent-knowledge-worker":
+        if kind == "Deployment" and name in ("agent-knowledge-worker", "rovr"):
             value["spec"]["replicas"] = 0
         if chart == "postgresql" and kind == "StatefulSet":
             container = value["spec"]["template"]["spec"]["containers"][0]
@@ -117,6 +127,20 @@ def test_forge_refresh_leases_share_the_fixed_query_pool(monkeypatch):
 
     monkeypatch.setitem(globals(), "resource", forge_only)
     test_database_budget_covers_application_growth_and_rollout_overlap("eks")
+
+
+def test_rovr_pool_growth_cannot_escape_the_shared_database_budget(monkeypatch):
+    original = resource
+
+    def increased_rovr(chart, platform, kind, name, **overrides):
+        value = deepcopy(original(chart, platform, kind, name, **overrides))
+        if chart == "rovr" and kind == "ConfigMap":
+            value["data"]["ROVR_DATABASE_MAX_CONNS"] = "100"
+        return value
+
+    monkeypatch.setitem(globals(), "resource", increased_rovr)
+    with pytest.raises(AssertionError):
+        test_database_budget_covers_application_growth_and_rollout_overlap("eks")
 
 
 def test_knowledge_worker_growth_consumes_its_own_connections(monkeypatch):

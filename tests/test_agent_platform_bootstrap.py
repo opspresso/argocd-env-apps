@@ -128,3 +128,26 @@ def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys
 
 def test_clusters_without_delivery_get_no_delivery_parameters():
     assert not any("delivery" in name for name in bootstrap.parameter_values(TARGET, {}))
+
+
+def test_rovr_clusters_get_generated_secrets_and_a_matching_database_url(capsys):
+    prefix = "/k8s/eks-demo"
+    existing = {f"{prefix}/rovr/postgres-password": "pw:/@"}
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, rovr=True) == 0
+    writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"]["Value"]
+              for call in aws.call_args_list if call.args[2] == "put-parameter"}
+    url = writes[f"{prefix}/rovr/database-url"]
+    assert url == "postgresql://rovr:pw%3A%2F%40@postgres.agent-studio.svc.cluster.local:5432/rovr?sslmode=disable"
+    assert f"{prefix}/rovr/postgres-password" not in writes
+    for name in ("session-secret", "run-token-secret", "metrics-bearer-token"):
+        assert len(writes[f"{prefix}/rovr/{name}"]) >= 32
+    # GitHub App and provider credentials are prepared by people, never generated.
+    assert not any(name.endswith(("github-app-id", "github-client-secret", "anthropic-api-key")) for name in writes)
+    output = capsys.readouterr().out
+    assert f"{prefix}/rovr/github-app-private-key" in output
+    assert "pw:/@" not in output
+
+
+def test_clusters_without_rovr_get_no_rovr_parameters():
+    assert not any("/rovr/" in name for name in bootstrap.parameter_values("/k8s/eks-demo-a", {}))
