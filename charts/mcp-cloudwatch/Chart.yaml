@@ -9,7 +9,7 @@ dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
     version: "v2.0.0"
-  - repository: https://charts.helm.sh/incubator
+  - repository: https://opspresso.github.io/helm-charts/
     name: raw
     version: "0.2.5"
     condition: networkPolicy.enabled

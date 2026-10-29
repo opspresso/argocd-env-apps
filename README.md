@@ -53,7 +53,7 @@ MCP 인증 설정과 PostgreSQL 초기화 동작을 검증한다. 이 fixture는
 
 ## charts
 
-차트 구성은 `opspresso/helm-charts`의 `app` → `cronjob` → incubator `raw` 순서로
+차트 구성은 `opspresso/helm-charts`의 `app` → `cronjob` → `raw` 순서로
 선택한다. PostgreSQL·MinIO·Neo4j 등 데이터 서비스는 공식 또는 주요 배포처의 전용 차트를
 사용한다. 공통 차트에 필요한 기능이 없으면 공통 차트를 확장하며, wrapper에는 `templates/`를 두지 않는다.
 
