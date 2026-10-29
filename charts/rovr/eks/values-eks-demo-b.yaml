@@ -1,0 +1,8 @@
+app:
+  fullnameOverride: rovr
+  raw:
+    enabled: False
+
+  # rovr is not declared for this cluster.
+  replicaCount: 0
+

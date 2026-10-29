@@ -92,3 +92,19 @@ agent_delivery:
 delivery_pool:
   storage: 10Gi
   storageClass: gp3
+# rovr: goal-driven coding agents (opspresso/rovr). SSM parameters live under /k8s/<cluster>/rovr/.
+rovr_maintenance: false
+rovr:
+  hostname: rovr.dev
+  github_app_slug: rovr-dev
+  # Set true after /k8s/<cluster>/rovr/openai-api-key exists; it enables Codex.
+  openai: false
+  sandbox:
+    # Running sandbox Jobs at once, across all accounts. Each takes 2 CPU and 4Gi.
+    max_runs: 6
+    # Task disks kept between runs (one per open task).
+    max_workspaces: 24
+    disk: 10Gi
+    storage_class: gp3
+    # terraform-env-demo 6-eks-node: tainted rovr.dev/sandbox, DefaultDeny network policy.
+    node_pool: rovr-sandboxes
