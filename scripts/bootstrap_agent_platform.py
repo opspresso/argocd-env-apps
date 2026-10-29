@@ -42,7 +42,12 @@ CONTINUITY = (
 )
 
 
-def parameter_values(prefix, existing, delivery=False):
+# rovr parameters that come from the GitHub App and model providers, never generated.
+ROVR_PROVIDED = ("github-app-id", "github-app-private-key", "github-client-id", "github-client-secret",
+                 "github-webhook-secret", "anthropic-api-key")
+
+
+def parameter_values(prefix, existing, delivery=False, rovr=False):
     values = {}
 
     def secret(path, generate=lambda: secrets.token_hex(32)):
@@ -74,6 +79,14 @@ def parameter_values(prefix, existing, delivery=False):
         values[f"{prefix}/agent-delivery/pool-database-url"] = (
             f"postgresql://delivery_admin:{quote(admin, safe='')}"
             "@postgres.delivery-pool.svc.cluster.local:5432/postgres")
+    if rovr:
+        # rovr owns a database and role on the shared PostgreSQL; its chart's bootstrap Job sets this password.
+        password = secret("rovr/postgres-password")
+        values[f"{prefix}/rovr/database-url"] = (
+            f"postgresql://rovr:{quote(password, safe='')}"
+            "@postgres.agent-studio.svc.cluster.local:5432/rovr?sslmode=disable")
+        for path in ("rovr/session-secret", "rovr/run-token-secret", "rovr/metrics-bearer-token"):
+            secret(path)
     return values
 
 
@@ -96,12 +109,12 @@ def continuity_values(region, source, prefix):
     return {f"{prefix}/{path}": values[f"/k8s/{source}/{path}"] for path in CONTINUITY}
 
 
-def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False):
+def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr=False):
     prefix = f"/k8s/{cluster}"
     copied = continuity_values(region, copy_from, prefix) if copy_from else {}
-    names = list(dict.fromkeys([*parameter_values(prefix, {}, delivery), *copied]))
+    names = list(dict.fromkeys([*parameter_values(prefix, {}, delivery, rovr), *copied]))
     existing = read_parameters(region, names)
-    desired = {**parameter_values(prefix, {**copied, **existing}, delivery), **copied}
+    desired = {**parameter_values(prefix, {**copied, **existing}, delivery, rovr), **copied}
     mismatches = [name for name, value in existing.items() if value != desired[name]]
     if mismatches:
         raise RuntimeError("Inconsistent connection parameters; review without rotating: " + ", ".join(mismatches))
@@ -114,6 +127,9 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False):
         source = f" (from {copy_from})" if name in copied else ""
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
+    if rovr:
+        print("Prepare from the rovr GitHub App and model providers: "
+              + ", ".join(f"{prefix}/rovr/{name}" for name in ROVR_PROVIDED))
     if copy_from:
         if delivery:
             print(f"Prepare from Studio Platform connections: {prefix}/agent-delivery/oidc-client-id, oidc-client-secret")
@@ -142,7 +158,7 @@ def main():
     account = aws(env["aws_region"], "sts", "get-caller-identity")["Account"]
     if account != str(env["aws_account_id"]):
         parser.error("AWS account does not match the selected cluster")
-    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_delivery" in env)
+    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_delivery" in env, "rovr" in env)
 
 
 if __name__ == "__main__":

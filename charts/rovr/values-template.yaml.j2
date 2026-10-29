@@ -1,0 +1,85 @@
+{% set maintenance = rovr_maintenance | default(false) -%}
+app:
+  fullnameOverride: rovr
+  raw:
+    enabled: {{rovr is defined}}
+{% if rovr is defined %}
+{% set sandbox = rovr.sandbox | default({}) %}
+  replicaCount: {{0 if maintenance else 2}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/rovr
+{% if not resources %}
+  resources: null
+{% endif %}
+  ssmPrefix: /k8s/{{cluster}}
+  registry:
+    region: {{aws_region}}
+  configmap:
+    enabled: true
+    data:
+      ROVR_PUBLIC_URL: https://{{rovr.hostname}}
+      GITHUB_APP_SLUG: {{rovr.github_app_slug | tojson}}
+  sandbox:
+    maxRuns: {{sandbox.max_runs | default(2)}}
+    maxWorkspaces: {{sandbox.max_workspaces | default(8)}}
+    disk: {{sandbox.disk | default('10Gi') | tojson}}
+    storageClass: {{sandbox.storage_class | default('') | tojson}}
+    nodePool: {{sandbox.node_pool | default('') | tojson}}
+    dnsCidrs:
+      - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
+    allowPublic: {{sandbox.allow_public | default(true)}}
+  routing:
+    hosts:
+    - {{rovr.hostname}}
+    httpRoute:
+      enabled: true
+{% if env == 'k3s' %}
+      parentRefs:
+        - name: traefik-gateway
+          namespace: traefik-gateway
+{% endif %}
+{% if env != 'k3s' %}
+  podLabels:
+    sidecar.istio.io/inject: "true"
+{% endif %}
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{rovr.hostname}}
+  serviceMonitor:
+    enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
+    labels:
+      release: prometheus-{{cluster}}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/rovr/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/rovr/session-secret
+      name: ROVR_SESSION_SECRET
+    - key: /k8s/{{cluster}}/rovr/run-token-secret
+      name: ROVR_RUN_TOKEN_SECRET
+    - key: /k8s/{{cluster}}/rovr/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
+    # One GitHub App for sign-in, repository access and webhooks; see rovr docs/github-app.md.
+    - key: /k8s/{{cluster}}/rovr/github-app-id
+      name: GITHUB_APP_ID
+    - key: /k8s/{{cluster}}/rovr/github-app-private-key
+      name: GITHUB_APP_PRIVATE_KEY
+    - key: /k8s/{{cluster}}/rovr/github-client-id
+      name: GITHUB_APP_CLIENT_ID
+    - key: /k8s/{{cluster}}/rovr/github-client-secret
+      name: GITHUB_APP_CLIENT_SECRET
+    - key: /k8s/{{cluster}}/rovr/github-webhook-secret
+      name: GITHUB_WEBHOOK_SECRET
+    - key: /k8s/{{cluster}}/rovr/anthropic-api-key
+      name: ANTHROPIC_API_KEY
+{% if rovr.openai | default(false) %}
+    - key: /k8s/{{cluster}}/rovr/openai-api-key
+      name: OPENAI_API_KEY
+{% endif %}
+{% else %}
+  # rovr is not declared for this cluster.
+  replicaCount: 0
+{% if not resources %}
+  resources: null
+{% endif %}
+{% endif %}

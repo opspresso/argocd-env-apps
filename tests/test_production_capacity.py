@@ -5,7 +5,7 @@ from test_agent_platform import resource
 import pytest
 
 
-@pytest.mark.parametrize("platform,expected", [("eks", 446), ("k3s", 162)])
+@pytest.mark.parametrize("platform,expected", [("eks", 486), ("k3s", 162)])
 def test_database_budget_covers_application_growth_and_rollout_overlap(platform, expected):
     def maximum_replicas(chart):
         if platform == "eks":
@@ -30,7 +30,12 @@ def test_database_budget_covers_application_growth_and_rollout_overlap(platform,
     forge = maximum_replicas("agent-forge") * (12 + 2)
     # Models maxDatabaseConnections: query pool + OIDC refresh locks 4 + readiness 1 + lease renewal 1.
     models = maximum_replicas("agent-models") * (int(config["agent-models"]["DATABASE_POOL_SIZE"]) + 6)
-    total = 2 * (studio + memory + knowledge + forge + models)
+    # rovr (eks only): a fixed replica count, each with one bounded pool that includes the leader lock.
+    rovr = 0
+    if platform == "eks":
+        rovr_config = resource("rovr", platform, "ConfigMap", "rovr")["data"]
+        rovr = resource("rovr", platform, "Deployment", "rovr")["spec"]["replicas"] * int(rovr_config["ROVR_DATABASE_MAX_CONNS"])
+    total = 2 * (studio + memory + knowledge + forge + models + rovr)
     assert total == expected
     postgres = resource("postgresql", platform, "StatefulSet", "postgres")["spec"]["template"]["spec"]["containers"][0]
     capacity = int(next(arg.split("=", 1)[1] for arg in postgres["args"] if arg.startswith("max_connections=")))

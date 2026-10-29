@@ -1,0 +1,68 @@
+app:
+  fullnameOverride: rovr
+  raw:
+    enabled: True
+
+
+  replicaCount: 2
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/rovr
+
+  ssmPrefix: /k8s/eks-demo
+  registry:
+    region: ap-northeast-2
+  configmap:
+    enabled: true
+    data:
+      ROVR_PUBLIC_URL: https://rovr.dev
+      GITHUB_APP_SLUG: "opspresso-rovr"
+  sandbox:
+    maxRuns: 6
+    maxWorkspaces: 24
+    disk: "10Gi"
+    storageClass: "gp3"
+    nodePool: "rovr-sandboxes"
+    dnsCidrs:
+      - 172.20.0.10/32
+    allowPublic: True
+  routing:
+    hosts:
+    - rovr.dev
+    httpRoute:
+      enabled: true
+
+
+  podLabels:
+    sidecar.istio.io/inject: "true"
+
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://rovr.dev
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-eks-demo
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/rovr/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/rovr/session-secret
+      name: ROVR_SESSION_SECRET
+    - key: /k8s/eks-demo/rovr/run-token-secret
+      name: ROVR_RUN_TOKEN_SECRET
+    - key: /k8s/eks-demo/rovr/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
+    # One GitHub App for sign-in, repository access and webhooks; see rovr docs/github-app.md.
+    - key: /k8s/eks-demo/rovr/github-app-id
+      name: GITHUB_APP_ID
+    - key: /k8s/eks-demo/rovr/github-app-private-key
+      name: GITHUB_APP_PRIVATE_KEY
+    - key: /k8s/eks-demo/rovr/github-client-id
+      name: GITHUB_APP_CLIENT_ID
+    - key: /k8s/eks-demo/rovr/github-client-secret
+      name: GITHUB_APP_CLIENT_SECRET
+    - key: /k8s/eks-demo/rovr/github-webhook-secret
+      name: GITHUB_WEBHOOK_SECRET
+    - key: /k8s/eks-demo/rovr/anthropic-api-key
+      name: ANTHROPIC_API_KEY
+
