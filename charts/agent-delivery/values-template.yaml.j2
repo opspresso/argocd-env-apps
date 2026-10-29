@@ -34,10 +34,12 @@ app:
       DELIVERY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-delivery-tenant-objects
       DELIVERY_EKS_CLUSTER: {{cluster}}
 {% if agent_delivery.delivery is defined %}
-      # App Delivery (agent-platform docs/APP_DELIVERY.md). The service account CA lets fetch trust the API server.
+      # App Delivery (agent-platform docs/APP_DELIVERY.md, docs/DELIVERY_V2.md). The WorkflowTemplates keep the Agent
+      # Delivery defaults (app-build, app-deploy); Delivery v2 refuses to start with DELIVERY_WORKFLOW_TEMPLATE.
+      # The service account CA lets fetch trust the API server.
       DELIVERY_WORKFLOW_NAMESPACE: {{agent_delivery.delivery.namespace}}
-      DELIVERY_WORKFLOW_TEMPLATE: {{agent_delivery.delivery.template}}
       DELIVERY_APP_DOMAIN: {{agent_delivery.delivery.domain}}
+      DELIVERY_ENVIRONMENTS: '{{ agent_delivery.delivery.environments | tojson }}'
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {% endif %}
   externalSecrets:

@@ -75,11 +75,17 @@ agent_delivery:
   hostname: delivery.agrt.dev
   # Studio and Forge use Agent Delivery only after Studio has issued its OIDC client and the service is running.
   connected: true
-  # App Delivery: argocd-env-projects declares the WorkflowTemplate and the per-environment Applications.
+  # App Delivery: argocd-env-projects declares the WorkflowTemplates (app-build, app-deploy, resource-sync, the
+  # Agent Delivery defaults) and the per-environment Applications.
   delivery:
     namespace: app-delivery
-    template: app-delivery
     domain: apps.rovr.dev
+    # The ordered environment profile (agent-platform docs/DELIVERY_V2.md D1), rendered as DELIVERY_ENVIRONMENTS.
+    # Keep the names and the primary environment equal to argocd-env-addons app_delivery.environments and
+    # app_delivery.primary_environment, or deployments to a missing environment never sync.
+    environments:
+      - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false}
+      - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true}
     # A GitHub App issues checkout tokens for private app repositories. Set true only after
     # /k8s/<cluster>/agent-delivery/github-app-id and github-app-private-key exist in SSM.
     github_app: false
