@@ -38,6 +38,7 @@ app:
       DELIVERY_WORKFLOW_NAMESPACE: {{agent_delivery.delivery.namespace}}
       DELIVERY_WORKFLOW_TEMPLATE: {{agent_delivery.delivery.template}}
       DELIVERY_APP_DOMAIN: {{agent_delivery.delivery.domain}}
+      DELIVERY_ENVIRONMENTS: '{{ agent_delivery.delivery.environments | tojson }}'
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {% endif %}
   externalSecrets:

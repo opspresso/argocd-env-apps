@@ -32,6 +32,7 @@ app:
       DELIVERY_WORKFLOW_NAMESPACE: app-delivery
       DELIVERY_WORKFLOW_TEMPLATE: app-delivery
       DELIVERY_APP_DOMAIN: apps.rovr.dev
+      DELIVERY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "primary": false, "requiresPrevious": false, "sandbox": true}, {"approval": "owner", "name": "prod", "primary": true, "requiresPrevious": true, "sandbox": false}]'
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 
   externalSecrets:
