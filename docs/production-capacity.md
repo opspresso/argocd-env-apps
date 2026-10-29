@@ -14,8 +14,8 @@ CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request�
 
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
 | --- | --- | --- | --- |
-| Studio web | 50m / 256Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
-| Memory web | 50m / 160Mi | 1Gi | 2~6, app CPU 70% |
+| Studio web | 50m / 384Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
+| Memory web | 50m / 192Mi | 1Gi | 2~6, app CPU 70% |
 | Knowledge web | 25m / 192Mi | 1Gi | 2, app CPU 70% |
 | Knowledge queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
 | Forge controller/gateway/worker | 25m / 256Mi | 1Gi | 2, app CPU 70% |
@@ -29,7 +29,7 @@ Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. nat
 Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 않습니다.
 노드 수 계산은 sidecar·DaemonSet·rolling surge와 가장 큰 노드 한 대 손실까지 포함해야 합니다.
 낮은 유휴 CPU만으로 production 기준 노드를 줄이지 않습니다. 기준 노드 2대는 전체 requests
-(약 1.5 vCPU·9.2Gi)를 노드 한 대(3.77 vCPU·14.3Gi allocatable)가 수용하는 조건으로 정했습니다.
+(addons·sidecar 포함 약 2.0 vCPU·11.8Gi)를 노드 한 대(3.77 vCPU·14.3Gi allocatable)가 수용하는 조건으로 정했습니다.
 rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 처리합니다.
 
 ## PostgreSQL

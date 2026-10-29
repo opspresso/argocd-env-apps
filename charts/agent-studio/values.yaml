@@ -3,12 +3,12 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-studio
     tag: latest
-  # Requests follow idle use. The limit covers a measured 1.1Gi peak under
-  # concurrent agent runs.
+  # Requests cover the measured 340Mi working set. The limit covers a measured
+  # 1.1Gi peak under concurrent agent runs.
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 384Mi
     limits:
       memory: 2Gi
   service:
@@ -192,7 +192,6 @@ app:
           cpu: 10m
           memory: 16Mi
         limits:
-          cpu: 50m
           memory: 32Mi
       overrides: |
         enabled: {{ .Values.workloads.scheduleTicker.enabled }}
