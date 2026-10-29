@@ -15,7 +15,7 @@ app:
     enabled: true
     data:
       ROVR_PUBLIC_URL: https://rovr.dev
-      GITHUB_APP_SLUG: "rovr-dev"
+      GITHUB_APP_SLUG: "opspresso-rovr"
   sandbox:
     maxRuns: 6
     maxWorkspaces: 24

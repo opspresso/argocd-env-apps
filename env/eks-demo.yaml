@@ -96,7 +96,7 @@ delivery_pool:
 rovr_maintenance: false
 rovr:
   hostname: rovr.dev
-  github_app_slug: rovr-dev
+  github_app_slug: opspresso-rovr
   # Set true after /k8s/<cluster>/rovr/openai-api-key exists; it enables Codex.
   openai: false
   sandbox:
