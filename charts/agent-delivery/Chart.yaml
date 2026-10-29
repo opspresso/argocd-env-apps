@@ -2,9 +2,9 @@ apiVersion: v2
 name: agent-delivery
 description: Resource provisioning and variable delivery for vibe-coded applications.
 type: application
-version: v1.0.0
+version: v1.0.1
 appVersion: v1.0.0
 dependencies:
 - repository: https://opspresso.github.io/helm-charts
   name: app
-  version: v2.0.0
+  version: v2.0.2

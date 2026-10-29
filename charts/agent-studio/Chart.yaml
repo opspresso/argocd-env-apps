@@ -2,9 +2,9 @@ apiVersion: v2
 name: agent-studio
 description: Build and operate production AI agents.
 type: application
-version: v2.0.1
+version: v2.0.2
 appVersion: v1.0.0
 dependencies:
 - repository: https://opspresso.github.io/helm-charts
   name: app
-  version: v2.0.0
+  version: v2.0.2

@@ -2,13 +2,13 @@ apiVersion: v2
 name: mcp-cloudwatch
 description: AWS Labs CloudWatch MCP server Agent Studio calls — cluster-internal
 type: application
-version: v1.4.2
+version: v1.4.3
 appVersion: v1.0.0
 
 dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
-    version: "v2.0.0"
+    version: "v2.0.2"
   - repository: https://opspresso.github.io/helm-charts/
     name: raw
     version: "0.2.5"

@@ -2,10 +2,10 @@ apiVersion: v2
 name: sample-spring
 description: A Helm chart for Kubernetes
 type: application
-version: v1.3.1
+version: v1.3.2
 appVersion: v1.0.0
 
 dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
-    version: "v2.0.0"
+    version: "v2.0.2"
