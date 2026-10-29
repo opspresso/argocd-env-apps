@@ -47,7 +47,7 @@ def test_sandbox_namespace_permissions_and_capacity():
         {"apiGroups": ["batch"], "resources": ["jobs"], "verbs": ["get", "list", "create", "delete"]},
         {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
         {"apiGroups": [""], "resources": ["secrets"], "verbs": ["create"]},
-        {"apiGroups": [""], "resources": ["persistentvolumeclaims"], "verbs": ["create", "delete"]},
+        {"apiGroups": [""], "resources": ["persistentvolumeclaims"], "verbs": ["list", "create", "delete"]},
     ]
     assert find(docs, "RoleBinding", "rovr-sandbox", ns)["subjects"] == [{"kind": "ServiceAccount", "name": "rovr", "namespace": "rovr"}]
     assert not any(item["kind"] in {"ClusterRole", "ClusterRoleBinding"} for item in docs)

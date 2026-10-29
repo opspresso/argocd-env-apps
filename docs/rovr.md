@@ -20,7 +20,7 @@ rovr(<https://rovr.dev>)는 목표를 받아 Leader 에이전트가 작업을 �
 | `HTTPRoute/rovr` | `rovr` | `rovr.dev` → `8080`만. `8081`은 외부로 노출하지 않는다 |
 | `NetworkPolicy/rovr` | `rovr` | `8080`은 같은 namespace·Istio·Prometheus, `8081`은 Sandbox Pod만 |
 | Sandbox namespace | `rovr-sandboxes` | Job 소유 Pod, 토큰 미마운트 SA `sandbox`, default-deny와 DNS·공인 80/443·rovr `8081`만 허용, quota, ECR pull secret |
-| `Role/rovr-sandbox` | `rovr-sandboxes` | rovr SA가 jobs·pods 조회, run Secret 생성, 작업 PVC 생성·삭제만 할 수 있다 |
+| `Role/rovr-sandbox` | `rovr-sandboxes` | rovr SA가 jobs·pods 조회, run Secret 생성, 작업 PVC 목록·생성·삭제만 할 수 있다. 목록은 끝난 task의 PVC 정리에 쓴다 |
 | DB bootstrap | `agent-studio` | Sync hook Job이 공유 PostgreSQL에 `rovr` 역할(비 superuser)과 `rovr` DB를 만든다. 관리자 비밀번호는 `agent-studio` 밖으로 나가지 않는다 |
 
 Sandbox 이미지 버전의 원천은 `app.image.tag` 하나다. 서버가 `<repository>:vX`이면 Sandbox는 `<repository>:sandbox-vX`이다.
