@@ -49,12 +49,16 @@ ExternalSecret은 참조 경로가 하나라도 없으면 Secret을 만들지 �
 
 1. `terraform-env-demo`: `demo/8-agent-studio`(ECR·릴리스 역할), `demo/6-eks-node`(NodePool), `demo/3-alb`(`rovr.dev`)를 apply한다.
 2. rovr GitHub App을 만들고 위 SSM 파라미터를 준비한다. bootstrap을 `--apply`로 실행한다.
-3. `env/eks-demo.yaml`의 `rovr.github_app_slug`를 App slug로 맞춘다.
+3. `env/eks-demo.yaml`의 `rovr.github_app_slug`를 App slug로 맞추고 `charts/rovr`를 `main`에 병합한다.
+   GitOps dispatch는 `main`의 chart를 갱신하므로 태그보다 먼저 병합한다.
 4. `opspresso/rovr`에 `GHP_TOKEN` 시크릿을 등록하고 `v0.1.0` 태그를 push한다. 릴리스가 이미지를 올리고 이 저장소에
    `prod` 배포를 dispatch한다.
 5. Argo CD `rovr-eks-demo`가 Synced·Healthy인지, `https://rovr.dev/readyz`가 200인지 확인한다.
 
-이 순서 전에 이 차트가 동기화되면 이미지·Secret이 없어 `rovr-eks-demo`가 Degraded로 남는다. 다른 앱에는 영향이 없다.
+3과 4 사이에는 이미지가 없어 `rovr-eks-demo`가 Degraded로 남는다. Secret이 없을 때도 같다. 다른 앱에는 영향이 없다.
+
+Sandbox Pod는 `karpenter.sh/do-not-disrupt`를 달고 NodePool `rovr-sandboxes`의 노드 drain은 Sandbox 마감(90분)까지 기다린다.
+노드는 Pod가 시작된 뒤 NetworkPolicy가 적용될 때까지 트래픽을 막으므로(`DefaultDeny`) `rovr-agentd`는 첫 요청에서 최대 90초 기다린다.
 
 ## 유지보수 정지
 
