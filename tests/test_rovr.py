@@ -120,7 +120,7 @@ def test_server_runs_hardened_with_fixed_replicas_and_its_secrets():
     refs = {e["secretKey"]: e["remoteRef"]["key"] for e in find(docs, "ExternalSecret", "rovr-external")["spec"]["data"]}
     assert all(key.startswith("/k8s/eks-demo/rovr/") for key in refs.values())
     assert {"DATABASE_URL", "ROVR_SESSION_SECRET", "ROVR_RUN_TOKEN_SECRET", "GITHUB_APP_PRIVATE_KEY",
-            "GITHUB_APP_CLIENT_ID", "GITHUB_WEBHOOK_SECRET", "ANTHROPIC_API_KEY"} <= set(refs)
+            "GITHUB_APP_CLIENT_ID", "GITHUB_WEBHOOK_SECRET", "ANTHROPIC_API_KEY", "ROVR_SECRET_KEY"} <= set(refs)
     assert "OPENAI_API_KEY" not in refs  # enabled per cluster once the parameter exists
     config = find(docs, "ConfigMap", "rovr")["data"]
     assert config["ROVR_PUBLIC_URL"] == "https://rovr.dev"

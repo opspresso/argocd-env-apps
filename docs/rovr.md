@@ -7,7 +7,7 @@ rovr(<https://rovr.dev>)는 목표를 받아 Leader 에이전트가 작업을 �
 | 저장소 | rovr에 대한 책임 |
 | --- | --- |
 | `terraform-env-demo` | ECR `rovr`(`v*`, `sandbox-v*`), 릴리스 역할 `github--rovr-ecr`, NodePool `rovr-sandboxes`, `rovr.dev` 인증서·DNS |
-| `argocd-env-addons` | 변경 없음. Istio Gateway·External Secrets·VPC CNI NetworkPolicy를 그대로 쓴다 |
+| `argocd-env-addons` | ClusterSecretStore `parameter-store`가 `rovr` namespace를 허용한다. Istio Gateway·VPC CNI NetworkPolicy는 그대로 쓴다 |
 | `argocd-env-apps` | `charts/rovr`, `apps/eks/rovr.yaml`, `env/eks-demo.yaml`의 `rovr` 블록, 공유 PostgreSQL의 rovr DB·역할 |
 | `opspresso/rovr` | 애플리케이션, `v*` 태그 릴리스, 이 저장소로의 GitOps dispatch |
 
@@ -34,9 +34,10 @@ rovr의 DB 연결은 replica당 `ROVR_DATABASE_MAX_CONNS`(10)이고, 용량 테�
 | --- | --- |
 | `postgres-password`, `database-url` | bootstrap. URL은 비밀번호에서 만든다 |
 | `session-secret`, `run-token-secret`, `metrics-bearer-token` | bootstrap |
+| `secret-key` | bootstrap. 계정이 rovr Settings에 저장한 provider key를 봉인한다. 바꾸면 저장된 key를 읽을 수 없어 계정이 다시 입력해야 한다 |
 | `github-app-id`, `github-app-private-key`, `github-client-id`, `github-client-secret`, `github-webhook-secret` | rovr GitHub App에서 사람이 준비 (rovr `docs/github-app.md`) |
-| `anthropic-api-key` | 사람이 준비. Leader와 Claude Code·OpenCode proxy가 쓴다 |
-| `openai-api-key` | 선택. 준비한 뒤 `env/eks-demo.yaml`의 `rovr.openai: true`로 Codex를 켠다 |
+| `anthropic-api-key` | 사람이 준비. 자기 key를 저장하지 않은 계정의 Leader와 Claude Code·OpenCode가 쓰는 platform key다 |
+| `openai-api-key` | 선택. 자기 key가 없는 계정의 Codex용 platform key다. 준비한 뒤 `env/eks-demo.yaml`의 `rovr.openai: true`로 켠다 |
 
 ```bash
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo          # 누락 경로만 출력

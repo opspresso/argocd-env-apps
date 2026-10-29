@@ -140,7 +140,7 @@ def test_rovr_clusters_get_generated_secrets_and_a_matching_database_url(capsys)
     url = writes[f"{prefix}/rovr/database-url"]
     assert url == "postgresql://rovr:pw%3A%2F%40@postgres.agent-studio.svc.cluster.local:5432/rovr?sslmode=disable"
     assert f"{prefix}/rovr/postgres-password" not in writes
-    for name in ("session-secret", "run-token-secret", "metrics-bearer-token"):
+    for name in ("session-secret", "run-token-secret", "metrics-bearer-token", "secret-key"):
         assert len(writes[f"{prefix}/rovr/{name}"]) >= 32
     # GitHub App and provider credentials are prepared by people, never generated.
     assert not any(name.endswith(("github-app-id", "github-client-secret", "anthropic-api-key")) for name in writes)
