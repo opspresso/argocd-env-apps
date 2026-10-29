@@ -34,8 +34,8 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 
 ## PostgreSQL
 
-다섯 앱은 같은 `agent_platform` DB를 사용합니다. 풀은 생성 여부보다 실제 동시 접속 가능 상한으로
-계산합니다. 각 프로세스의 명시된 풀 크기는 다음과 같습니다.
+여섯 서비스는 같은 `agent_platform` DB를 사용합니다. k3s의 미배포 선언에는 Delivery가 없습니다.
+풀은 생성 여부보다 실제 동시 접속 가능 상한으로 계산합니다. 각 프로세스의 명시된 풀 크기는 다음과 같습니다.
 
 | 프로세스 | query | queue | readiness | 잠금·보조 | AI admission | 합계 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -43,15 +43,16 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 | Memory web | 4 | 0 | 1 | background 2 + OIDC 2 | 0 | 9 |
 | Knowledge web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
 | Knowledge worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
-| Forge | 12 | 0 | 0 | OIDC 2 | 0 | 14 |
+| Forge | 12 | 0 | 0 | 별도 pool 없음 | 0 | 12 |
 | Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
+| Delivery (EKS) | 4 | 0 | 1 | OIDC 4 | 0 | 9 |
 
 Studio schedule ticker는 HTTP만 호출하고 DB에 연결하지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
 연결을 하나씩 사용합니다. Knowledge maintenance lock은 query pool 밖의 전용 pool(최대 2)을 쓰며 worker도
 같은 pool을 만듭니다. 1시간 주기 platform retention은 worker에서만 query pool로 실행합니다.
-worker health는 process-only입니다. Forge pool 12와 OIDC 잠금 pool은 코드에 고정돼 있고
-readiness는 query pool을 사용합니다. Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도
-probe가 연결을 기다리지 않습니다. lease 갱신도 전용 연결 1개를 사용합니다.
+worker health는 process-only입니다. Forge는 코드에 고정된 query pool 12개를 사용합니다.
+OIDC refresh는 같은 pool로 lease 행을 갱신하고 외부 응답을 기다리는 동안 DB 연결을 잡지 않습니다. readiness도 같은 pool을 사용합니다.
+Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도 probe가 연결을 기다리지 않습니다. lease 갱신도 전용 연결 1개를 사용합니다.
 
 Models의 DB 작업은 사용량 예약·정산과 세션의 짧은 transaction이며 공급자 호출 동안 연결을 잡지 않습니다.
 그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 k3s 4, EKS 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
@@ -63,13 +64,32 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| k3s 선언(미배포) | `Studio9+Memory9+Knowledge(20+19)+Forge14+Models10 = 81` | 162 | 20 | 250 |
-| EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×14+Models2×14 = 223` | 446 | 20 | 550 |
+| k3s 선언(미배포) | `Studio9+Memory9+Knowledge(20+19)+Forge12+Models10 = 79` | 158 | 20 | 250 |
+| EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×12+Models2×14+Delivery2×9 = 237` | 474 | 20 | 550 |
 
-웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이고 worker의 surge는 replica 수 이하이므로 rollout 중
-프로세스 수는 정상 세대의 2배를 넘지 않습니다. 테스트가 이 조건도 검사합니다.
+웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이며 worker의 surge는 replica 수 이하입니다.
+예산은 동시에 두 세대가 연결을 보유한다고 가정하며 테스트가 선언한 surge를 검사합니다.
+종료 중인 Pod의 연결 해제와 연속 rollout은 별도 관측 대상입니다. 표를 실제 접속 수의 보장으로 해석하지 않습니다.
 
-`test_production_capacity.py`는 실제 렌더의 HPA·worker replica·pool 값으로 이 상한을 계산합니다.
+`test_production_capacity.py`는 선언된 서비스의 실제 렌더에서 HPA·worker replica·pool 값을 읽습니다.
+maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Knowledge worker의 설정 증가가 DB 예산을 초과하면 실패합니다.
+총합 숫자와의 일치 대신 실제 PostgreSQL 한도와 운영 여유를 비교합니다.
+
+환경 변수로 정하지 않는 보조 pool의 근거는 각 서비스 원본입니다. 이 구조가 바뀌면 표와 검사를 함께 갱신합니다.
+
+| 서비스 | 연결 소유 구조의 원본 |
+| --- | --- |
+| Studio | `agent-studio/src/infrastructure/db/client.ts`: query, content lock 4, readiness 1 |
+| Memory | `agent-memory/src/infrastructure/database/client.ts`, `background-task-locks.ts`, `readiness-probe.ts`: query, OIDC 2, background 2, readiness 1 |
+| Knowledge | `agent-knowledge/src/infrastructure/database/client.ts`, `src/lib/composition/retrieval.ts`, `src/infrastructure/queue/document-ingestion-queue.ts`: query, maintenance 2, OIDC 2, AI admission, queue; web readiness 1 |
+| Forge | `agent-forge/src/main.ts`, `src/infrastructure/database/refreshLeases.ts`: query 12를 공유 |
+| Models | `agent-models/src/lib/config.ts`의 `maxDatabaseConnections`: query + OIDC 4 + readiness 1 + lease 1 |
+| Delivery | `agent-delivery/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
+
+Delivery의 tenant PostgreSQL은 EKS에서 별도 `delivery-pool`입니다. 리소스 생성·삭제의 관리자 연결과
+배포 앱의 연결 수는 위 플랫폼 DB 예산에 포함되지 않으므로 별도로 계산합니다. 로컬 Compose처럼 같은 PostgreSQL
+instance를 사용하면 두 예산을 합산해야 합니다. bootstrap·관리 작업의 동시 연결도 운영 여유 안에 들어가는지 확인합니다.
+
 새 프로세스, HPA 상한, pool 크기를 바꾸면 함께 갱신합니다. 이전 rollout이 끝나기 전에 다음
 rollout을 누적하지 않습니다. PostgreSQL `max_connections`·공유 메모리 설정 변경은 재시작이 필요합니다.
 현재 shared buffers는256MB, work_mem은4MB입니다. `max_connections`가 모든 query의 메모리

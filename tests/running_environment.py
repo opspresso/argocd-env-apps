@@ -13,5 +13,6 @@ def running_values(chart, platform):
     env["agent_knowledge_maintenance"] = False
     env["agent_forge_maintenance"] = False
     env["agent_models_maintenance"] = False
+    env["agent_delivery_maintenance"] = False
     jinja = Environment(loader=FileSystemLoader(ROOT / "charts" / chart), undefined=StrictUndefined)
     return jinja.get_template("values-template.yaml.j2").render(env)
