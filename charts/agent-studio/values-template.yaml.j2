@@ -66,18 +66,18 @@ app:
       MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
       # Service consoles that may frame Studio's Helper panel and that open_console may open (agent-platform/docs/HELPER_EMBED.md).
 {%- set helper_consoles = [] %}
-{%- for name, service in [("agent-memory", agent_memory), ("agent-knowledge", agent_knowledge), ("agent-forge", agent_forge), ("agent-delivery", agent_delivery)] if service is defined and service.hostname is defined %}
+{%- for name, service in [("agent-memory", agent_memory), ("agent-knowledge", agent_knowledge), ("agent-forge", agent_forge), ("agent-runway", agent_runway)] if service is defined and service.hostname is defined %}
 {%- set _ = helper_consoles.append(name ~ "=https://" ~ service.hostname) %}
 {%- endfor %}
       HELPER_EMBED_ORIGINS: '{{ helper_consoles | join(",") }}'
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
-      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-delivery.svc.cluster.local' if (agent_delivery is defined and agent_delivery.connected | default(false)) else ''}}
+      MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-runway.svc.cluster.local' if (agent_runway is defined and agent_runway.connected | default(false)) else ''}}
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       KNOWLEDGE_URL: http://agent-knowledge.agent-knowledge.svc.cluster.local:3000
-{%- if (agent_delivery is defined and agent_delivery.connected | default(false)) %}
-      DELIVERY_URL: http://agent-delivery.agent-delivery.svc.cluster.local:3500
+{%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
 {%- endif %}
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
@@ -144,7 +144,7 @@ app:
     - key: /k8s/{{cluster}}/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
     # Studio registers each service client; the service and Studio read the same client ID.
-{% for service in ('forge', 'memory', 'knowledge') + (('delivery',) if (agent_delivery is defined and agent_delivery.connected | default(false)) else ()) %}
+{% for service in ('forge', 'memory', 'knowledge') + (('runway',) if (agent_runway is defined and agent_runway.connected | default(false)) else ()) %}
     - key: /k8s/{{cluster}}/agent-{{service}}/oidc-client-id
       name: {{service | upper}}_OIDC_CLIENT_ID
 {% endfor %}
