@@ -103,9 +103,9 @@ def test_delivery_maintenance_requires_boolean_and_preserves_generated_values(pr
     output.write_text("previous render\n")
     (root / "env/eks-demo.yaml").write_text(yaml.safe_dump({
         "env": "eks", "cluster": "eks-demo", "replicas": 2,
-        "agent_delivery_maintenance": invalid,
+        "agent_runway_maintenance": invalid,
     }))
-    with pytest.raises(ValueError, match="agent_delivery_maintenance must be a boolean"):
+    with pytest.raises(ValueError, match="agent_runway_maintenance must be a boolean"):
         gen_values.gen_repos(args)
     assert output.read_text() == "previous render\n"
 
@@ -113,10 +113,10 @@ def test_delivery_maintenance_requires_boolean_and_preserves_generated_values(pr
 @pytest.mark.parametrize("maintenance", [False, True])
 def test_delivery_maintenance_accepts_boolean(project, maintenance):
     root, chart, args = project
-    (chart / "values-template.yaml.j2").write_text("replicas: {{0 if agent_delivery_maintenance else replicas}}\n")
+    (chart / "values-template.yaml.j2").write_text("replicas: {{0 if agent_runway_maintenance else replicas}}\n")
     (root / "env/eks-demo.yaml").write_text(yaml.safe_dump({
         "env": "eks", "cluster": "eks-demo", "replicas": 2,
-        "agent_delivery_maintenance": maintenance,
+        "agent_runway_maintenance": maintenance,
     }))
     gen_values.gen_repos(args)
     assert yaml.safe_load((chart / "eks/values-eks-demo.yaml").read_text()) == {"replicas": 0 if maintenance else 2}
