@@ -109,8 +109,8 @@ app:
       ROVR_RECONCILE_INTERVAL: 15s
       # Harness + 10m must fit in sandbox.deadline (90m).
       ROVR_HARNESS_TIMEOUT: 60m
-      # OpenRouter model ID for the leader's plans and reviews.
-      ROVR_LEADER_MODEL: anthropic/claude-opus-5.5
+      # A leader run (plan or review) is shorter than a work run.
+      ROVR_LEADER_TIMEOUT: 20m
   additionalConfigmap:
     enabled: true
     names:

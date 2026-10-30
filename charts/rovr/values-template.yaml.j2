@@ -76,17 +76,6 @@ app:
       name: GITHUB_APP_CLIENT_SECRET
     - key: /k8s/{{cluster}}/rovr/github-webhook-secret
       name: GITHUB_WEBHOOK_SECRET
-    # Platform key for accounts that have not stored their own in rovr Settings.
-    - key: /k8s/{{cluster}}/rovr/anthropic-api-key
-      name: ANTHROPIC_API_KEY
-{% if rovr.openrouter | default(false) %}
-    - key: /k8s/{{cluster}}/rovr/openrouter-api-key
-      name: OPENROUTER_API_KEY
-{% endif %}
-{% if rovr.openai | default(false) %}
-    - key: /k8s/{{cluster}}/rovr/openai-api-key
-      name: OPENAI_API_KEY
-{% endif %}
 {% else %}
   # rovr is not declared for this cluster.
   replicaCount: 0
