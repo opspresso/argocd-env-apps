@@ -3,6 +3,9 @@ kind: ApplicationSet
 metadata:
   name: agent-delivery
 spec:
+  # Preserve the existing workload while its Application ownership moves to Runway.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
   generators:
     - git:
         repoURL: https://github.com/opspresso/argocd-env-apps.git
@@ -35,9 +38,6 @@ spec:
             - "{{env}}/values-{{cluster}}.yaml"
 
       syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
         syncOptions:
           - CreateNamespace=true
         # Retry transient failures, such as a CR applied before its CRD exists.
