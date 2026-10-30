@@ -69,8 +69,3 @@ app:
       name: GITHUB_APP_CLIENT_SECRET
     - key: /k8s/eks-demo/rovr/github-webhook-secret
       name: GITHUB_WEBHOOK_SECRET
-    # Platform key for accounts that have not stored their own in rovr Settings.
-    - key: /k8s/eks-demo/rovr/anthropic-api-key
-      name: ANTHROPIC_API_KEY
-
-

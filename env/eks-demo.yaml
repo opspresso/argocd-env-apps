@@ -99,11 +99,6 @@ rovr:
   github_app_slug: opspresso-rovr
   # GitHub logins that may sign in; rovr is private to them.
   allowed_logins: [nalbam]
-  # Set true after /k8s/<cluster>/rovr/openrouter-api-key exists; it is the
-  # leader's platform key. Without it each account stores its own in Settings.
-  openrouter: false
-  # Set true after /k8s/<cluster>/rovr/openai-api-key exists; it enables Codex.
-  openai: false
   sandbox:
     # Running sandbox Jobs at once, across all accounts. Each takes 2 CPU and 4Gi.
     max_runs: 6
