@@ -100,6 +100,12 @@ rollout을 누적하지 않습니다. PostgreSQL `max_connections`·공유 메�
 현재 shared buffers는256MB, work_mem은4MB입니다. `max_connections`가 모든 query의 메모리
 상한을 보장하지는 않으므로 실제 쿼리 메모리·RSS·연결 대기 시간을 관찰합니다.
 
+## MCP 위임의 인증 비용
+
+2026-10-31 로컬 측정에서 Memory 위임 요청 1건은 SQL 약 600문을 실행했고, 위임 없는 요청은 약 40건의 트랜잭션을 사용했습니다.
+차이의 대부분은 호출마다 Studio가 수행하는 사용자·정책 확인과 토큰 발급입니다. 이 확인은 비용 한도와 팀 소속을 호출 시점 값으로 판정하므로 캐시로 줄이지 않습니다.
+Pool과 HPA는 동시 Agent 수뿐 아니라 이 호출 수를 함께 보고 조정합니다. 같은 측정에서 수정 전후 처리량과 TTFT 차이는 pool 변경 근거가 되지 않아 현재 값을 유지합니다.
+
 ## 실행 용량과 보존
 
 `workspace_max_pods`는 Forge 실행 namespace의 Pod/Job 상한입니다. 실행 Pod는 일시적인 디스크를 사용하고 마지막 확정 checkpoint로 복원합니다.
