@@ -61,7 +61,7 @@ agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
-agent_knowledge_maintenance: false
+agent_knowledge_maintenance: true
 agent_forge_maintenance: false
 sample_node:
   redis:
