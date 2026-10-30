@@ -491,7 +491,7 @@ PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collatio
 
 EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_runway`). 운영 클러스터 `eks-demo`에서 `runway.agrt.dev`로 제공한다.
 Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
-`demo/8-agent-delivery`가 소유한다.
+`demo/8-agent-runway`가 소유한다.
 
 | Application | namespace | 내용 |
 | --- | --- | --- |

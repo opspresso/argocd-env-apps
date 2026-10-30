@@ -20,7 +20,7 @@ Studio 원본은 `x-amz-meta-source-deleted`를 검증하므로 복사 도구는
 
 ## 사전 조건
 
-1. `terraform-env-demo`: `4-role` → `8-agent-knowledge` → `8-agent-delivery` → `8-agent-studio` → `5-eks` → `6-eks-node`.
+1. `terraform-env-demo`: `4-role` → `8-agent-knowledge` → `8-agent-runway` → `8-agent-studio` → `5-eks` → `6-eks-node`.
 2. `argocd-env-addons/install/eks/install.sh`로 Argo CD를 설치하고 `addons-eks.yaml`, `apps-eks.yaml`을 등록한다.
 3. 연속성 secret을 복사한다. 원본 값이 하나라도 없거나 대상에 다른 값이 있으면 쓰기 전에 중단한다.
 
