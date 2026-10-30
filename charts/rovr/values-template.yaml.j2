@@ -23,6 +23,10 @@ app:
       # Only these GitHub logins may sign in.
       ROVR_ALLOWED_LOGINS: {{rovr.allowed_logins | join(',') | tojson}}
 {% endif %}
+{% if rovr.operator_logins | default([]) %}
+      # Only these GitHub logins may change anything and use the Helper.
+      ROVR_OPERATOR_LOGINS: {{rovr.operator_logins | join(',') | tojson}}
+{% endif %}
 {% if rovr.tools_repo | default('') %}
       # Its owner's admins see and update the coding tool versions in Settings.
       ROVR_TOOLS_REPO: {{rovr.tools_repo | tojson}}
