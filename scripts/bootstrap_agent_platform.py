@@ -46,6 +46,10 @@ CONTINUITY = (
 ROVR_PROVIDED = ("github-app-id", "github-app-private-key", "github-client-id", "github-client-secret",
                  "github-webhook-secret", "anthropic-api-key")
 
+# Existing Delivery credentials must be copied before bootstrap can create Runway credentials.
+RUNWAY_CONTINUITY = ("auth-secret", "pool-admin-password", "pool-database-url", "oidc-client-id",
+                     "oidc-client-secret", "github-app-id", "github-app-private-key")
+
 
 def parameter_values(prefix, existing, delivery=False, rovr=False):
     values = {}
@@ -112,6 +116,11 @@ def continuity_values(region, source, prefix):
 
 def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr=False):
     prefix = f"/k8s/{cluster}"
+    if delivery:
+        old = read_parameters(region, [f"{prefix}/agent-delivery/{key}" for key in RUNWAY_CONTINUITY])
+        new = read_parameters(region, [name.replace("/agent-delivery/", "/agent-runway/") for name in old])
+        if any(new.get(name.replace("/agent-delivery/", "/agent-runway/")) != value for name, value in old.items()):
+            raise RuntimeError("Copy existing Delivery parameters with scripts/copy_runway_parameters.py before bootstrap")
     copied = continuity_values(region, copy_from, prefix) if copy_from else {}
     names = list(dict.fromkeys([*parameter_values(prefix, {}, delivery, rovr), *copied]))
     existing = read_parameters(region, names)

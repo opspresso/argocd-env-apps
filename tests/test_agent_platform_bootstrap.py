@@ -126,6 +126,23 @@ def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys
     assert not any("oidc-client" in name for name in writes)
 
 
+def test_existing_delivery_credentials_must_be_copied_before_bootstrap():
+    existing = {f"{TARGET}/agent-delivery/auth-secret": "existing-secret"}
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        with pytest.raises(RuntimeError, match="copy_runway_parameters.py"):
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True)
+    assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
+
+
+def test_bootstrap_accepts_copied_delivery_credentials():
+    existing = {f"{TARGET}/agent-delivery/auth-secret": "existing-secret",
+                f"{TARGET}/agent-runway/auth-secret": "existing-secret"}
+    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True) == 0
+    writes = [call.kwargs["payload"]["Name"] for call in aws.call_args_list if call.args[2] == "put-parameter"]
+    assert f"{TARGET}/agent-runway/auth-secret" not in writes
+
+
 def test_clusters_without_delivery_get_no_delivery_parameters():
     assert not any("delivery" in name for name in bootstrap.parameter_values(TARGET, {}))
 
