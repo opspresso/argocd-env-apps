@@ -46,6 +46,7 @@ def test_sandbox_namespace_permissions_and_capacity():
     assert find(docs, "Role", "rovr-sandbox", ns)["rules"] == [
         {"apiGroups": ["batch"], "resources": ["jobs"], "verbs": ["get", "list", "create", "delete"]},
         {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
+        {"apiGroups": [""], "resources": ["pods/exec"], "verbs": ["get", "create"]},
         {"apiGroups": [""], "resources": ["secrets"], "verbs": ["create"]},
         {"apiGroups": [""], "resources": ["persistentvolumeclaims"], "verbs": ["list", "create", "delete"]},
     ]
@@ -120,8 +121,8 @@ def test_server_runs_hardened_with_fixed_replicas_and_its_secrets():
     refs = {e["secretKey"]: e["remoteRef"]["key"] for e in find(docs, "ExternalSecret", "rovr-external")["spec"]["data"]}
     assert all(key.startswith("/k8s/eks-demo/rovr/") for key in refs.values())
     assert {"DATABASE_URL", "ROVR_SESSION_SECRET", "ROVR_RUN_TOKEN_SECRET", "GITHUB_APP_PRIVATE_KEY",
-            "GITHUB_APP_CLIENT_ID", "GITHUB_WEBHOOK_SECRET", "ANTHROPIC_API_KEY", "ROVR_SECRET_KEY"} <= set(refs)
-    assert "OPENAI_API_KEY" not in refs  # enabled per cluster once the parameter exists
+            "GITHUB_APP_CLIENT_ID", "GITHUB_WEBHOOK_SECRET", "ROVR_SECRET_KEY"} <= set(refs)
+    assert not {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"} & set(refs)  # subscriptions replaced provider keys
     config = find(docs, "ConfigMap", "rovr")["data"]
     assert config["ROVR_PUBLIC_URL"] == "https://rovr.dev"
 
