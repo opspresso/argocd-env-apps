@@ -1,0 +1,89 @@
+{% set maintenance = agent_runway_maintenance | default(false) -%}
+app:
+  fullnameOverride: agent-runway
+  raw:
+    enabled: {{agent_runway is defined}}
+{% if agent_runway is defined %}
+  replicaCount: {{0 if maintenance else replicas}}
+  autoscaling:
+    enabled: {{false if maintenance else autoscaling}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-runway
+{% if env == 'k3s' %}
+  imagePullSecrets:
+    - name: ecr-registry
+{% endif %}
+{% if not resources %}
+  resources: null
+{% endif %}
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://{{agent_runway.hostname}}
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: {{aws_region}}
+      RUNWAY_CLUSTER: {{cluster}}
+      RUNWAY_SECRET_STORE: ssm
+      RUNWAY_KMS_KEY_ID: alias/agent-runway
+      RUNWAY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      RUNWAY_POOL_PORT: '5432'
+      RUNWAY_BUCKET: agent-runway-objects
+      RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-sandbox-objects
+      RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-objects
+      RUNWAY_EKS_CLUSTER: {{cluster}}
+{% if agent_runway.delivery is defined %}
+      # App Delivery uses the app-build and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
+      # The retired RUNWAY_WORKFLOW_TEMPLATE setting is rejected at startup.
+      # The service account CA lets fetch trust the API server.
+      RUNWAY_WORKFLOW_NAMESPACE: {{agent_runway.delivery.namespace}}
+      RUNWAY_APP_DOMAIN: {{agent_runway.delivery.domain}}
+      RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+{% endif %}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/agent-runway/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/{{cluster}}/agent-runway/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/{{cluster}}/agent-runway/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/{{cluster}}/agent-runway/pool-database-url
+      name: RUNWAY_POOL_DATABASE_URL
+{%- if agent_runway.delivery is defined and agent_runway.delivery.github_app | default(false) %}
+    - key: /k8s/{{cluster}}/agent-runway/github-app-id
+      name: RUNWAY_GITHUB_APP_ID
+    - key: /k8s/{{cluster}}/agent-runway/github-app-private-key
+      name: RUNWAY_GITHUB_APP_PRIVATE_KEY
+{%- endif %}
+  routing:
+    hosts:
+    - {{agent_runway.hostname}}
+    httpRoute:
+      enabled: true
+{% if env == 'k3s' %}
+      parentRefs:
+      - name: traefik-gateway
+        namespace: traefik-gateway
+{% endif %}
+{% if env != 'k3s' %}
+  podLabels:
+    sidecar.istio.io/inject: "true"
+{% endif %}
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{agent_runway.hostname}}
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: {{aws_region}}
+{% endif %}

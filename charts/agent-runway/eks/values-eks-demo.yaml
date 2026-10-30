@@ -1,0 +1,72 @@
+app:
+  fullnameOverride: agent-runway
+  raw:
+    enabled: True
+
+  replicaCount: 1
+  autoscaling:
+    enabled: True
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-runway
+
+
+  configmap:
+    enabled: true
+    data:
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://runway.agrt.dev
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      OIDC_PROVIDER_ID: studio
+      AWS_REGION: ap-northeast-2
+      RUNWAY_CLUSTER: eks-demo
+      RUNWAY_SECRET_STORE: ssm
+      RUNWAY_KMS_KEY_ID: alias/agent-runway
+      RUNWAY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      RUNWAY_POOL_PORT: '5432'
+      RUNWAY_BUCKET: agent-runway-objects
+      RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-sandbox-objects
+      RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-tenant-objects
+      RUNWAY_EKS_CLUSTER: eks-demo
+
+      # App Delivery uses the app-build and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
+      # The retired RUNWAY_WORKFLOW_TEMPLATE setting is rejected at startup.
+      # The service account CA lets fetch trust the API server.
+      RUNWAY_WORKFLOW_NAMESPACE: app-delivery
+      RUNWAY_APP_DOMAIN: apps.rovr.dev
+      RUNWAY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "primary": false, "requiresPrevious": false, "sandbox": true}, {"approval": "owner", "name": "prod", "primary": true, "requiresPrevious": true, "sandbox": false}]'
+      NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/agent-runway/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/eks-demo/agent-runway/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-runway/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+    - key: /k8s/eks-demo/agent-runway/pool-database-url
+      name: RUNWAY_POOL_DATABASE_URL
+  routing:
+    hosts:
+    - runway.agrt.dev
+    httpRoute:
+      enabled: true
+
+
+  podLabels:
+    sidecar.istio.io/inject: "true"
+
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://runway.agrt.dev
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  registry:
+    region: ap-northeast-2
