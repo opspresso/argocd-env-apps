@@ -70,25 +70,6 @@ sample_node:
 agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
-agent_delivery_maintenance: false
-agent_delivery:
-  hostname: runway.agrt.dev
-  # Studio and Forge use Agent Runway only after Studio has issued its OIDC client and the service is running.
-  connected: true
-  # App Delivery: argocd-env-projects declares the WorkflowTemplates (app-build, app-deploy, resource-sync, the
-  # Agent Runway defaults) and the per-environment Applications.
-  delivery:
-    namespace: app-delivery
-    domain: apps.rovr.dev
-    # The ordered environment profile (agent-platform docs/DELIVERY_V2.md D1), rendered as DELIVERY_ENVIRONMENTS.
-    # Keep the names and the primary environment equal to argocd-env-addons app_delivery.environments and
-    # app_delivery.primary_environment, or deployments to a missing environment never sync.
-    environments:
-      - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false}
-      - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true}
-    # A GitHub App issues checkout tokens for private app repositories. Set true only after
-    # /k8s/<cluster>/agent-delivery/github-app-id and github-app-private-key exist in SSM.
-    github_app: false
 agent_runway_maintenance: false
 agent_runway:
   hostname: runway.agrt.dev

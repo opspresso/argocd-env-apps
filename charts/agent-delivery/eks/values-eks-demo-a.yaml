@@ -1,4 +1,0 @@
-app:
-  fullnameOverride: agent-delivery
-  raw:
-    enabled: False

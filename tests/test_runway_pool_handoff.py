@@ -1,4 +1,4 @@
-"""The pool accepts the new service identity while existing clients keep access."""
+"""The pool accepts the new service identity while the other clients keep access."""
 from pathlib import Path
 import subprocess
 import yaml
@@ -14,7 +14,6 @@ def test_pool_policy_keeps_existing_clients_and_adds_only_runway():
     ingress = policy["spec"]["ingress"]
     assert len(ingress) == 1 and ingress[0]["ports"] == [{"protocol": "TCP", "port": 5432}]
     namespaces = [peer["namespaceSelector"]["matchLabels"] for peer in ingress[0]["from"] if "namespaceSelector" in peer]
-    assert namespaces == [{"kubernetes.io/metadata.name": "agent-delivery"},
-                          {"kubernetes.io/metadata.name": "agent-runway"},
+    assert namespaces == [{"kubernetes.io/metadata.name": "agent-runway"},
                           {"kubernetes.io/metadata.name": "agent-forge-workspaces"},
                           {"opspresso.com/delivery-tenant": "true"}]

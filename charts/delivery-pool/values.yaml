@@ -103,7 +103,7 @@ raw:
                 key: {{ $ssmPrefix }}/delivery-pool/postgres-password
             - secretKey: delivery-admin-password
               remoteRef:
-                key: {{ $ssmPrefix }}/agent-delivery/pool-admin-password
+                key: {{ $ssmPrefix }}/agent-runway/pool-admin-password
     - |
         # Delivery manages databases; Forge Sandboxes and Delivery tenant namespaces use them.
         apiVersion: networking.k8s.io/v1
@@ -118,9 +118,6 @@ raw:
           ingress:
             - from:
                 - podSelector: {}
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: agent-delivery
                 - namespaceSelector:
                     matchLabels:
                       kubernetes.io/metadata.name: agent-runway
@@ -176,7 +173,7 @@ bootstrap:
                         secretKeyRef:
                           name: delivery-pool-credentials
                           key: postgres-password
-                    - name: DELIVERY_ADMIN_PASSWORD
+                    - name: RUNWAY_ADMIN_PASSWORD
                       valueFrom:
                         secretKeyRef:
                           name: delivery-pool-credentials
@@ -186,7 +183,7 @@ bootstrap:
                     - -ec
                     - |
                       until pg_isready -h postgres -U pool_owner -d postgres; do sleep 2; done
-                      psql -h postgres -U pool_owner -d postgres -v ON_ERROR_STOP=1 -v admin_password="$DELIVERY_ADMIN_PASSWORD" <<'SQL'
+                      psql -h postgres -U pool_owner -d postgres -v ON_ERROR_STOP=1 -v admin_password="$RUNWAY_ADMIN_PASSWORD" <<'SQL'
                       SELECT 'CREATE ROLE delivery_admin LOGIN CREATEDB CREATEROLE'
                       WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'delivery_admin')\gexec
                       ALTER ROLE delivery_admin WITH LOGIN CREATEDB CREATEROLE NOSUPERUSER PASSWORD :'admin_password';

@@ -72,11 +72,11 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
     values[f"{prefix}/agent-forge/organization-id"] = existing.get(
         f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
     if delivery:
-        secret("agent-delivery/auth-secret")
+        secret("agent-runway/auth-secret")
         secret("delivery-pool/postgres-password")
         # Delivery administers the pool as a non-superuser; the pool bootstrap sets this password.
-        admin = secret("agent-delivery/pool-admin-password")
-        values[f"{prefix}/agent-delivery/pool-database-url"] = (
+        admin = secret("agent-runway/pool-admin-password")
+        values[f"{prefix}/agent-runway/pool-database-url"] = (
             f"postgresql://delivery_admin:{quote(admin, safe='')}"
             "@postgres.delivery-pool.svc.cluster.local:5432/postgres")
     if rovr:
@@ -133,11 +133,11 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
               + ", ".join(f"{prefix}/rovr/{name}" for name in ROVR_PROVIDED))
     if copy_from:
         if delivery:
-            print(f"Prepare from Studio Platform connections: {prefix}/agent-delivery/oidc-client-id, oidc-client-secret")
+            print(f"Prepare from Studio Platform connections: {prefix}/agent-runway/oidc-client-id, oidc-client-secret")
         return 0 if apply or not missing else 1
     # Studio issues each service client, and Forge roles name central Models selections.
     # Operators prepare these after registration; they are never random secret material.
-    for service in SERVICE_CLIENTS + (("agent-delivery",) if delivery else ()):
+    for service in SERVICE_CLIENTS + (("agent-runway",) if delivery else ()):
         print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
     print(f"Prepare and validate separately: {prefix}/agent-forge/model-roles")
     return 0 if apply or not missing else 1
@@ -159,7 +159,7 @@ def main():
     account = aws(env["aws_region"], "sts", "get-caller-identity")["Account"]
     if account != str(env["aws_account_id"]):
         parser.error("AWS account does not match the selected cluster")
-    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_delivery" in env, "rovr" in env)
+    return bootstrap(args.cluster, env["aws_region"], args.apply, args.copy_from, "agent_runway" in env, "rovr" in env)
 
 
 if __name__ == "__main__":

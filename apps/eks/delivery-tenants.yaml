@@ -23,7 +23,7 @@ spec:
       project: apps
       destination:
         name: "{{cluster}}"
-        namespace: agent-delivery
+        namespace: agent-runway
       source:
         repoURL: https://github.com/opspresso/argocd-env-apps
         targetRevision: HEAD

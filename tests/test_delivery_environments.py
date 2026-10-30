@@ -1,4 +1,4 @@
-"""DELIVERY_ENVIRONMENTS must satisfy Agent Runway's boot validation (agent-platform docs/DELIVERY_V2.md D1)."""
+"""RUNWAY_ENVIRONMENTS must satisfy Agent Runway's boot validation (agent-platform docs/DELIVERY_V2.md D1)."""
 
 import json
 from pathlib import Path
@@ -13,15 +13,15 @@ FIELDS = {"name", "primary", "approval", "sandbox", "requiresPrevious"}
 
 
 def rendered_profiles():
-    for path in sorted((ROOT / "charts/agent-delivery").glob("*/values-*.yaml")):
+    for path in sorted((ROOT / "charts/agent-runway").glob("*/values-*.yaml")):
         data = yaml.safe_load(path.read_text())["app"].get("configmap", {}).get("data", {})
-        if "DELIVERY_ENVIRONMENTS" in data:
-            yield path.name, json.loads(data["DELIVERY_ENVIRONMENTS"])
+        if "RUNWAY_ENVIRONMENTS" in data:
+            yield path.name, json.loads(data["RUNWAY_ENVIRONMENTS"])
 
 
 def test_every_rendered_profile_is_valid():
     profiles = list(rendered_profiles())
-    assert profiles, "no cluster renders DELIVERY_ENVIRONMENTS"
+    assert profiles, "no cluster renders RUNWAY_ENVIRONMENTS"
     for name, environments in profiles:
         assert environments, name
         for environment in environments:
@@ -46,7 +46,7 @@ def test_eks_demo_uses_the_default_profile():
 
 
 def test_no_cluster_sets_the_v1_workflow_template():
-    # Agent Runway v2 refuses to start while DELIVERY_WORKFLOW_TEMPLATE is set.
-    for path in sorted((ROOT / "charts/agent-delivery").glob("*/values-*.yaml")):
+    # Agent Runway v2 refuses to start while RUNWAY_WORKFLOW_TEMPLATE is set.
+    for path in sorted((ROOT / "charts/agent-runway").glob("*/values-*.yaml")):
         data = yaml.safe_load(path.read_text())["app"].get("configmap", {}).get("data", {})
-        assert "DELIVERY_WORKFLOW_TEMPLATE" not in data, path.name
+        assert "RUNWAY_WORKFLOW_TEMPLATE" not in data, path.name
