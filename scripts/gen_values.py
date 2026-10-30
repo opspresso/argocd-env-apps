@@ -80,7 +80,7 @@ def gen_values(t, reponame, platform=PLATFORM):
                     raise ValueError("{} must declare a supported env".format(env_path))
                 if v.get("cluster") != os.path.splitext(env_file)[0]:
                     raise ValueError("{} cluster must match its filename".format(env_path))
-                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_knowledge_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "agent_delivery_maintenance", "storage_gc_maintenance"):
+                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_knowledge_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "agent_delivery_maintenance", "agent_runway_maintenance", "storage_gc_maintenance"):
                     if key in v and not isinstance(v[key], bool):
                         raise ValueError("{} {} must be a boolean".format(env_path, key))
                 if v.get("storage_gc_maintenance"):

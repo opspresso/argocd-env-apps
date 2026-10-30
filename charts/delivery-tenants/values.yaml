@@ -4,6 +4,7 @@
 global:
   delivery:
     tenantSecretsRoleArn: ""
+    runwayTenantSecretsRoleArn: ""
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
@@ -31,7 +32,7 @@ raw:
           - name: aws
             expression: "has(object.spec.provider) && has(object.spec.provider.aws) ? object.spec.provider.aws : null"
           - name: tenantRole
-            expression: "variables.aws != null && has(variables.aws.role) && variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.delivery.tenantSecretsRoleArn }}'"
+            expression: "variables.aws != null && has(variables.aws.role) && (variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.delivery.tenantSecretsRoleArn }}'{{ if .Values.global.delivery.runwayTenantSecretsRoleArn }} || variables.aws.role == '{{ .Values.global.delivery.runwayTenantSecretsRoleArn }}'{{ end }})"
           - name: labels
             expression: "namespaceObject != null && has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
           - name: tenantNamespace

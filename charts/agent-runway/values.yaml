@@ -1,0 +1,166 @@
+app:
+  fullnameOverride: agent-runway
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-runway
+    tag: latest
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  service:
+    name: http
+    port: 3500
+    targetPort: 3500
+  controller:
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 0
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /api/ready
+      port: 3500
+    initialDelaySeconds: 5
+    timeoutSeconds: 6
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3500
+    timeoutSeconds: 2
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: 3500
+    timeoutSeconds: 2
+    periodSeconds: 5
+    failureThreshold: 60
+  # preStop 15s + in-flight provisioning requests (bounded at 30s) + headroom.
+  terminationGracePeriodSeconds: 60
+  lifecycle:
+    preStop:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - sleep 15
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 2
+    metrics:
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: app
+        target:
+          type: Utilization
+          averageUtilization: 70
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 900
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+  serviceMonitor:
+    enabled: false
+  routing:
+    httpRoute:
+      parentRefs:
+      - name: istio-ingressgateway
+        namespace: istio-system
+  serviceAccount:
+    create: true
+  podAntiAffinity:
+    topologyKey: kubernetes.io/hostname
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  externalSecrets:
+    enabled: true
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: parameter-store
+  raw:
+    enabled: true
+    parentTemplates:
+    - |
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: ECRAuthorizationToken
+      metadata:
+        name: agent-runway-ecr
+        namespace: {{ include "app.namespace" . }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-2"
+      spec:
+        region: {{ .Values.registry.region }}
+      ---
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: ecr-registry
+        namespace: {{ include "app.namespace" . }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        refreshInterval: 1h
+        target:
+          name: ecr-registry
+          template:
+            type: kubernetes.io/dockerconfigjson
+            data:
+              .dockerconfigjson: |
+                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
+        dataFrom:
+          - sourceRef:
+              generatorRef:
+                apiVersion: generators.external-secrets.io/v1alpha1
+                kind: ECRAuthorizationToken
+                name: agent-runway-ecr
+    - |
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: {{ include "app.fullname" . }}
+        namespace: {{ include "app.namespace" . }}
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        policyTypes: [Ingress]
+        ingress:
+          - from:
+              - podSelector: {}
+      {{- with .Values.ingressPeers }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- range .Values.servicePeers }}
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ . | quote }}
+      {{- end }}
+            ports:
+              - protocol: TCP
+                port: {{ .Values.service.targetPort }}
+  registry:
+    region: ap-northeast-2
+  # Delivery submits app Deliveries to Argo Workflows through the Kubernetes API (argocd-env-projects
+  # charts/delivery grants its ServiceAccount a Role in namespace app-delivery).
+  automountServiceAccountToken: true
+  # Studio calls the MCP endpoint; Forge materializes dev variables at Run start.
+  servicePeers:
+  - agent-studio
+  - agent-forge
