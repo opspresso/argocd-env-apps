@@ -10,7 +10,7 @@
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
 | `argocd-env-addons` | Argo CD, External Secrets, Istio Gateway, external-dns, CNI 정책, 관측성 |
-| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Delivery 풀·tenant admission 정책 |
+| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Runway 풀·tenant admission 정책 |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
@@ -178,10 +178,10 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-{models,memory,knowledge,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
 | `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
 | `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
-| `agent-delivery/auth-secret` | Delivery | bootstrap(`agent_delivery`가 있는 클러스터) |
-| `agent-delivery/pool-admin-password`, `pool-database-url` | Delivery, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
+| `agent-delivery/auth-secret` | Runway | bootstrap(`agent_delivery`가 있는 클러스터) |
+| `agent-delivery/pool-admin-password`, `pool-database-url` | Runway, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
 | `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
-| `agent-delivery/oidc-client-id`, `oidc-client-secret` | Delivery, Studio | Studio 등록 후 |
+| `agent-delivery/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
 
 Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
 Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
@@ -475,18 +475,18 @@ PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collatio
 ## Agent Runway
 
 EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_delivery`). 운영 클러스터 `eks-demo`에서 `runway.agrt.dev`로 제공한다.
-Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
+Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
 `demo/8-agent-delivery`가 소유한다.
 
 | Application | namespace | 내용 |
 | --- | --- | --- |
-| `agent-delivery-<cluster>` | `agent-delivery` | Delivery web·API·MCP. `agent_delivery_maintenance: true`이면 0개 |
+| `agent-delivery-<cluster>` | `agent-delivery` | Runway web·API·MCP. `agent_delivery_maintenance: true`이면 0개 |
 | `delivery-pool-<cluster>` | `delivery-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `delivery_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
 | `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
-- `agent_delivery.connected`가 `true`일 때만 Studio(`DELIVERY_URL`, Delivery OIDC client ID, MCP 내부 host)와 Forge(`DELIVERY_URL`, Sandbox의 풀 egress)가
-  Agent Runway에 연결된다. Delivery OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
-  `register-platform-client.cjs --service agent-delivery`로 client를 등록해 SSM에 저장한 뒤 Delivery를 켜고 `connected: true`로 바꾼다.
+- `agent_delivery.connected`가 `true`일 때만 Studio(`DELIVERY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`DELIVERY_URL`, Sandbox의 풀 egress)가
+  Agent Runway에 연결된다. Runway OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
+  `register-platform-client.cjs --service agent-delivery`로 client를 등록해 SSM에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
 - 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-delivery`, ExternalSecret `app-env`,
   NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Runway가
@@ -494,7 +494,7 @@ Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 �
   (`agent-platform`의 `docs/APP_DELIVERY.md`).
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-delivery-tenant-secrets` 역할을
   session tag `delivery-project`·`delivery-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
-- Delivery는 `agent_delivery.delivery`의 namespace(`app-delivery`)에 Argo Workflows Workflow를 제출한다. 그래서 Delivery Pod는
+- Runway는 `agent_delivery.delivery`의 namespace(`app-delivery`)에 Argo Workflows Workflow를 제출한다. 그래서 Runway Pod는
   ServiceAccount token을 마운트하고(`automountServiceAccountToken: true`), `NODE_EXTRA_CA_CERTS`로 API server CA를 신뢰한다.
   제출 권한(Role `agent-delivery`)은 `argocd-env-projects`의 `charts/delivery`가 준다.
 - AWS는 session tag가 가리키는 Project 경로를 읽게 할 뿐, tag가 정당한지는 확인하지 않는다. 그래서 클러스터의
