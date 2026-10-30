@@ -1,1 +1,7 @@
-app: {}
+app:
+  configmap:
+    enabled: true
+    data: {}
+  env: []
+  image:
+    tag: latest
