@@ -28,7 +28,7 @@ app:
     maxRuns: 6
     maxWorkspaces: 24
     disk: "10Gi"
-    storageClass: "gp3"
+    storageClass: "gp3-ephemeral"
     nodePool: "rovr-sandboxes"
     dnsCidrs:
       - 172.20.0.10/32
