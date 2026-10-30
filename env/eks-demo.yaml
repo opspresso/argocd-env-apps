@@ -97,6 +97,11 @@ rovr_maintenance: false
 rovr:
   hostname: rovr.dev
   github_app_slug: opspresso-rovr
+  # GitHub logins that may sign in; rovr is private to them.
+  allowed_logins: [nalbam]
+  # Set true after /k8s/<cluster>/rovr/openrouter-api-key exists; it is the
+  # leader's platform key. Without it each account stores its own in Settings.
+  openrouter: false
   # Set true after /k8s/<cluster>/rovr/openai-api-key exists; it enables Codex.
   openai: false
   sandbox:

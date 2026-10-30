@@ -19,6 +19,10 @@ app:
     data:
       ROVR_PUBLIC_URL: https://{{rovr.hostname}}
       GITHUB_APP_SLUG: {{rovr.github_app_slug | tojson}}
+{% if rovr.allowed_logins | default([]) %}
+      # Only these GitHub logins may sign in.
+      ROVR_ALLOWED_LOGINS: {{rovr.allowed_logins | join(',') | tojson}}
+{% endif %}
   sandbox:
     maxRuns: {{sandbox.max_runs | default(2)}}
     maxWorkspaces: {{sandbox.max_workspaces | default(8)}}
@@ -75,6 +79,10 @@ app:
     # Platform key for accounts that have not stored their own in rovr Settings.
     - key: /k8s/{{cluster}}/rovr/anthropic-api-key
       name: ANTHROPIC_API_KEY
+{% if rovr.openrouter | default(false) %}
+    - key: /k8s/{{cluster}}/rovr/openrouter-api-key
+      name: OPENROUTER_API_KEY
+{% endif %}
 {% if rovr.openai | default(false) %}
     - key: /k8s/{{cluster}}/rovr/openai-api-key
       name: OPENAI_API_KEY

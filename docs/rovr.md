@@ -36,7 +36,8 @@ rovr의 DB 연결은 replica당 `ROVR_DATABASE_MAX_CONNS`(10)이고, 용량 테�
 | `session-secret`, `run-token-secret`, `metrics-bearer-token` | bootstrap |
 | `secret-key` | bootstrap. 계정이 rovr Settings에 저장한 provider key를 봉인한다. 바꾸면 저장된 key를 읽을 수 없어 계정이 다시 입력해야 한다 |
 | `github-app-id`, `github-app-private-key`, `github-client-id`, `github-client-secret`, `github-webhook-secret` | rovr GitHub App에서 사람이 준비 (rovr `docs/github-app.md`) |
-| `anthropic-api-key` | 사람이 준비. 자기 key를 저장하지 않은 계정의 Leader와 Claude Code·OpenCode가 쓰는 platform key다 |
+| `anthropic-api-key` | 사람이 준비. 자기 key를 저장하지 않은 계정의 Claude Code·OpenCode가 쓰는 platform key다 |
+| `openrouter-api-key` | 선택. 자기 key가 없는 계정의 Leader용 platform key다. 준비한 뒤 `env/eks-demo.yaml`의 `rovr.openrouter: true`로 켠다 |
 | `openai-api-key` | 선택. 자기 key가 없는 계정의 Codex용 platform key다. 준비한 뒤 `env/eks-demo.yaml`의 `rovr.openai: true`로 켠다 |
 
 ```bash
