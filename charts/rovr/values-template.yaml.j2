@@ -23,6 +23,10 @@ app:
       # Only these GitHub logins may sign in.
       ROVR_ALLOWED_LOGINS: {{rovr.allowed_logins | join(',') | tojson}}
 {% endif %}
+{% if rovr.tools_repo | default('') %}
+      # Its owner's admins see and update the coding tool versions in Settings.
+      ROVR_TOOLS_REPO: {{rovr.tools_repo | tojson}}
+{% endif %}
   sandbox:
     maxRuns: {{sandbox.max_runs | default(2)}}
     maxWorkspaces: {{sandbox.max_workspaces | default(8)}}

@@ -20,6 +20,10 @@ app:
       # Only these GitHub logins may sign in.
       ROVR_ALLOWED_LOGINS: "nalbam"
 
+
+      # Its owner's admins see and update the coding tool versions in Settings.
+      ROVR_TOOLS_REPO: "opspresso/rovr"
+
   sandbox:
     maxRuns: 6
     maxWorkspaces: 24
