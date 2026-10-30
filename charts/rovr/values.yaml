@@ -189,6 +189,11 @@ app:
         - apiGroups: [""]
           resources: [pods]
           verbs: [get, list]
+        # A person's terminal reaches agentd through exec. A WebSocket exec
+        # authorizes as get on older Kubernetes versions and as create on newer ones.
+        - apiGroups: [""]
+          resources: [pods/exec]
+          verbs: [get, create]
         # One Secret per run holds its token; the Job owns it.
         - apiGroups: [""]
           resources: [secrets]
