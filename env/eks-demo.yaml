@@ -8,7 +8,7 @@ group: eks-demo
 role: mgmt
 replicas: 1
 autoscaling: true
-agent_studio_maintenance: true
+agent_studio_maintenance: false
 agent_memory_maintenance: false
 resources: true
 trusted_proxy_cidrs:
@@ -62,7 +62,7 @@ agent_forge:
   allowed_hosts:
   - forge.agrt.dev
 agent_knowledge_maintenance: false
-agent_forge_maintenance: true
+agent_forge_maintenance: false
 sample_node:
   redis:
     enabled: true
@@ -70,7 +70,7 @@ sample_node:
 agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
-agent_delivery_maintenance: true
+agent_delivery_maintenance: false
 agent_delivery:
   hostname: runway.agrt.dev
   # Studio and Forge use Agent Runway only after Studio has issued its OIDC client and the service is running.
@@ -89,7 +89,7 @@ agent_delivery:
     # A GitHub App issues checkout tokens for private app repositories. Set true only after
     # /k8s/<cluster>/agent-delivery/github-app-id and github-app-private-key exist in SSM.
     github_app: false
-agent_runway_maintenance: true
+agent_runway_maintenance: false
 agent_runway:
   hostname: runway.agrt.dev
   # Studio and Forge use Agent Runway only after Studio has issued its OIDC client and the service is running.
