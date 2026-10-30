@@ -35,6 +35,9 @@ spec:
             - "{{env}}/values-{{cluster}}.yaml"
 
       syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
         syncOptions:
           - CreateNamespace=true
         # Retry transient failures, such as a CR applied before its CRD exists.
