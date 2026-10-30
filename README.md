@@ -2,7 +2,7 @@
 
 운영 클러스터 EKS `eks-demo`의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
-Agent Studio·Models·Memory·Knowledge·Forge·Delivery의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
+Agent Studio·Models·Memory·Knowledge·Forge·Runway의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
 
 rovr(`rovr.dev`)의 구성, Secret 준비와 첫 배포 순서는 [rovr 배포](docs/rovr.md)를 따른다.

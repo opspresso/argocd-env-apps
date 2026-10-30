@@ -47,7 +47,7 @@ Studio 원본은 `x-amz-meta-source-deleted`를 검증하므로 복사 도구는
    AWS credential은 1시간 STS session을 Job의 Secret으로만 전달하고 Job과 함께 삭제한다.
 5. **검증.** 대상에서 2의 행 수와 schema 버전이 같아야 한다. S3 객체 수가 원본과 같고, Knowledge 오디오 표본의
    `head-object`에 `sha256` 메타데이터가 있어야 한다.
-6. **대상 시작.** `env/eks-demo.yaml`의 maintenance를 `false`로 바꿔 push한다. Delivery는 image가 게시된 뒤 켠다.
+6. **대상 시작.** `env/eks-demo.yaml`의 maintenance를 `false`로 바꿔 push한다. Runway는 image가 게시된 뒤 켠다.
 7. **DNS 전환 전 확인.** `curl --resolve <host>:443:<ALB IP>`로 Studio 로그인, OIDC discovery, 첨부 다운로드,
    Knowledge 오디오, Forge checkpoint 복원을 확인한다.
 8. **DNS 전환.** `terraform-env-demo`에서 `8-agent-studio`(k3s wildcard를 state에서 제거) → `3-alb`(`*.agrt.dev`를 ALB alias로)

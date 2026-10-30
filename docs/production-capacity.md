@@ -20,9 +20,9 @@ CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request�
 | Knowledge queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
 | Forge controller/gateway/worker | 25m / 256Mi | 1Gi | 2, app CPU 70% |
 | Models | 10m / 128Mi | 1Gi | 2, app CPU 70% |
-| Delivery | 10m / 128Mi | 512Mi | 2 |
+| Runway | 10m / 128Mi | 512Mi | 2 |
 | PostgreSQL | 50m / 512Mi | 2Gi | 단일 StatefulSet, 550 connections |
-| Delivery pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
+| Runway pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은
@@ -34,7 +34,7 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 
 ## PostgreSQL
 
-여섯 서비스는 같은 `agent_platform` DB를 사용합니다. k3s의 미배포 선언에는 Delivery가 없습니다.
+여섯 서비스는 같은 `agent_platform` DB를 사용합니다. k3s의 미배포 선언에는 Runway가 없습니다.
 풀은 생성 여부보다 실제 동시 접속 가능 상한으로 계산합니다. 각 프로세스의 명시된 풀 크기는 다음과 같습니다.
 
 | 프로세스 | query | queue | readiness | 잠금·보조 | AI admission | 합계 |
@@ -45,7 +45,7 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 | Knowledge worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
 | Forge | 12 | 0 | 0 | 별도 pool 없음 | 0 | 12 |
 | Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
-| Delivery (EKS) | 4 | 0 | 1 | OIDC 4 | 0 | 9 |
+| Runway (EKS) | 4 | 0 | 1 | OIDC 4 | 0 | 9 |
 | rovr (EKS) | 10 | 0 | 0 | leader lock은 query pool 공유 | 0 | 10 |
 
 Studio schedule ticker는 HTTP만 호출하고 DB에 연결하지 않습니다. Memory의 dreaming·embedding index는 실행 중에만 전용 session
@@ -75,7 +75,7 @@ EKS에서 운영 여유 20을 뺀 나머지 여유는 16개입니다. Studio que
 최대 6 replica의 두 세대에 연결 24개가 추가되므로 현재 한도와 운영 여유를 함께 만족하지 못합니다.
 
 `test_production_capacity.py`는 선언된 서비스의 실제 렌더에서 HPA·worker replica·pool 값을 읽습니다.
-maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Knowledge worker의 설정 증가가 DB 예산을 초과하면 실패합니다.
+maintenance 상태에서도 재개 후 최대치를 검사하며, Runway와 Knowledge worker의 설정 증가가 DB 예산을 초과하면 실패합니다.
 총합 숫자와의 일치 대신 실제 PostgreSQL 한도와 운영 여유를 비교합니다.
 
 환경 변수로 정하지 않는 보조 pool의 근거는 각 서비스 원본입니다. 이 구조가 바뀌면 표와 검사를 함께 갱신합니다.
@@ -87,11 +87,11 @@ maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Kn
 | Knowledge | `agent-knowledge/src/infrastructure/database/client.ts`, `src/lib/composition/retrieval.ts`, `src/infrastructure/queue/document-ingestion-queue.ts`: query, maintenance 2, OIDC 2, AI admission, queue; web readiness 1 |
 | Forge | `agent-forge/src/main.ts`, `src/infrastructure/database/refreshLeases.ts`: query 12를 공유 |
 | Models | `agent-models/src/lib/config.ts`의 `maxDatabaseConnections`: query + OIDC 4 + readiness 1 + lease 1 |
-| Delivery | `agent-runway/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
+| Runway | `agent-runway/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
 | rovr | `charts/rovr/values.yaml`의 `ROVR_DATABASE_MAX_CONNS`: leader lock을 포함한 단일 pool |
 
 rovr는 별도 DB를 사용하지만 같은 PostgreSQL instance에 연결하므로 위 예산에 포함합니다.
-Delivery의 tenant PostgreSQL은 EKS에서 별도 `delivery-pool`입니다. 리소스 생성·삭제의 관리자 연결과
+Runway의 tenant PostgreSQL은 EKS에서 별도 `delivery-pool`입니다. 리소스 생성·삭제의 관리자 연결과
 배포 앱의 연결 수는 위 플랫폼 DB 예산에 포함되지 않으므로 별도로 계산합니다. 로컬 Compose처럼 같은 PostgreSQL
 instance를 사용하면 두 예산을 합산해야 합니다. bootstrap·관리 작업의 동시 연결도 운영 여유 안에 들어가는지 확인합니다.
 
