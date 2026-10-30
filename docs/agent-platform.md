@@ -19,7 +19,7 @@
 | Knowledge | `knowledge.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
-| Delivery | `delivery.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Delivery](#agent-delivery) |
+| Runway | `delivery.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Runway](#agent-runway) |
 
 공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
 → 각 앱의 HTTPRoute 순서로 전달됩니다.
@@ -472,7 +472,7 @@ DB 용량과 롤링 배포 연결 예산은 [용량 운영](production-capacity.
 PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collation 버전도 확인합니다.
 경고를 없애려고 데이터나 인덱스 재구성 없이 버전만 덮어쓰지 않습니다.
 
-## Agent Delivery
+## Agent Runway
 
 EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_delivery`). 운영 클러스터 `eks-demo`에서 `delivery.agrt.dev`로 제공한다.
 Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
@@ -485,11 +485,11 @@ Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 �
 | `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
 - `agent_delivery.connected`가 `true`일 때만 Studio(`DELIVERY_URL`, Delivery OIDC client ID, MCP 내부 host)와 Forge(`DELIVERY_URL`, Sandbox의 풀 egress)가
-  Agent Delivery에 연결된다. Delivery OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
+  Agent Runway에 연결된다. Delivery OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
   `register-platform-client.cjs --service agent-delivery`로 client를 등록해 SSM에 저장한 뒤 Delivery를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
 - 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-delivery`, ExternalSecret `app-env`,
-  NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Delivery가
+  NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Runway가
   `projects/<project>/<env>.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
   (`agent-platform`의 `docs/APP_DELIVERY.md`).
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-delivery-tenant-secrets` 역할을

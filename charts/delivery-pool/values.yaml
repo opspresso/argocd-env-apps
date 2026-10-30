@@ -1,4 +1,4 @@
-# Shared PostgreSQL for Agent Delivery `postgres` resources (agent-platform docs/DELIVERY_RESOURCES.md).
+# Shared PostgreSQL for Agent Runway `postgres` resources (agent-platform docs/DELIVERY_RESOURCES.md).
 # Tenants get their own database and login role; the platform database lives elsewhere.
 externalSecrets:
   enabled: true

@@ -1,4 +1,4 @@
-"""DELIVERY_ENVIRONMENTS must satisfy Agent Delivery's boot validation (agent-platform docs/DELIVERY_V2.md D1)."""
+"""DELIVERY_ENVIRONMENTS must satisfy Agent Runway's boot validation (agent-platform docs/DELIVERY_V2.md D1)."""
 
 import json
 from pathlib import Path
@@ -46,7 +46,7 @@ def test_eks_demo_uses_the_default_profile():
 
 
 def test_no_cluster_sets_the_v1_workflow_template():
-    # Agent Delivery v2 refuses to start while DELIVERY_WORKFLOW_TEMPLATE is set.
+    # Agent Runway v2 refuses to start while DELIVERY_WORKFLOW_TEMPLATE is set.
     for path in sorted((ROOT / "charts/agent-delivery").glob("*/values-*.yaml")):
         data = yaml.safe_load(path.read_text())["app"].get("configmap", {}).get("data", {})
         assert "DELIVERY_WORKFLOW_TEMPLATE" not in data, path.name

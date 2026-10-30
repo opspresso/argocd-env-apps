@@ -73,10 +73,10 @@ agent_models:
 agent_delivery_maintenance: false
 agent_delivery:
   hostname: delivery.agrt.dev
-  # Studio and Forge use Agent Delivery only after Studio has issued its OIDC client and the service is running.
+  # Studio and Forge use Agent Runway only after Studio has issued its OIDC client and the service is running.
   connected: true
   # App Delivery: argocd-env-projects declares the WorkflowTemplates (app-build, app-deploy, resource-sync, the
-  # Agent Delivery defaults) and the per-environment Applications.
+  # Agent Runway defaults) and the per-environment Applications.
   delivery:
     namespace: app-delivery
     domain: apps.rovr.dev
