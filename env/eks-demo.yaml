@@ -9,7 +9,7 @@ role: mgmt
 replicas: 1
 autoscaling: true
 agent_studio_maintenance: false
-agent_memory_maintenance: false
+agent_memory_maintenance: true
 resources: true
 trusted_proxy_cidrs:
 - 10.10.0.0/16
