@@ -99,6 +99,8 @@ rovr:
   github_app_slug: opspresso-rovr
   # GitHub logins that may sign in; rovr is private to them.
   allowed_logins: [nalbam]
+  # The repository whose workflow proposes coding tool updates.
+  tools_repo: opspresso/rovr
   sandbox:
     # Running sandbox Jobs at once, across all accounts. Each takes 2 CPU and 4Gi.
     max_runs: 6
