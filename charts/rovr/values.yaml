@@ -30,6 +30,10 @@ app:
     protocol: TCP
   controller:
     strategy:
+      # rovr v0.4.0 renames tables (migration 0007), which the previous release
+      # cannot read: replace every Pod at once for that deploy, then return to
+      # RollingUpdate.
+      type: Recreate
       rollingUpdate:
         maxSurge: 1
         maxUnavailable: 0
@@ -110,7 +114,8 @@ app:
       # Harness + tests + 10m must fit in sandbox.deadline (90m).
       ROVR_HARNESS_TIMEOUT: 60m
       ROVR_TEST_TIMEOUT: 20m
-      ROVR_LEADER_MODEL: claude-opus-5-5
+      # OpenRouter model ID for the leader's plans and reviews.
+      ROVR_LEADER_MODEL: anthropic/claude-opus-5.5
   additionalConfigmap:
     enabled: true
     names:

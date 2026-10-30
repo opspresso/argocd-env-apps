@@ -16,6 +16,10 @@ app:
     data:
       ROVR_PUBLIC_URL: https://rovr.dev
       GITHUB_APP_SLUG: "opspresso-rovr"
+
+      # Only these GitHub logins may sign in.
+      ROVR_ALLOWED_LOGINS: "nalbam"
+
   sandbox:
     maxRuns: 6
     maxWorkspaces: 24
@@ -68,4 +72,5 @@ app:
     # Platform key for accounts that have not stored their own in rovr Settings.
     - key: /k8s/eks-demo/rovr/anthropic-api-key
       name: ANTHROPIC_API_KEY
+
 
