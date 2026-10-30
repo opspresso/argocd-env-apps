@@ -43,7 +43,7 @@ app:
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       MODELS_PUBLIC_URL: https://models.agrt.dev
       # Service consoles that may frame Studio's Helper panel and that open_console may open (agent-platform/docs/HELPER_EMBED.md).
-      HELPER_EMBED_ORIGINS: 'agent-memory=https://memory.agrt.dev,agent-knowledge=https://knowledge.agrt.dev,agent-forge=https://forge.agrt.dev,agent-delivery=https://delivery.agrt.dev'
+      HELPER_EMBED_ORIGINS: 'agent-memory=https://memory.agrt.dev,agent-knowledge=https://knowledge.agrt.dev,agent-forge=https://forge.agrt.dev,agent-delivery=https://runway.agrt.dev'
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local,agent-delivery.svc.cluster.local

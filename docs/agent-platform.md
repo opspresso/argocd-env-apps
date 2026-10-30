@@ -19,7 +19,7 @@
 | Knowledge | `knowledge.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
-| Runway | `delivery.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Runway](#agent-runway) |
+| Runway | `runway.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Runway](#agent-runway) |
 
 공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
 → 각 앱의 HTTPRoute 순서로 전달됩니다.
@@ -474,7 +474,7 @@ PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collatio
 
 ## Agent Runway
 
-EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_delivery`). 운영 클러스터 `eks-demo`에서 `delivery.agrt.dev`로 제공한다.
+EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_delivery`). 운영 클러스터 `eks-demo`에서 `runway.agrt.dev`로 제공한다.
 Delivery는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두지 않는다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
 `demo/8-agent-delivery`가 소유한다.
 

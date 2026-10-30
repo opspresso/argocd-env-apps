@@ -14,7 +14,7 @@ app:
     enabled: true
     data:
       DATABASE_POOL_SIZE: '4'
-      AUTH_BASE_URL: https://delivery.agrt.dev
+      AUTH_BASE_URL: https://runway.agrt.dev
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
       AWS_REGION: ap-northeast-2
@@ -51,7 +51,7 @@ app:
       name: DELIVERY_POOL_DATABASE_URL
   routing:
     hosts:
-    - delivery.agrt.dev
+    - runway.agrt.dev
     httpRoute:
       enabled: true
 
@@ -60,7 +60,7 @@ app:
     sidecar.istio.io/inject: "true"
 
   podAnnotations:
-    link.argocd.argoproj.io/external-link: https://delivery.agrt.dev
+    link.argocd.argoproj.io/external-link: https://runway.agrt.dev
   ingressPeers:
   - namespaceSelector:
       matchLabels:
