@@ -5,6 +5,7 @@ from pathlib import Path
 
 from test_agent_platform import resource
 import pytest
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,8 +15,15 @@ OPERATIONS_RESERVE = 20
 
 def charts_for(platform):
     # Follow declared Applications, not the presence of generated output: a missing values file must not hide a service.
-    return tuple(chart for chart in AGENT_CHARTS
-                 if (ROOT / "apps" / platform / f"{chart}.yaml").exists())
+    paths = set()
+    for source in (ROOT / "apps" / platform).glob("*.yaml"):
+        application = yaml.safe_load(source.read_text())
+        spec = application.get("spec", {})
+        spec = spec.get("template", {}).get("spec", spec)
+        path = spec.get("source", {}).get("path")
+        if path:
+            paths.add(path)
+    return tuple(chart for chart in AGENT_CHARTS if f"charts/{chart}" in paths)
 
 
 def rovr_declared(platform):
