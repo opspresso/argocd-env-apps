@@ -21,6 +21,10 @@ app:
       ROVR_ALLOWED_LOGINS: "nalbam"
 
 
+      # Only these GitHub logins may change anything and use the Helper.
+      ROVR_OPERATOR_LOGINS: "nalbam"
+
+
       # Its owner's admins see and update the coding tool versions in Settings.
       ROVR_TOOLS_REPO: "opspresso/rovr"
 
