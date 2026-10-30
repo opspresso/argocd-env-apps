@@ -123,6 +123,9 @@ raw:
                       kubernetes.io/metadata.name: agent-delivery
                 - namespaceSelector:
                     matchLabels:
+                      kubernetes.io/metadata.name: agent-runway
+                - namespaceSelector:
+                    matchLabels:
                       kubernetes.io/metadata.name: agent-forge-workspaces
                 - namespaceSelector:
                     matchLabels:
