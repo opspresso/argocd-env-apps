@@ -107,6 +107,7 @@ rovr:
     # Task disks kept between runs (one per open task).
     max_workspaces: 24
     disk: 10Gi
-    storage_class: gp3
+    # Task disks end with their task, so their EBS volumes go with them.
+    storage_class: gp3-ephemeral
     # terraform-env-demo 6-eks-node: tainted rovr.dev/sandbox, DefaultDeny network policy.
     node_pool: rovr-sandboxes
