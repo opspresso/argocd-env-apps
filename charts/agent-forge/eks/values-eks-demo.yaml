@@ -39,7 +39,7 @@ app:
       OIDC_PROVIDER_ID: studio
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
-      DELIVERY_URL: http://agent-delivery.agent-delivery.svc.cluster.local:3500
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
   sandbox:
     namespace: agent-forge-workspaces
     maxPods: 32

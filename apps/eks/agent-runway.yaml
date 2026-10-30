@@ -14,7 +14,7 @@ spec:
     metadata:
       name: "agent-runway-{{cluster}}"
       annotations:
-        argocd.argoproj.io/manifest-generate-paths: /charts/agent-delivery
+        argocd.argoproj.io/manifest-generate-paths: /charts/agent-runway
       labels:
         app.kubernetes.io/instance: "apps-{{cluster}}"
         opspresso.com/cluster: "{{cluster}}"
@@ -23,14 +23,12 @@ spec:
       project: apps
       destination:
         name: "{{cluster}}"
-        namespace: agent-delivery
+        namespace: agent-runway
       source:
         repoURL: https://github.com/opspresso/argocd-env-apps
         targetRevision: HEAD
-        path: charts/agent-delivery
+        path: charts/agent-runway
         helm:
-          # Keep the current selector until the workload itself is migrated.
-          releaseName: "agent-delivery-{{cluster}}"
           valueFiles:
             - values.yaml
             - "values-{{phase}}.yaml"

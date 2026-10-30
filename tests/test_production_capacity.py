@@ -9,7 +9,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENT_CHARTS = ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "agent-models", "agent-delivery")
+AGENT_CHARTS = ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "agent-models", "agent-runway")
 OPERATIONS_RESERVE = 20
 
 
@@ -55,8 +55,8 @@ def database_connections(platform):
         "agent-forge": 12,  # main.ts: refresh leases and readiness use the same query pool
         "agent-models": pool("agent-models") + 4 + 1 + 1,  # OIDC locks, readiness, lease renewal
     }
-    if "agent-delivery" in charts:
-        per_process["agent-delivery"] = pool("agent-delivery") + 4 + 1  # OIDC locks and readiness
+    if "agent-runway" in charts:
+        per_process["agent-runway"] = pool("agent-runway") + 4 + 1  # OIDC locks and readiness
     connections = {chart: maximum_replicas(chart) * per_process[chart] for chart in charts}
     worker = resource("agent-knowledge", platform, "Deployment", "agent-knowledge-worker")["spec"]["replicas"]
     connections["agent-knowledge-worker"] = worker * knowledge
@@ -107,7 +107,7 @@ def test_delivery_pool_growth_cannot_escape_the_shared_database_budget(monkeypat
 
     def increased_delivery(chart, platform, kind, name, **overrides):
         value = deepcopy(original(chart, platform, kind, name, **overrides))
-        if chart == "agent-delivery" and kind == "ConfigMap":
+        if chart == "agent-runway" and kind == "ConfigMap":
             value["data"]["DATABASE_POOL_SIZE"] = "100"
         return value
 
@@ -170,13 +170,13 @@ def test_delivery_maintenance_keeps_the_resumed_capacity_in_the_fixture(tmp_path
     import yaml
 
     env = yaml.safe_load((ROOT / "env/eks-demo.yaml").read_text())
-    env["agent_delivery_maintenance"] = True
+    env["agent_runway_maintenance"] = True
     (tmp_path / "env").mkdir()
     (tmp_path / "env/eks-demo.yaml").write_text(yaml.safe_dump(env))
-    chart = tmp_path / "charts/agent-delivery"
+    chart = tmp_path / "charts/agent-runway"
     chart.mkdir(parents=True)
-    (chart / "values-template.yaml.j2").write_text((ROOT / "charts/agent-delivery/values-template.yaml.j2").read_text())
+    (chart / "values-template.yaml.j2").write_text((ROOT / "charts/agent-runway/values-template.yaml.j2").read_text())
     monkeypatch.setattr(running_environment, "ROOT", tmp_path)
-    rendered = yaml.safe_load(running_environment.running_values("agent-delivery", "eks"))
+    rendered = yaml.safe_load(running_environment.running_values("agent-runway", "eks"))
     assert rendered["app"]["replicaCount"] == env["replicas"]
     assert rendered["app"]["autoscaling"]["enabled"] is True
