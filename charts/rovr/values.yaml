@@ -107,9 +107,8 @@ app:
       ROVR_DATABASE_MAX_CONNS: "10"
       ROVR_ACCOUNT_MAX_RUNNING: "10"
       ROVR_RECONCILE_INTERVAL: 15s
-      # Harness + tests + 10m must fit in sandbox.deadline (90m).
+      # Harness + 10m must fit in sandbox.deadline (90m).
       ROVR_HARNESS_TIMEOUT: 60m
-      ROVR_TEST_TIMEOUT: 20m
       # OpenRouter model ID for the leader's plans and reviews.
       ROVR_LEADER_MODEL: anthropic/claude-opus-5.5
   additionalConfigmap:
