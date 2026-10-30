@@ -44,4 +44,12 @@ __pycache__/
 values.output.yaml
 realm.output.json
 
-istio-*/
+# claude worktrees
+.claude/worktrees/
+
+# prompt files
+*.prompt.md
+*.prompt*.md
+
+# Local installation credentials and generated connection files
+install/*/.local/
