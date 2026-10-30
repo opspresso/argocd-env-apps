@@ -102,8 +102,10 @@ app:
   configmap:
     enabled: true
     data:
-      # The listeners match the Service ports above. Other settings keep
-      # rovr's defaults; see rovr docs/configuration.md.
+      # The listeners match the Service ports above. The pool size is declared
+      # because the shared database budget counts it. Other settings keep rovr's
+      # defaults; see rovr docs/configuration.md.
+      ROVR_DATABASE_MAX_CONNS: "10"
       ROVR_LISTEN: ":8080"
       ROVR_INTERNAL_LISTEN: ":8081"
       # Harness + 10m must fit in sandbox.deadline (90m).
