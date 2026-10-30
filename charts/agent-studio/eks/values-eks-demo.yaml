@@ -2,9 +2,9 @@ app:
   fullnameOverride: agent-studio
 
 
-  replicaCount: 1
+  replicaCount: 0
   autoscaling:
-    enabled: True
+    enabled: False
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-studio
 
@@ -126,4 +126,4 @@ app:
   workloads:
     scheduleTicker:
       enabled: true
-      replicas: 1
+      replicas: 0
