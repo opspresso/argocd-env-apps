@@ -87,7 +87,7 @@ maintenance 상태에서도 재개 후 최대치를 검사하며, Delivery와 Kn
 | Knowledge | `agent-knowledge/src/infrastructure/database/client.ts`, `src/lib/composition/retrieval.ts`, `src/infrastructure/queue/document-ingestion-queue.ts`: query, maintenance 2, OIDC 2, AI admission, queue; web readiness 1 |
 | Forge | `agent-forge/src/main.ts`, `src/infrastructure/database/refreshLeases.ts`: query 12를 공유 |
 | Models | `agent-models/src/lib/config.ts`의 `maxDatabaseConnections`: query + OIDC 4 + readiness 1 + lease 1 |
-| Delivery | `agent-delivery/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
+| Delivery | `agent-runway/src/lib/runtime.ts`, `config.ts`: query + OIDC 4 + readiness 1 |
 | rovr | `charts/rovr/values.yaml`의 `ROVR_DATABASE_MAX_CONNS`: leader lock을 포함한 단일 pool |
 
 rovr는 별도 DB를 사용하지만 같은 PostgreSQL instance에 연결하므로 위 예산에 포함합니다.

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: delivery-pool
-description: Shared PostgreSQL pool for Agent Delivery dev resources
+description: Shared PostgreSQL pool for Agent Runway dev resources
 type: application
 version: v1.0.0
 appVersion: 18.6.0-pgvector
