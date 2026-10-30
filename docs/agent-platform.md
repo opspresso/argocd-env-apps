@@ -152,6 +152,18 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
 
+기존 Agent Delivery 설치를 Runway로 전환할 때는 이전 서비스가 값을 더 쓰지 않도록 중지하고,
+Studio의 기존 OIDC client 등록을 확인한 뒤 다음 명령으로 새 경로를 준비합니다.
+
+```bash
+python3 scripts/copy_runway_parameters.py --cluster eks-demo
+python3 scripts/copy_runway_parameters.py --cluster eks-demo --apply
+```
+
+복사는 인증 secret·OIDC client·풀 관리자 비밀번호와 테넌트 parameter의 원본을 유지하고 값을 출력하지 않습니다.
+대상 값이 다르거나 원본에 버전 이력·정책이 있으면 중단합니다. 전환 전 다시 실행해 복사할 값이 없는지 확인합니다.
+객체 저장소와 데이터베이스 이름은 이 명령이 옮기지 않으므로 별도로 확인합니다.
+
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
 전체 이전 절차는 [클러스터 이전](cluster-migration.md)을 따릅니다.
 데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Knowledge 인증 secret,
