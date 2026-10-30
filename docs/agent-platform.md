@@ -112,7 +112,7 @@ Studio의 현재 baseline은 `SELECT version FROM agent_studio_schema`로 확인
 
 ## DB와 원본 보존
 
-네 서비스의 `DATABASE_URL`은 `/k8s/<cluster>/agent-platform/database-url` 하나입니다.
+여섯 서비스의 `DATABASE_URL`은 `/k8s/<cluster>/agent-platform/database-url` 하나입니다.
 PostgreSQL의 새 빈 `agent_platform` DB를 사용하고, 업무 테이블은 각각
 `agent_studio_`, `agent_memory_`, `agent_knowledge_`, `agent_forge_` 접두어로 구분합니다.
 Knowledge pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
@@ -476,8 +476,8 @@ pytest
 
 Helm/pytest는 EKS와 k3s 선언의 resource 정책, 같은 DB URL, 인증·metrics, 이미지 연동,
 RBAC·NetworkPolicy·quota·보존 계약을 검사합니다. 실제 환경 검증은 별도입니다.
-Memory/Knowledge web은 `/api/live`와 DB readiness `/api/health`를 나누고, Knowledge worker는 초기화 후
-`/api/health`를 제공합니다. Forge `/health`는 DB/backend readiness, `/`는 독립 HTTP liveness입니다.
+Memory/Knowledge web은 liveness `/api/health`와 readiness `/api/ready`를 나누고, Knowledge worker는 초기화 후
+`/api/health`를 제공합니다. Forge는 liveness `/health`와 readiness `/ready`를 나눕니다.
 Knowledge/Memory `/api/metrics`와 Forge `/metrics`는 `METRICS_BEARER_TOKEN` 전용 bearer를 요구합니다.
 Forge는 `agent-forge/metrics-bearer-token`을 `METRICS_BEARER_TOKEN`으로 받습니다. 이 값을 지원하지 않는
 Forge image는 Studio가 발급한 `workspace:read` token만 받으므로 metrics 수집(EKS ServiceMonitor, k3s 선언의 Alloy)이 실패합니다.
@@ -505,7 +505,7 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
 - 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-runway`, ExternalSecret `app-env`,
   NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Runway가
-  `projects/<project>/<env>.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
+  `projects/<project>/<env>/app.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
   (`agent-platform`의 `docs/APP_DELIVERY.md`).
 - 테넌트 앱은 Secret `app-env`를 `envFrom`으로 읽는다. SecretStore는 `agent-runway-tenant-secrets` 역할을
   session tag `delivery-project`·`delivery-env`로 assume하므로 다른 Project 경로는 AWS가 거부한다.
