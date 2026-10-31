@@ -54,7 +54,7 @@ def test_sandbox_namespace_permissions_and_capacity():
     assert not any(item["kind"] in {"ClusterRole", "ClusterRoleBinding"} for item in docs)
     quota = find(docs, "ResourceQuota", "rovr-sandbox", ns)["spec"]["hard"]
     assert quota == {
-        "pods": "6", "count/jobs.batch": "6", "persistentvolumeclaims": "24", "requests.storage": "240Gi",
+        "pods": "6", "count/jobs.batch": "6", "persistentvolumeclaims": "25", "requests.storage": "290Gi",
         "requests.cpu": "12", "limits.cpu": "12", "requests.memory": "24Gi", "limits.memory": "24Gi",
         "requests.ephemeral-storage": "48Gi", "limits.ephemeral-storage": "48Gi",
     }
@@ -80,6 +80,20 @@ def test_sandboxes_reach_only_dns_public_https_and_the_internal_listener():
     internal = next(rule for rule in ingress if rule["ports"] == [{"protocol": "TCP", "port": 8081}])
     assert internal["from"] == [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "rovr-sandboxes"}},
                                  "podSelector": {"matchLabels": {"app.kubernetes.io/name": "rovr-sandbox"}}}]
+
+
+def test_sandbox_cache_is_a_static_efs_volume_outside_the_workspace_sweep():
+    docs = render()
+    ns = "rovr-sandboxes"
+    volume = find(docs, "PersistentVolume", "rovr-sandbox-cache")["spec"]
+    assert volume["csi"] == {"driver": "efs.csi.aws.com", "volumeHandle": "fs-0eb3767a177294715::fsap-02ca3faf77d338014"}
+    assert volume["persistentVolumeReclaimPolicy"] == "Retain"
+    assert volume["storageClassName"] == ""
+    assert volume["claimRef"] == {"namespace": ns, "name": "rovr-sandbox-cache"}
+    claim = find(docs, "PersistentVolumeClaim", "rovr-sandbox-cache", ns)
+    assert claim["spec"]["volumeName"] == "rovr-sandbox-cache"
+    # The leader's workspace sweep selects claims by rovr's own labels.
+    assert not any("rovr" in key for key in claim["metadata"].get("labels", {}))
 
 
 def test_public_route_targets_only_the_public_listener():

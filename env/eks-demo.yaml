@@ -113,3 +113,8 @@ rovr:
     storage_class: gp3-ephemeral
     # terraform-env-demo 6-eks-node: tainted rovr.dev/sandbox, DefaultDeny network policy.
     node_pool: rovr-sandboxes
+    # terraform-env-demo 8-rovr: shared package and runtime cache on EFS.
+    cache:
+      file_system_id: fs-0eb3767a177294715
+      access_point_id: fsap-02ca3faf77d338014
+      size: 50Gi

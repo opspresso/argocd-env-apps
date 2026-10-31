@@ -40,6 +40,12 @@ app:
     dnsCidrs:
       - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
     allowPublic: {{sandbox.allow_public | default(true)}}
+{% if sandbox.cache is defined %}
+    cache:
+      fileSystemId: {{sandbox.cache.file_system_id | tojson}}
+      accessPointId: {{sandbox.cache.access_point_id | tojson}}
+      size: {{sandbox.cache.size | tojson}}
+{% endif %}
   routing:
     hosts:
     - {{rovr.hostname}}
