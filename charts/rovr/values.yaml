@@ -139,7 +139,8 @@ app:
     allowPublic: true
     # Shared package and runtime cache on EFS (terraform-env-demo demo/8-rovr).
     # Off until both IDs are set. size only feeds the PV and the quota: EFS does
-    # not enforce it.
+    # not enforce it, so leave it alone once bound, because a claim cannot
+    # shrink. Whole Gi only, like disk.
     cache:
       fileSystemId: ""
       accessPointId: ""

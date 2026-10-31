@@ -44,7 +44,7 @@ app:
     cache:
       fileSystemId: {{sandbox.cache.file_system_id | tojson}}
       accessPointId: {{sandbox.cache.access_point_id | tojson}}
-      size: {{sandbox.cache.size | tojson}}
+      size: {{sandbox.cache.size | default('50Gi') | tojson}}
 {% endif %}
   routing:
     hosts:
