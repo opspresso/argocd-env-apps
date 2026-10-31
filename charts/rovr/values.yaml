@@ -102,16 +102,10 @@ app:
   configmap:
     enabled: true
     data:
-      # The listeners match the Service ports above. The pool size is declared
-      # because the shared database budget counts it. Other settings keep rovr's
-      # defaults; see rovr docs/configuration.md.
+      # The pool size is declared because the shared database budget counts it.
+      # Other settings keep rovr's defaults; see rovr docs/configuration.md.
+      # Run limits are in rovr's Settings.
       ROVR_DATABASE_MAX_CONNS: "10"
-      ROVR_LISTEN: ":8080"
-      ROVR_INTERNAL_LISTEN: ":8081"
-      # Harness + 10m must fit in sandbox.deadline (90m).
-      ROVR_HARNESS_TIMEOUT: 60m
-      # A leader run (plan or review) is shorter than a work run.
-      ROVR_LEADER_TIMEOUT: 20m
   additionalConfigmap:
     enabled: true
     names:
