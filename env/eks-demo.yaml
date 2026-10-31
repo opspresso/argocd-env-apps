@@ -96,7 +96,7 @@ delivery_pool:
 rovr_maintenance: false
 rovr:
   hostname: rovr.dev
-  github_app_slug: opspresso-rovr
+  github_app_slug: rovr-app
   # GitHub logins that may sign in; rovr is private to them.
   allowed_logins: [nalbam]
   # GitHub logins that may change anything and use the Helper; others read.
