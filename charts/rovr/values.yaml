@@ -137,6 +137,14 @@ app:
     nodePool: ""
     dnsCidrs: []
     allowPublic: true
+    # Shared package and runtime cache on EFS (terraform-env-demo demo/8-rovr).
+    # Off until both IDs are set. size only feeds the PV and the quota: EFS does
+    # not enforce it, so leave it alone once bound, because a claim cannot
+    # shrink. Whole Gi only, like disk.
+    cache:
+      fileSystemId: ""
+      accessPointId: ""
+      size: 50Gi
   # The shared PostgreSQL; rovr gets its own database and role there.
   database:
     namespace: agent-studio
@@ -159,6 +167,8 @@ app:
     parentTemplates:
     - |
       {{- $ns := .Values.sandbox.namespace }}
+      {{- $cache := .Values.sandbox.cache }}
+      {{- $cacheEnabled := and (ne $cache.fileSystemId "") (ne $cache.accessPointId "") }}
       apiVersion: v1
       kind: Namespace
       metadata:
@@ -228,8 +238,8 @@ app:
         hard:
           pods: {{ .Values.sandbox.maxRuns | quote }}
           count/jobs.batch: {{ .Values.sandbox.maxRuns | quote }}
-          persistentvolumeclaims: {{ .Values.sandbox.maxWorkspaces | quote }}
-          requests.storage: {{ printf "%dGi" (mul (trimSuffix "Gi" .Values.sandbox.disk | atoi) .Values.sandbox.maxWorkspaces) | quote }}
+          persistentvolumeclaims: {{ add .Values.sandbox.maxWorkspaces (ternary 1 0 $cacheEnabled) | quote }}
+          requests.storage: {{ printf "%dGi" (add (mul (trimSuffix "Gi" .Values.sandbox.disk | atoi) .Values.sandbox.maxWorkspaces) (ternary (trimSuffix "Gi" $cache.size | atoi) 0 $cacheEnabled)) | quote }}
       {{- if .Values.resources }}
           requests.cpu: {{ mulf (.Values.sandbox.cpu | float64) .Values.sandbox.maxRuns | quote }}
           limits.cpu: {{ mulf (.Values.sandbox.cpu | float64) .Values.sandbox.maxRuns | quote }}
@@ -296,6 +306,43 @@ app:
       {{- include "app.selectorLabels" . | nindent 14 }}
             ports:
               - {protocol: TCP, port: 8081}
+      {{- if $cacheEnabled }}
+      ---
+      # A static volume needs no AWS permissions on the CSI controller. Retain
+      # keeps Argo CD from removing the data with the PV; the file system
+      # belongs to Terraform.
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: rovr-sandbox-cache
+      spec:
+        capacity:
+          storage: {{ $cache.size }}
+        accessModes: [ReadWriteMany]
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: ""
+        mountOptions: [tls]
+        claimRef:
+          namespace: {{ $ns }}
+          name: rovr-sandbox-cache
+        csi:
+          driver: efs.csi.aws.com
+          volumeHandle: {{ printf "%s::%s" $cache.fileSystemId $cache.accessPointId }}
+      ---
+      # No rovr labels: the leader's workspace sweep leaves this claim alone.
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: rovr-sandbox-cache
+        namespace: {{ $ns }}
+      spec:
+        accessModes: [ReadWriteMany]
+        storageClassName: ""
+        volumeName: rovr-sandbox-cache
+        resources:
+          requests:
+            storage: {{ $cache.size }}
+      {{- end }}
     - |
       apiVersion: generators.external-secrets.io/v1alpha1
       kind: ECRAuthorizationToken
