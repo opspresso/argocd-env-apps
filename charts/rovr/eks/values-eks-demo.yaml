@@ -37,6 +37,12 @@ app:
     dnsCidrs:
       - 172.20.0.10/32
     allowPublic: True
+
+    cache:
+      fileSystemId: "fs-0eb3767a177294715"
+      accessPointId: "fsap-02ca3faf77d338014"
+      size: "50Gi"
+
   routing:
     hosts:
     - rovr.dev
