@@ -119,7 +119,7 @@ rovr:
   # GitHub logins that may sign in; rovr is private to them.
   allowed_logins: [nalbam,yujh404,nalbam-bot,nalbam-me]
   # GitHub logins that may change anything and use the Helper; others read.
-  operator_logins: [nalbam]
+  operator_logins: [nalbam,yujh404]
   # The repository whose workflow proposes coding tool updates.
   tools_repo: opspresso/rovr
   sandbox:
