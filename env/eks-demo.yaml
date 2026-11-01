@@ -98,7 +98,7 @@ rovr:
   hostname: rovr.dev
   github_app_slug: rovr-app
   # GitHub logins that may sign in; rovr is private to them.
-  allowed_logins: [nalbam]
+  allowed_logins: [nalbam,yujh404,nalbam-bot,nalbam-me]
   # GitHub logins that may change anything and use the Helper; others read.
   operator_logins: [nalbam]
   # The repository whose workflow proposes coding tool updates.
