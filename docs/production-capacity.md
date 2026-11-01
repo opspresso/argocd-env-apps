@@ -102,9 +102,29 @@ rollout을 누적하지 않습니다. PostgreSQL `max_connections`·공유 메�
 
 ## MCP 위임의 인증 비용
 
-2026-10-31 로컬 측정에서 Memory 위임 요청 1건은 SQL 약 600문을 실행했고, 위임 없는 요청은 약 40건의 트랜잭션을 사용했습니다.
-차이의 대부분은 호출마다 Studio가 수행하는 사용자·정책 확인과 토큰 발급입니다. 이 확인은 비용 한도와 팀 소속을 호출 시점 값으로 판정하므로 캐시로 줄이지 않습니다.
-Pool과 HPA는 동시 Agent 수뿐 아니라 이 호출 수를 함께 보고 조정합니다. 같은 측정에서 수정 전후 처리량과 TTFT 차이는 pool 변경 근거가 되지 않아 현재 값을 유지합니다.
+2026-11-01 로컬 측정 기준이다(10 CPU, Studio·Memory 각 1 프로세스, 모델 fixture, 실행 전용 Memory 33건).
+
+- 위임 recall 한 턴은 Memory MCP 요청 2~4회와 모델 호출 최대 3회를 만든다. 공유 DB transaction은 턴당 약 250~330회다.
+  대부분은 Studio의 grant 발급과 사용자·정책 확인이다. 이 확인은 팀 소속과 비용 한도를 호출 시점 값으로 판정하므로 결과를 cache하지 않는다.
+- Models는 호출 grant를 서명으로 검증해 Studio를 호출하지 않는다. Memory는 한 요청 안의 모델 호출에서 위임 확인을 반복하지 않는다.
+- 기억이 있는 설치에서 동시성 24의 처리량은 약 12~15 recall/s, p50은 약 2초다. 이 조건의 상한은 Studio Node 프로세스 하나의 CPU다.
+  실제 턴은 모델 지연이 지배하므로 이 수치는 사용자 지연이 아니라 처리 상한이다.
+- Studio identity 한도는 호출 주소당 분당 6,000회다. Memory Pod 하나는 약 12 recall/s를 넘기면 introspection 429를 받고,
+  `Retry-After` 동안 MCP 연결이 503으로 실패한다. 이 값을 넘는 지속 부하가 예상되면 Memory replica를 먼저 늘린다.
+
+## Memory AI 요청 한도
+
+recall은 embedding·rerank·판단 모델을 호출한다. 한도를 넘으면 오류 대신 키워드 검색으로 낮춰 응답하고
+`AiRequestLimitExceededError` 경고를 남긴다. 그래서 기본값(동시성 8, 분당 600·600·90)은 recall 약 3.3회/s에서 품질을 낮춘다.
+
+| 설정 | 값 | 근거 |
+| --- | ---: | --- |
+| `AI_PROVIDER_MAX_CONCURRENCY` | 16 | Pod당. Models 호출 동안 DB 연결을 잡지 않는다 |
+| `AI_PROVIDER_REQUESTS_PER_MINUTE` | 1800 | Pod당 약 10 recall/s |
+| `AI_ORGANIZATION_REQUESTS_PER_MINUTE` | 3000 | 조직당 약 16 recall/s |
+| `AI_USER_REQUESTS_PER_MINUTE` | 300 | 사용자당 약 100 recall/분 |
+
+동시성 24 recall 576건의 응답은 이 값에서 모두 성공했다. 이 수치는 응답 성공률이며 의미 검색 비율이 아니다. 측정의 마지막 5분 로그에는 `AiRequestLimitExceededError` 경고가 88건 있었다. 이 포화 부하에서는 일부 recall이 키워드 검색으로 낮아지며 이는 의도한 동작이다.
 
 ## 실행 용량과 보존
 
