@@ -22,7 +22,7 @@ app:
 
 
       # Only these GitHub logins may change anything and use the Helper.
-      ROVR_OPERATOR_LOGINS: "nalbam"
+      ROVR_OPERATOR_LOGINS: "nalbam,yujh404"
 
 
       # Its owner's admins see and update the coding tool versions in Settings.
