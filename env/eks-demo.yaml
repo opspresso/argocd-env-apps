@@ -1,25 +1,52 @@
+# Cluster
 cluster: eks-demo
-country: kr
 env: eks
-metrics:
-  backend: prometheus
 phase: prod
 group: eks-demo
 role: mgmt
-replicas: 1
-autoscaling: true
-agent_studio_maintenance: false
-agent_memory_maintenance: false
-resources: true
-trusted_proxy_cidrs:
-- 10.10.0.0/16
-grafana_url: http://grafana.addon-grafana.svc.cluster.local
-aws_account_id: '396608815058'
+country: kr
+
+# AWS
+aws_account_id: "396608815058"
 aws_region: ap-northeast-2
+
+# Network
 hostname:
   internal: demo-in.rovr.dev
   public: demo.rovr.dev
   this: demo-0.rovr.dev
+trusted_proxy_cidrs:
+- 10.10.0.0/16
+
+# Capacity
+replicas: 1
+autoscaling: true
+resources: true
+
+# Observability
+metrics:
+  backend: prometheus
+grafana_url: http://grafana.addon-grafana.svc.cluster.local
+
+# Maintenance
+agent_studio_maintenance: false
+agent_memory_maintenance: false
+agent_knowledge_maintenance: false
+agent_forge_maintenance: false
+agent_models_maintenance: false
+agent_runway_maintenance: false
+rovr_maintenance: false
+
+# Data stores
+postgresql:
+  max_connections: 550
+  storage: 20Gi
+  storageClass: gp3
+delivery_pool:
+  storage: 10Gi
+  storageClass: gp3
+
+# Agent Studio
 agent_studio:
   service:
     key: agentops
@@ -29,6 +56,12 @@ agent_studio:
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
+workspace_max_pods: 32
+workspace_memory_mb: 2048
+workspace_disk_mb: 2048
+workspace_cpus: 1
+
+# Agent services
 agent_memory:
   hostname: memory.agrt.dev
   allowed_hosts:
@@ -39,14 +72,7 @@ agent_memory:
     reranker: openrouter/rerank-v3.5
     decision: openrouter/jev-1.13
     dream: openrouter/gpt-6-luna
-workspace_max_pods: 32
-workspace_memory_mb: 2048
-workspace_disk_mb: 2048
-workspace_cpus: 1
-postgresql:
-  max_connections: 550
-  storage: 20Gi
-  storageClass: gp3
+
 agent_knowledge:
   hostname: knowledge.agrt.dev
   allowed_hosts:
@@ -57,20 +83,15 @@ agent_knowledge:
     extraction: openrouter/gpt-6-luna
     transcription: openrouter/gpt-4o-transcribe
     summary: openrouter/gpt-6.1-sol
+
 agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
-agent_knowledge_maintenance: false
-agent_forge_maintenance: false
-sample_node:
-  redis:
-    enabled: true
 
-agent_models_maintenance: false
 agent_models:
   hostname: models.agrt.dev
-agent_runway_maintenance: false
+
 agent_runway:
   hostname: runway.agrt.dev
   # Studio and Forge use Agent Runway only after Studio has issued its OIDC client and the service is running.
@@ -89,11 +110,9 @@ agent_runway:
     # A GitHub App issues checkout tokens for private app repositories. Set true only after
     # /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
     github_app: false
-delivery_pool:
-  storage: 10Gi
-  storageClass: gp3
-# rovr: goal-driven coding agents (opspresso/rovr). SSM parameters live under /k8s/<cluster>/rovr/.
-rovr_maintenance: false
+
+# Applications
+# rovr: goal-driven coding agents (opspresso/rovr).
 rovr:
   hostname: rovr.dev
   github_app_slug: rovr-app
@@ -118,3 +137,7 @@ rovr:
       file_system_id: fs-0eb3767a177294715
       access_point_id: fsap-02ca3faf77d338014
       size: 50Gi
+
+sample_node:
+  redis:
+    enabled: true
