@@ -4,7 +4,7 @@ app:
     enabled: True
 
 
-  replicaCount: 0
+  replicaCount: 2
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/rovr
 
