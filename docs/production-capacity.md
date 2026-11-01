@@ -121,10 +121,10 @@ recall은 embedding·rerank·판단 모델을 호출한다. 한도를 넘으면 
 | --- | ---: | --- |
 | `AI_PROVIDER_MAX_CONCURRENCY` | 16 | Pod당. Models 호출 동안 DB 연결을 잡지 않는다 |
 | `AI_PROVIDER_REQUESTS_PER_MINUTE` | 1800 | Pod당 약 10 recall/s |
-| `AI_ORGANIZATION_REQUESTS_PER_MINUTE` | 3000 | 설치 전체 약 16 recall/s |
+| `AI_ORGANIZATION_REQUESTS_PER_MINUTE` | 3000 | 조직당 약 16 recall/s |
 | `AI_USER_REQUESTS_PER_MINUTE` | 300 | 사용자당 약 100 recall/분 |
 
-동시성 24 recall 576건은 이 값에서 모두 성공했다. 부하가 한도에 닿으면 일부 recall이 키워드 검색으로 낮아지며 이는 의도한 동작이다.
+동시성 24 recall 576건의 응답은 이 값에서 모두 성공했다. 이 수치는 응답 성공률이며 의미 검색 비율이 아니다. 측정의 마지막 5분 로그에는 `AiRequestLimitExceededError` 경고가 88건 있었다. 이 포화 부하에서는 일부 recall이 키워드 검색으로 낮아지며 이는 의도한 동작이다.
 
 ## 실행 용량과 보존
 
