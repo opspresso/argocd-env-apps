@@ -101,6 +101,7 @@ agent_runway:
   delivery:
     namespace: app-delivery
     domain: apps.rovr.dev
+    argocd_domain: demo.rovr.dev
     # The ordered environment profile (agent-platform docs/DELIVERY_V2.md D1), rendered as RUNWAY_ENVIRONMENTS.
     # Keep the names and the primary environment equal to argocd-env-addons app_delivery.environments and
     # app_delivery.primary_environment, or deployments to a missing environment never sync.
