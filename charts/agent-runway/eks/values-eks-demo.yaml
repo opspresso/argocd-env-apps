@@ -232,8 +232,6 @@ raw:
               opspresso.com/group: "projects"
               opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
               opspresso.com/delivery-env: '{{ index .path.segments 2 }}'
-            finalizers:
-              - resources-finalizer.argocd.argoproj.io
           spec:
             project: projects
             destination:
