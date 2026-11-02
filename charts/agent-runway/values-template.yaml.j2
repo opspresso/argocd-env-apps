@@ -39,6 +39,7 @@ app:
       # The service account CA lets fetch trust the API server.
       RUNWAY_WORKFLOW_NAMESPACE: {{agent_runway.delivery.namespace}}
       RUNWAY_APP_DOMAIN: {{agent_runway.delivery.domain}}
+      RUNWAY_ARGOCD_URL: https://argocd.{{agent_runway.delivery.argocd_domain}}
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
       RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
@@ -231,8 +232,6 @@ raw:
           argocd.argoproj.io/sync-options: Delete=false,Prune=false
         name: project-resources
       spec:
-        syncPolicy:
-          preserveResourcesOnDeletion: true
         goTemplate: true
         goTemplateOptions: ["missingkey=error"]
         generators:
@@ -252,6 +251,8 @@ raw:
               opspresso.com/group: "projects"
               opspresso.com/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
               opspresso.com/delivery-env: '{% raw %}{{ index .path.segments 2 }}{% endraw %}'
+            finalizers:
+              - resources-finalizer.argocd.argoproj.io
           spec:
             project: projects
             destination:
