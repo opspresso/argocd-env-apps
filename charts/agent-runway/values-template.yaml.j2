@@ -27,6 +27,10 @@ app:
       RUNWAY_CLUSTER: {{cluster}}
       RUNWAY_SECRET_STORE: ssm
       RUNWAY_KMS_KEY_ID: alias/agent-runway
+      RUNWAY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      RUNWAY_POOL_PORT: '5432'
+      RUNWAY_BUCKET: agent-runway-objects
+      RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: {{cluster}}
 {% if agent_runway.delivery is defined %}
@@ -51,6 +55,8 @@ app:
       name: OIDC_CLIENT_ID
     - key: /k8s/{{cluster}}/agent-runway/oidc-client-secret
       name: OIDC_CLIENT_SECRET
+    - key: /k8s/{{cluster}}/agent-runway/pool-database-url
+      name: RUNWAY_POOL_DATABASE_URL
 {%- if agent_runway.delivery is defined and agent_runway.delivery.github_app | default(false) %}
     - key: /k8s/{{cluster}}/agent-runway/github-app-id
       name: RUNWAY_GITHUB_APP_ID

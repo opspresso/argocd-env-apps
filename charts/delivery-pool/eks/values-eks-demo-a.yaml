@@ -1,0 +1,2 @@
+global:
+  ssmPrefix: /k8s/eks-demo-a

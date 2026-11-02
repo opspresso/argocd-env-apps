@@ -1,0 +1,11 @@
+global:
+  ssmPrefix: /k8s/{{cluster}}
+{% if delivery_pool is defined and delivery_pool.storage is defined %}
+postgresql:
+  primary:
+    persistence:
+      size: {{delivery_pool.storage}}
+{% if delivery_pool.storageClass is defined %}
+      storageClass: {{delivery_pool.storageClass}}
+{% endif %}
+{% endif %}
