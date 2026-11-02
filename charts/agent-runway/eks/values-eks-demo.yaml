@@ -214,6 +214,8 @@ raw:
           argocd.argoproj.io/sync-options: Delete=false,Prune=false
         name: project-resources
       spec:
+        syncPolicy:
+          preserveResourcesOnDeletion: true
         goTemplate: true
         goTemplateOptions: ["missingkey=error"]
         generators:
