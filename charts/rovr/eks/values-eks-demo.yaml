@@ -17,9 +17,6 @@ app:
       ROVR_PUBLIC_URL: https://rovr.dev
       GITHUB_APP_SLUG: "rovr-app"
 
-      # Only these GitHub logins may sign in.
-      ROVR_ALLOWED_LOGINS: "nalbam,yujh404,nalbam-bot,nalbam-me"
-
 
       # Only these GitHub logins may change anything and use the Helper.
       ROVR_OPERATOR_LOGINS: "nalbam,yujh404"
