@@ -10,7 +10,7 @@
 | --- | --- |
 | `terraform-env-demo` | AWS 리소스, IAM, ECR, EKS Pod Identity, S3 |
 | `argocd-env-addons` | Argo CD, External Secrets, Istio Gateway, external-dns, CNI 정책, 관측성 |
-| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Runway 풀·tenant admission 정책 |
+| `argocd-env-apps` | 여섯 앱, worker, 실행 namespace/RBAC/NetworkPolicy, PostgreSQL, Runway tenant admission 정책 |
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
@@ -147,14 +147,14 @@ External Secrets는 `/k8s/<cluster>/` 경로를 읽습니다. 앱 namespace와 F
 
 기존 Agent Delivery 설치를 Runway로 전환할 때는 이전 서비스가 값을 더 쓰지 않도록 중지하고,
 Studio의 기존 OIDC client 등록을 확인한 뒤 bootstrap보다 먼저 다음 명령으로 새 경로를 준비합니다.
-bootstrap을 먼저 적용하면 새 secret을 생성해 기존 인증과 풀 비밀번호가 달라질 수 있습니다.
+bootstrap을 먼저 적용하면 새 secret을 생성해 기존 인증이 달라질 수 있습니다.
 
 ```bash
 python3 scripts/copy_runway_parameters.py --cluster eks-demo
 python3 scripts/copy_runway_parameters.py --cluster eks-demo --apply
 ```
 
-복사는 인증 secret·OIDC client·풀 관리자 비밀번호와 테넌트 parameter의 원본을 유지하고 값을 출력하지 않습니다.
+복사는 인증 secret·OIDC client와 테넌트 parameter의 원본을 유지하고 값을 출력하지 않습니다.
 대상 값이 다르거나 원본에 버전 이력·정책이 있으면 중단합니다. 전환 전 다시 실행해 복사할 값이 없는지 확인합니다.
 객체 저장소와 데이터베이스 이름은 이 명령이 옮기지 않으므로 별도로 확인합니다.
 
@@ -194,8 +194,6 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
 | `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
 | `agent-runway/auth-secret` | Runway | bootstrap(`agent_runway`가 있는 클러스터) |
-| `agent-runway/pool-admin-password`, `pool-database-url` | Runway, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
-| `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
 | `agent-runway/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
 
 Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
@@ -496,10 +494,9 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
 | Application | namespace | 내용 |
 | --- | --- | --- |
 | `agent-runway-<cluster>` | `agent-runway` | Runway web·API·MCP. `agent_runway_maintenance: true`이면 0개 |
-| `delivery-pool-<cluster>` | `delivery-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `delivery_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
 | `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
-- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 풀 egress)가
+- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 `dev` 환경 서버 egress)가
   Agent Runway에 연결된다. Runway OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
   `register-platform-client.cjs --service agent-runway`로 client를 등록해 SSM에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
@@ -518,6 +515,4 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
   - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/delivery-project`·`delivery-env`)이
     session tag와 같은 namespace의 SecretStore에서만 허용한다. 다른 namespace와 ClusterSecretStore는 거부한다.
   - 이름까지 확인하므로 다른 namespace에 테넌트 label을 붙여도 다른 Project를 흉내 낼 수 없다.
-- 풀 bootstrap은 `postgres`·`template1` database의 PUBLIC CONNECT를 회수한다.
-- 풀은 `agent-runway`, `agent-forge-workspaces`, `opspresso.com/delivery-tenant=true` namespace에서만 접속을 받는다.
-  Forge Sandbox egress에는 `agent_runway`가 있을 때 풀 5432 허용이 추가된다.
+- Forge Sandbox egress에는 `agent_runway`가 있을 때 `dev` 환경 namespace의 5432·6379 허용이 추가된다.
