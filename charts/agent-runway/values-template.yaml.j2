@@ -250,8 +250,6 @@ raw:
               opspresso.com/group: "projects"
               opspresso.com/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
               opspresso.com/delivery-env: '{% raw %}{{ index .path.segments 2 }}{% endraw %}'
-            finalizers:
-              - resources-finalizer.argocd.argoproj.io
           spec:
             project: projects
             destination:
