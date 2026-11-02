@@ -21,6 +21,10 @@ app:
       RUNWAY_CLUSTER: eks-demo
       RUNWAY_SECRET_STORE: ssm
       RUNWAY_KMS_KEY_ID: alias/agent-runway
+      RUNWAY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
+      RUNWAY_POOL_PORT: '5432'
+      RUNWAY_BUCKET: agent-runway-objects
+      RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: eks-demo
 
@@ -45,6 +49,8 @@ app:
       name: OIDC_CLIENT_ID
     - key: /k8s/eks-demo/agent-runway/oidc-client-secret
       name: OIDC_CLIENT_SECRET
+    - key: /k8s/eks-demo/agent-runway/pool-database-url
+      name: RUNWAY_POOL_DATABASE_URL
   routing:
     hosts:
     - runway.agrt.dev

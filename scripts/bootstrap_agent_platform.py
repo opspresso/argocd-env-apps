@@ -47,7 +47,7 @@ ROVR_PROVIDED = ("github-app-id", "github-app-private-key", "github-client-id", 
                  "github-webhook-secret", "anthropic-api-key")
 
 # Existing Delivery credentials must be copied before bootstrap can create Runway credentials.
-RUNWAY_CONTINUITY = ("auth-secret", "oidc-client-id",
+RUNWAY_CONTINUITY = ("auth-secret", "pool-admin-password", "pool-database-url", "oidc-client-id",
                      "oidc-client-secret", "github-app-id", "github-app-private-key")
 
 
@@ -77,6 +77,12 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
     if delivery:
         secret("agent-runway/auth-secret")
+        secret("delivery-pool/postgres-password")
+        # Delivery administers the pool as a non-superuser; the pool bootstrap sets this password.
+        admin = secret("agent-runway/pool-admin-password")
+        values[f"{prefix}/agent-runway/pool-database-url"] = (
+            f"postgresql://delivery_admin:{quote(admin, safe='')}"
+            "@postgres.delivery-pool.svc.cluster.local:5432/postgres")
     if rovr:
         # rovr owns a database and role on the shared PostgreSQL; its chart's bootstrap Job sets this password.
         password = secret("rovr/postgres-password")

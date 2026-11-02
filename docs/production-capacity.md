@@ -22,6 +22,7 @@ CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request�
 | Models | 10m / 128Mi | 1Gi | 2, app CPU 70% |
 | Runway | 10m / 128Mi | 512Mi | 2 |
 | PostgreSQL | 50m / 512Mi | 2Gi | 단일 StatefulSet, 550 connections |
+| Runway pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은

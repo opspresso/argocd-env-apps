@@ -1,0 +1,10 @@
+global:
+  ssmPrefix: /k8s/eks-demo
+
+postgresql:
+  primary:
+    persistence:
+      size: 10Gi
+
+      storageClass: gp3
+
