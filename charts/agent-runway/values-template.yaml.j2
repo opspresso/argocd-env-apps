@@ -39,6 +39,8 @@ app:
       # The service account CA lets fetch trust the API server.
       RUNWAY_WORKFLOW_NAMESPACE: {{agent_runway.delivery.namespace}}
       RUNWAY_APP_DOMAIN: {{agent_runway.delivery.domain}}
+      # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
+      RUNWAY_SANDBOX_NAMESPACE: {{agent_forge.sandbox_namespace | default('agent-forge-workspaces')}}
       RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {% endif %}

@@ -60,8 +60,9 @@ app:
       - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
     allowPublic: {{workspace_allow_public | default(true)}}
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
-    # Sandbox apps connect to their Delivery dev databases.
-    extraEgress: {{ ((workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}]) | tojson }}
+    # Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
+    # environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches.
+    extraEgress: {{ ((workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}, {"to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-tenant": "true", "opspresso.com/delivery-env": "dev"}}}], "ports": [{"protocol": "TCP", "port": 5432}, {"protocol": "TCP", "port": 6379}]}]) | tojson }}
 {%- else %}
     extraEgress: {{workspace_extra_egress | default([]) | tojson}}
 {%- endif %}
