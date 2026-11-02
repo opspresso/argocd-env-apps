@@ -228,7 +228,7 @@ raw:
                 - path: "projects/*/prod/resources/*.yaml"
         template:
           metadata:
-            name: 'res-{{ .resourceId }}'
+            name: 'app-{{ index .path.segments 1 }}-{{ index .path.segments 2 }}-{{ trimPrefix (printf "%s-" (index .path.segments 1)) .resourceName }}-{{ trunc 8 .resourceId }}'
             labels:
               opspresso.com/cluster: "eks-demo"
               opspresso.com/group: "projects"

@@ -246,7 +246,7 @@ raw:
 {%- endfor %}
         template:
           metadata:
-            name: '{% raw %}res-{{ .resourceId }}{% endraw %}'
+            name: '{% raw %}app-{{ index .path.segments 1 }}-{{ index .path.segments 2 }}-{{ trimPrefix (printf "%s-" (index .path.segments 1)) .resourceName }}-{{ trunc 8 .resourceId }}{% endraw %}'
             labels:
               opspresso.com/cluster: "{{cluster}}"
               opspresso.com/group: "projects"
