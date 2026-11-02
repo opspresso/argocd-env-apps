@@ -102,7 +102,7 @@ def test_studio_scales_on_control_plane_requests_and_cpu():
     assert metrics[1]["containerResource"]["name"] == "cpu"
 
 
-def test_delivery_pool_growth_cannot_escape_the_shared_database_budget(monkeypatch):
+def test_runway_query_pool_growth_cannot_escape_the_shared_database_budget(monkeypatch):
     original = resource
 
     def increased_delivery(chart, platform, kind, name, **overrides):

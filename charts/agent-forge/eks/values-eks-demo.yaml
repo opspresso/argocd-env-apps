@@ -49,9 +49,8 @@ app:
     dnsCidrs:
       - 172.20.0.10/32
     allowPublic: True
-    # Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
-    # environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches.
-    extraEgress: [{"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}]}, {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}]
+    # Sandbox apps connect to the postgres and valkey servers of each Project's sandbox environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches.
+    extraEgress: [{"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}]
   routing:
     hosts:
     - forge.agrt.dev

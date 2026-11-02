@@ -42,9 +42,6 @@ postgresql:
   max_connections: 550
   storage: 20Gi
   storageClass: gp3
-delivery_pool:
-  storage: 10Gi
-  storageClass: gp3
 
 # Agent Studio
 agent_studio:

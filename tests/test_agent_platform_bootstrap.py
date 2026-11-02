@@ -112,16 +112,13 @@ def test_copy_from_requires_every_source_value_before_any_write():
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 
-def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys):
+def test_delivery_clusters_get_runway_credentials_only(capsys):
     with patch.object(bootstrap, "aws", side_effect=fake_ssm({})) as aws:
         assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True) == 0
     writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"]["Value"] for call in aws.call_args_list
               if call.args[2] == "put-parameter"}
-    admin = writes[f"{TARGET}/agent-runway/pool-admin-password"]
-    assert writes[f"{TARGET}/agent-runway/pool-database-url"] == (
-        f"postgresql://delivery_admin:{admin}@postgres.delivery-pool.svc.cluster.local:5432/postgres")
     assert len(writes[f"{TARGET}/agent-runway/auth-secret"]) >= 32
-    assert writes[f"{TARGET}/delivery-pool/postgres-password"] != admin
+    assert not any("pool" in name for name in writes)
     assert f"{TARGET}/agent-runway/oidc-client-id" in capsys.readouterr().out
     assert not any("oidc-client" in name for name in writes)
 
