@@ -496,7 +496,7 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
 | `agent-runway-<cluster>` | `agent-runway` | Runway web·API·MCP. `agent_runway_maintenance: true`이면 0개 |
 | `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
-- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 풀 egress)가
+- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 `dev` 환경 서버 egress)가
   Agent Runway에 연결된다. Runway OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
   `register-platform-client.cjs --service agent-runway`로 client를 등록해 SSM에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
@@ -515,5 +515,4 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출하므로 k3s 선언에는 두�
   - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/delivery-project`·`delivery-env`)이
     session tag와 같은 namespace의 SecretStore에서만 허용한다. 다른 namespace와 ClusterSecretStore는 거부한다.
   - 이름까지 확인하므로 다른 namespace에 테넌트 label을 붙여도 다른 Project를 흉내 낼 수 없다.
-- 풀은 `agent-runway`, `agent-forge-workspaces`, `opspresso.com/delivery-tenant=true` namespace에서만 접속을 받는다.
-  Forge Sandbox egress에는 `agent_runway`가 있을 때 풀 5432 허용이 추가된다.
+- Forge Sandbox egress에는 `agent_runway`가 있을 때 `dev` 환경 namespace의 5432·6379 허용이 추가된다.
