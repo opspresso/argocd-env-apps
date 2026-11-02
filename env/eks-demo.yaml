@@ -141,3 +141,19 @@ rovr:
 sample_node:
   redis:
     enabled: true
+
+# Apps that Agent Runway deploys: hosts <slug>.<domain> for the primary environment and <slug>-<env>.<domain> for the
+# others (terraform-env-demo 3-alb issues the wildcard certificate).
+app_delivery:
+  enabled: true
+  domain: apps.rovr.dev
+  # The ordered environment profile. Keep it equal to Agent Runway's DELIVERY_ENVIRONMENTS (argocd-env-apps
+  # agent-runway). An environment missing here gets no Application. Removing an environment deletes the Applications
+  # of that environment, and their resources finalizer deletes every app and RdsPostgres in it: RDS keeps only its
+  # final snapshot. Before adding an environment, check that no Project slug ends with -<environment>
+  # (ls argocd-env-projects/projects | grep -- '-<environment>$'), or two hosts collide.
+  environments: [dev, prod]
+  primary_environment: prod
+  # The Kubernetes API server (Service IP and control plane endpoints) that Delivery runner Pods may reach.
+  # Check after a control plane change: kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes
+  api_server_cidrs: [172.20.0.1/32, 10.10.114.40/32, 10.10.149.55/32]

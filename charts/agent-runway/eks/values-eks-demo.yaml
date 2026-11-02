@@ -72,3 +72,195 @@ app:
         kubernetes.io/metadata.name: addon-prometheus
   registry:
     region: ap-northeast-2
+
+
+
+# The apps Agent Runway deploys (agent-platform docs/APP_DELIVERY.md). argocd-env-addons keeps only the AppProjects.
+raw:
+  resources:
+    - apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        namespace: argocd
+        annotations:
+          # Agent Runway's own removal must never reach the Applications below and their app data.
+          argocd.argoproj.io/sync-options: Delete=false,Prune=false
+        name: app-delivery
+        labels:
+          opspresso.com/cluster: "eks-demo"
+          opspresso.com/group: "projects"
+      spec:
+        project: delivery
+        destination:
+          name: "eks-demo"
+          namespace: app-delivery
+        source:
+          repoURL: https://github.com/opspresso/argocd-env-projects.git
+          targetRevision: HEAD
+          path: charts/delivery
+          helm:
+            valuesObject:
+              registry: "396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/projects"
+              pushRoleArn: "arn:aws:iam::396608815058:role/app-delivery-push"
+              region: "ap-northeast-2"
+              apiServer:
+                cidrs: ["172.20.0.1/32", "10.10.114.40/32", "10.10.149.55/32"]
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+          syncOptions:
+            - CreateNamespace=true
+
+    # One Application per projects/<slug>/<env> directory of an allowed environment. Project, environment, namespace
+    # and host come from the directory path and the environment profile of this cluster, not from the files, and the
+    # charts/app guard checks them. A values file could still turn the guard off: the boundary is that only the
+    # app-deploy step writes app.yaml, through the fixed render.jq mapping, with a deploy key that only the delivery-git
+    # steps hold. The Application syncs the app chart with app.yaml (tenant objects only until the first deployment)
+    # and the kro instances in resources.yaml.
+    - apiVersion: argoproj.io/v1alpha1
+      kind: ApplicationSet
+      metadata:
+        namespace: argocd
+        annotations:
+          # Agent Runway's own removal must never reach the Applications below and their app data.
+          argocd.argoproj.io/sync-options: Delete=false,Prune=false
+        name: projects
+      spec:
+        goTemplate: true
+        goTemplateOptions: ["missingkey=error"]
+        generators:
+          - git:
+              repoURL: https://github.com/opspresso/argocd-env-projects.git
+              revision: HEAD
+              requeueAfterSeconds: 30
+              directories:
+                - path: "projects/*/dev"
+                - path: "projects/*/prod"
+        template:
+          metadata:
+            name: 'app-{{ index .path.segments 1 }}-{{ .path.basename }}'
+            labels:
+              opspresso.com/cluster: "eks-demo"
+              opspresso.com/group: "projects"
+              opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
+              opspresso.com/delivery-env: '{{ .path.basename }}'
+          spec:
+            project: projects
+            destination:
+              name: "eks-demo"
+              namespace: 'app-{{ index .path.segments 1 }}-{{ .path.basename }}'
+            sources:
+              - repoURL: https://github.com/opspresso/argocd-env-projects.git
+                targetRevision: HEAD
+                path: charts/app
+                helm:
+                  valueFiles:
+                    - '../../{{ .path.path }}/app.yaml'
+                  # resources.yaml may come before the first deployment writes app.yaml.
+                  ignoreMissingValueFiles: true
+                  # charts/app wraps the opspresso app chart; its guard refuses any other environment, namespace or host.
+                  parameters:
+                    - name: app.tenant.project
+                      value: '{{ index .path.segments 1 }}'
+                    - name: app.tenant.environment
+                      value: '{{ .path.basename }}'
+                    - name: app.tenant.environments
+                      value: "dev prod"
+                    - name: app.tenant.primaryEnvironment
+                      value: "prod"
+                    - name: app.tenant.domain
+                      value: "apps.rovr.dev"
+                    - name: app.tenant.cluster
+                      value: "eks-demo"
+                    - name: app.tenant.region
+                      value: "ap-northeast-2"
+                    - name: app.tenant.tenantSecretsRoleArn
+                      value: "arn:aws:iam::396608815058:role/agent-runway-tenant-secrets"
+                    - name: app.routing.hosts[0]
+                      value: '{{ if eq .path.basename "prod" }}{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ .path.basename }}{{ end }}.apps.rovr.dev'
+              # The namespaced resources (kro instances) that resource-sync writes; AppProject projects limits the kinds.
+              - repoURL: https://github.com/opspresso/argocd-env-projects.git
+                targetRevision: HEAD
+                path: '{{ .path.path }}'
+                directory:
+                  include: resources.yaml
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+              # The Agent Runway tenant secrets policy accepts the SecretStore only in a namespace with these labels.
+              managedNamespaceMetadata:
+                labels:
+                  # Tenant Pods may not run privileged, share host namespaces or mount host paths.
+                  pod-security.kubernetes.io/enforce: baseline
+                  opspresso.com/delivery-tenant: "true"
+                  opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
+                  opspresso.com/delivery-env: '{{ .path.basename }}'
+
+    # One Application per dedicated chart resource: the postgres or valkey chart of opspresso/helm-charts at the version
+    # in projects/<slug>/<env>/resources/<name>.yaml, with that file as its values. Project, environment and namespace come
+    # from the path. resource-sync writes the file and checks the chart, version and value names. The Application of the
+    # environment creates the namespace, so a first sync may fail and retries. The finalizer removes the workload and,
+    # through the StatefulSet retention policy, its volumes when the file goes.
+    - apiVersion: argoproj.io/v1alpha1
+      kind: ApplicationSet
+      metadata:
+        namespace: argocd
+        annotations:
+          # Agent Runway's own removal must never reach the Applications below and their app data.
+          argocd.argoproj.io/sync-options: Delete=false,Prune=false
+        name: project-resources
+      spec:
+        goTemplate: true
+        goTemplateOptions: ["missingkey=error"]
+        generators:
+          - git:
+              repoURL: https://github.com/opspresso/argocd-env-projects.git
+              revision: HEAD
+              requeueAfterSeconds: 30
+              files:
+                - path: "projects/*/dev/resources/*.yaml"
+                - path: "projects/*/prod/resources/*.yaml"
+        template:
+          metadata:
+            name: 'res-{{ .resourceId }}'
+            labels:
+              opspresso.com/cluster: "eks-demo"
+              opspresso.com/group: "projects"
+              opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
+              opspresso.com/delivery-env: '{{ index .path.segments 2 }}'
+            finalizers:
+              - resources-finalizer.argocd.argoproj.io
+          spec:
+            project: projects
+            destination:
+              name: "eks-demo"
+              namespace: 'app-{{ index .path.segments 1 }}-{{ index .path.segments 2 }}'
+            sources:
+              - repoURL: https://opspresso.github.io/helm-charts
+                chart: '{{ .chart }}'
+                targetRevision: '{{ .chartVersion }}'
+                helm:
+                  releaseName: '{{ .resourceName }}'
+                  valueFiles:
+                    - '$values/{{ .path.path }}/{{ .path.filename }}'
+                  parameters:
+                    # Reclaim policy Delete: deleting a resource does not leave a billed volume behind.
+                    - name: persistence.storageClass
+                      value: gp3-ephemeral
+              - repoURL: https://github.com/opspresso/argocd-env-projects.git
+                targetRevision: HEAD
+                ref: values
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              retry:
+                limit: 10
+                backoff:
+                  duration: 30s
+                  factor: 2
+                  maxDuration: 5m
