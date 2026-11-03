@@ -85,11 +85,3 @@ agent_forge:
 
 agent_models:
   hostname: models.agrt.dev
-
-# Applications
-sample_node:
-  hostname: sample-node.rovr.dev
-  redis:
-    enabled: true
-    storageClass: local-path
-    storage: 1Gi

@@ -139,10 +139,6 @@ rovr:
       access_point_id: fsap-02ca3faf77d338014
       size: 50Gi
 
-sample_node:
-  redis:
-    enabled: true
-
 # Apps that Agent Runway deploys: hosts <slug>.<domain> for the primary environment and <slug>-<env>.<domain> for the
 # others (terraform-env-demo 3-alb issues the wildcard certificate).
 app_delivery:
