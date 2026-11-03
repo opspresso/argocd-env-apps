@@ -20,7 +20,7 @@ Studio 원본은 `x-amz-meta-source-deleted`를 검증하므로 복사 도구는
 
 ## 사전 조건
 
-1. `terraform-env-demo`: `4-role` → `8-agent-knowledge` → `8-agent-runway` → `8-agent-studio` → `5-eks` → `6-eks-node`.
+1. `terraform-env-demo`의 `4-role` → `terraform-env-apps`의 `8-agent-knowledge`·`8-agent-runway`·`8-agent-studio` → `terraform-env-demo`의 `5-eks` → `6-eks-node`.
 2. `argocd-env-addons/install/eks/install.sh`로 Argo CD를 설치하고 `addons-eks.yaml`, `apps-eks.yaml`을 등록한다.
 3. 연속성 secret을 복사한다. 원본 값이 하나라도 없거나 대상에 다른 값이 있으면 쓰기 전에 중단한다.
 
@@ -50,7 +50,7 @@ Studio 원본은 `x-amz-meta-source-deleted`를 검증하므로 복사 도구는
 6. **대상 시작.** `env/eks-demo.yaml`의 maintenance를 `false`로 바꿔 push한다. Runway는 image가 게시된 뒤 켠다.
 7. **DNS 전환 전 확인.** `curl --resolve <host>:443:<ALB IP>`로 Studio 로그인, OIDC discovery, 첨부 다운로드,
    Knowledge 오디오, Forge checkpoint 복원을 확인한다.
-8. **DNS 전환.** `terraform-env-demo`에서 `8-agent-studio`(k3s wildcard를 state에서 제거) → `3-alb`(`*.agrt.dev`를 ALB alias로)
+8. **DNS 전환.** `terraform-env-apps`의 `8-agent-studio`(k3s wildcard를 state에서 제거) → `terraform-env-demo`의 `3-alb`(`*.agrt.dev`를 ALB alias로)
    순서로 적용한다. TTL은 300초다.
 
 ## 롤백
