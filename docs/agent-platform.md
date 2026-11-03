@@ -47,6 +47,9 @@ Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `KNOWLEDGE_
 `MODELS_PUBLIC_URL=https://<agent_models.hostname>`을 설정합니다.
 
 공급자 주소·API 키·wire ID·가격은 Models만 소유합니다. 소비 서비스에는 공급자 설정을 주입하지 않습니다.
+역할별 기본 모델, 선정 근거와 기존 설정 전환은 [모델 기본값](model-defaults.md)을 따릅니다.
+Studio의 `agent_studio.model_usage`는 `MODEL_USAGE_DEFAULTS`로 렌더합니다. 저장된 override가
+우선하며, Studio의 **배포 기본값 사용**으로 선언된 역할과 라우팅 정책을 배포 기본값에 연결합니다.
 Memory·Knowledge의 모델 역할은 `env/<cluster>.yaml`의 `agent_memory.models`, `agent_knowledge.models`에
 Models 선택 ID(`<provider>/<model>`)로 선언합니다. 선언하지 않은 역할은 렌더하지 않습니다.
 Models에서 해당 선택을 먼저 활성화합니다. 각 서비스 **설정**의 override가 env보다 우선하므로
@@ -59,14 +62,19 @@ GitOps 값을 적용하려면 override를 reset합니다. Embedding 모델이나
 | `decision` | `DECISION_MODEL` | - |
 | `dream` | `DREAM_MODEL`(Dreaming·세션 기억 추출) | - |
 | `extraction` | - | `KNOWLEDGE_EXTRACTION_MODEL`(검증 모델을 따로 두지 않으면 검증도 사용) |
+| `verification` | - | `KNOWLEDGE_VERIFICATION_MODEL`(원문과 추출 결과를 별도 모델로 검증) |
 | `transcription`, `summary` | - | `AUDIO_PROCESSING_OPTIONS`의 기본 처리 옵션 항목 |
 
 Knowledge의 전사·회의록 모델은 작업을 요청하는 쪽(Studio 등)이 작업마다 모델 ID로 고릅니다.
 `AUDIO_PROCESSING_OPTIONS`는 그 모델의 처리 옵션만 정하며 모델을 선택하지 않습니다.
 
-Forge의 `FORGE_MODEL_CHANNELS`는 `/k8s/<cluster>/agent-forge/model-roles`에서 읽습니다.
+Forge의 `agent_forge.model_roles`는 ConfigMap의 `FORGE_MODEL_CHANNELS`로 렌더합니다.
+선택 ID와 실행 한도는 비밀값이 아니므로 Git에서 관리합니다. 이 블록이 없는 설치만
+`/k8s/<cluster>/agent-forge/model-roles` SSM을 사용하며 두 원천을 동시에 주입하지 않습니다.
 각 항목은 `id`, `runtime`, `model`(Models 선택 ID), `protocol`과 선택 한도만 가집니다. 공급자 연결 정보가
-있는 이전 `model-channels` 형식은 Forge가 시작 단계에서 거부합니다. 역할이 없으면 `[]`을 저장합니다.
+있는 이전 `model-channels` 형식은 Forge가 시작 단계에서 거부합니다. 역할이 없으면 `[]`을 사용합니다.
+저장된 Workspace 프로필과 접수한 작업의 모델은 채널 기본값과 별개입니다. 기존 채널 ID는
+이를 참조하는 Workspace가 남아 있으면 유지합니다.
 
 ### Studio 기업 OIDC
 

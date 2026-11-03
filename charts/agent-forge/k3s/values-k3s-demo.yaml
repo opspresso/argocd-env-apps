@@ -84,7 +84,7 @@ app:
       name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/k3s-demo/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
-    # Central selection IDs per runtime role; see docs/agent-platform.md.
+    # An installation without declarative roles may keep its existing SSM configuration.
     - key: /k8s/k3s-demo/agent-forge/model-roles
       name: FORGE_MODEL_CHANNELS
     - key: /k8s/k3s-demo/agent-forge/oidc-client-id

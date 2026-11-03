@@ -60,7 +60,7 @@ app:
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
 {%- set models = agent_knowledge.models | default({}) %}
-{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('extraction', 'KNOWLEDGE_EXTRACTION_MODEL')] if models[key] is defined %}
+{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('extraction', 'KNOWLEDGE_EXTRACTION_MODEL'), ('verification', 'KNOWLEDGE_VERIFICATION_MODEL')] if models[key] is defined %}
       {{name}}: {{models[key] | tojson}}
 {%- endfor %}
 {%- set audio = [] %}

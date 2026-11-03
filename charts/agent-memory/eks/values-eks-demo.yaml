@@ -36,7 +36,7 @@ app:
       AI_USER_REQUESTS_PER_MINUTE: '300'
       EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
       RERANKER_MODEL: "openrouter/rerank-v3.5"
-      DECISION_MODEL: "openrouter/jev-1.13"
+      DECISION_MODEL: "openrouter/jev-1.14"
       DREAM_MODEL: "openrouter/gpt-6-luna"
   routing:
     hosts:

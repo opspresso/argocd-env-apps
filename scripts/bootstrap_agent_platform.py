@@ -148,7 +148,7 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
     # Operators prepare these after registration; they are never random secret material.
     for service in SERVICE_CLIENTS + (("agent-runway",) if delivery else ()):
         print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
-    print(f"Prepare and validate separately: {prefix}/agent-forge/model-roles")
+    print(f"If agent_forge.model_roles is not declared in env, prepare and validate: {prefix}/agent-forge/model-roles")
     return 0 if apply or not missing else 1
 
 

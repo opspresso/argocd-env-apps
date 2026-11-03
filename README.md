@@ -4,6 +4,7 @@
 
 Agent Studio·Models·Memory·Knowledge·Forge·Runway의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
+역할별 가성비 모델, OpenRouter 우선 원칙과 저장된 설정의 전환 방법은 [모델 기본값](docs/model-defaults.md)을 따른다.
 
 rovr(`rovr.dev`)의 구성, Secret 준비와 첫 배포 순서는 [rovr 배포](docs/rovr.md)를 따른다.
 
