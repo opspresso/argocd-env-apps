@@ -54,8 +54,10 @@ app:
     timeoutSeconds: 2
     failureThreshold: 3
   # The image has no shell; rovr-server itself turns unready and waits a few
-  # seconds on SIGTERM before it stops accepting connections.
-  terminationGracePeriodSeconds: 30
+  # seconds on SIGTERM before it stops accepting connections. It then keeps
+  # serving the model streams sandboxes already opened for up to 15 minutes
+  # (modelDrain in cmd/rovr-server), so a deploy does not cut agents' work.
+  terminationGracePeriodSeconds: 930
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 65532
