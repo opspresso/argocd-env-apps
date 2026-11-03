@@ -4,6 +4,7 @@
 
 Agent Studio·Models·Memory·Knowledge·Forge·Runway의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
 [Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
+역할별 가성비 모델, OpenRouter 우선 원칙과 저장된 설정의 전환 방법은 [모델 기본값](docs/model-defaults.md)을 따른다.
 
 rovr(`rovr.dev`)의 구성, Secret 준비와 첫 배포 순서는 [rovr 배포](docs/rovr.md)를 따른다.
 
@@ -236,8 +237,8 @@ Models는 공급자 호출과 사용량을 소유하며 네 서비스는 Studio 
 
 ## test
 
-PR에서는 `.github/workflows/validate.yml`이 렌더·Helm 검증·pytest를 실행한다.
-main push에서도 같은 검사를 수행하며, 검사 실패 시 생성 파일을 게시하지 않는다.
+PR은 CI를 자동 시작하지 않는다. `.github/workflows/validate.yml`을 PR 브랜치에서 수동 실행해
+렌더·Helm 검증·pytest를 확인한다. main push에서도 같은 검사를 수행하며, 검사 실패 시 생성 파일을 게시하지 않는다.
 
 ```bash
 pip install -r requirements/runtime.txt -r requirements/dev.txt

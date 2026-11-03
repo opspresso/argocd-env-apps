@@ -56,6 +56,25 @@ agent_studio:
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
+  # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
+  model_usage:
+    defaultModel: openrouter/deepseek-v4.1-flash
+    decisionModel: openrouter/jev-1.14
+    embeddingModel: openrouter/text-embedding-3-small
+    rerankerModel: openrouter/rerank-v3.5
+    modelRouting:
+      tiers:
+        fast: openrouter/gpt-6-luna
+        general: openrouter/deepseek-v4.1-flash
+        coding: openrouter/minimax-m3.1-flash
+        reasoning: openrouter/glm-5.3
+        vision: openrouter/minimax-m3.1-flash
+      policies: {}
+      localOnly: false
+      maxCallCostUsd: 0
+      maxRunCostUsd: 0
+      maxCalls: 0
+      minOutputChars: 1
 workspace_max_pods: 32
 workspace_memory_mb: 2048
 workspace_disk_mb: 2048
@@ -70,7 +89,7 @@ agent_memory:
   models:
     embedding: openrouter/text-embedding-3-small
     reranker: openrouter/rerank-v3.5
-    decision: openrouter/jev-1.13
+    decision: openrouter/jev-1.14
     dream: openrouter/gpt-6-luna
 
 agent_knowledge:
@@ -81,13 +100,25 @@ agent_knowledge:
     embedding: openrouter/text-embedding-3-small
     reranker: openrouter/rerank-v3.5
     extraction: openrouter/gpt-6-luna
-    transcription: openrouter/gpt-4o-transcribe
-    summary: openrouter/gpt-6.1-sol
+    verification: openrouter/deepseek-v4.1-flash
+    transcription: openrouter/mai-transcribe-2
+    summary: openrouter/deepseek-v4.1-flash
 
 agent_forge:
   hostname: forge.agrt.dev
   allowed_hosts:
   - forge.agrt.dev
+  # Runtime channels contain only Models selection IDs. Saved profiles choose their own model.
+  model_roles:
+  - {id: openrouter/minimax-m3.1-flash, runtime: opencode, model: openrouter/minimax-m3.1-flash, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/deepseek-v4.1-flash, runtime: opencode, model: openrouter/deepseek-v4.1-flash, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/glm-5.3, runtime: opencode, model: openrouter/glm-5.3, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/gpt-6-luna, runtime: opencode, model: openrouter/gpt-6-luna, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  # Preserve channels referenced by existing workspaces; they are not the default profiles.
+  - {id: openrouter/gpt-6.1-sol, runtime: opencode, model: openrouter/gpt-6.1-sol, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/gpt-6-astra, runtime: opencode, model: openrouter/gpt-6-astra, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/claude-opus-5.5, runtime: opencode, model: openrouter/claude-opus-5.5, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
+  - {id: openrouter/claude-sonnet-5.5, runtime: opencode, model: openrouter/claude-sonnet-5.5, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
 
 agent_models:
   hostname: models.agrt.dev

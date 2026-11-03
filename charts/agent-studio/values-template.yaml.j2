@@ -64,6 +64,9 @@ app:
       # Agent Models owns provider connections, credentials, selections and usage.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
+{%- if agent_studio.model_usage is defined %}
+      MODEL_USAGE_DEFAULTS: {{agent_studio.model_usage | tojson | tojson}}
+{%- endif %}
       # Service consoles that may frame Studio's Helper panel and that open_console may open (agent-platform/docs/HELPER_EMBED.md).
 {%- set helper_consoles = [] %}
 {%- for name, service in [("agent-memory", agent_memory), ("agent-knowledge", agent_knowledge), ("agent-forge", agent_forge), ("agent-runway", agent_runway)] if service is defined and service.hostname is defined %}

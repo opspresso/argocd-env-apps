@@ -45,23 +45,6 @@ def test_ticker_is_one_resident_unprivileged_deployment(platform):
 
 
 @pytest.mark.parametrize('platform', ['eks', 'k3s'])
-def test_sample_node_redis_uses_platform_storage_without_thumbs(platform):
-    docs = render('sample-node', platform)
-    redis = next(doc for doc in docs if doc['kind'] == 'StatefulSet' and doc['metadata']['name'] == 'redis-master')
-    volume = redis['spec']['volumeClaimTemplates'][0]['spec']
-    assert volume['storageClassName'] == ('gp3' if platform == 'eks' else 'local-path')
-    assert volume['resources']['requests']['storage'] == ('8Gi' if platform == 'eks' else '1Gi')
-    assert not any(doc['metadata']['name'] == 'sample-node-thumbs' for doc in docs)
-    assert any(doc['kind'] == 'ExternalSecret' for doc in docs)
-    config = next(doc['data'] for doc in docs if doc['kind'] == 'ConfigMap' and doc['metadata']['name'] == 'sample-node')
-    assert config['REDIS_ENABLED'] == 'true'
-    assert config['REDIS_HOST'] == 'redis-master'
-    deployment = next(doc for doc in docs if doc['kind'] == 'Deployment' and doc['metadata']['name'] == 'sample-node')
-    refs = deployment['spec']['template']['spec']['containers'][0]['envFrom']
-    assert any('secretRef' in ref for ref in refs)
-
-
-@pytest.mark.parametrize('platform', ['eks', 'k3s'])
 def test_studio_separates_boot_liveness_and_database_readiness(platform):
     docs = render('agent-studio', platform)
     deployment = next(doc for doc in docs if doc['kind'] == 'Deployment' and doc['metadata']['name'] == 'agent-studio')

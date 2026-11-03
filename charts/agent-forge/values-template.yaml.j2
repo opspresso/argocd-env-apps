@@ -46,6 +46,9 @@ app:
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+{%- if agent_forge.model_roles is defined %}
+      FORGE_MODEL_CHANNELS: {{agent_forge.model_roles | tojson | tojson}}
+{%- endif %}
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
       RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
@@ -82,9 +85,11 @@ app:
 {% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_forge.hostname}}
+{%- if agent_forge.model_roles is not defined %}
     # Forge reads FORGE_MODEL_CHANNELS only at startup. After editing the model-roles SSM
     # parameter, wait one refreshInterval, then set this to the parameter version to restart Forge.
     agent-forge/model-roles-version: "2"
+{%- endif %}
   externalSecrets:
     enabled: true
     # Upper bound for an SSM edit to reach the Secret.
@@ -98,9 +103,11 @@ app:
       name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/{{cluster}}/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
-    # Central selection IDs per runtime role; see docs/agent-platform.md.
+{%- if agent_forge.model_roles is not defined %}
+    # An installation without declarative roles may keep its existing SSM configuration.
     - key: /k8s/{{cluster}}/agent-forge/model-roles
       name: FORGE_MODEL_CHANNELS
+{%- endif %}
     - key: /k8s/{{cluster}}/agent-forge/oidc-client-id
       name: OIDC_CLIENT_ID
     - key: /k8s/{{cluster}}/agent-forge/oidc-client-secret
