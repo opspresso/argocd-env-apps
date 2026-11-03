@@ -237,8 +237,8 @@ Models는 공급자 호출과 사용량을 소유하며 네 서비스는 Studio 
 
 ## test
 
-PR에서는 `.github/workflows/validate.yml`이 렌더·Helm 검증·pytest를 실행한다.
-main push에서도 같은 검사를 수행하며, 검사 실패 시 생성 파일을 게시하지 않는다.
+PR은 CI를 자동 시작하지 않는다. `.github/workflows/validate.yml`을 PR 브랜치에서 수동 실행해
+렌더·Helm 검증·pytest를 확인한다. main push에서도 같은 검사를 수행하며, 검사 실패 시 생성 파일을 게시하지 않는다.
 
 ```bash
 pip install -r requirements/runtime.txt -r requirements/dev.txt

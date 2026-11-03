@@ -68,6 +68,17 @@ Dreaming 기본값은 Memory `v0.73.3`의 동일한 합성 평가 4개를 배포
 이 표본에서 비용은 97.94% 낮았고 시간은 22.5% 길었습니다. 반복 측정이나 전체 실제 기억에 대한
 품질 보증은 아닙니다. 기본값은 속도 향상이 아니라, 해당 평가의 품질 기준을 만족하면서 반복 처리 비용을
 낮추는 선택입니다. 평가 원본은 `agent-memory/tests/dream-quality.integration.test.ts`입니다.
+평가한 Memory 소스는 `415d244f126be7399140f78ef720e389d22be52d`입니다. 재현할 때는
+Memory 저장소에서 `MODELS_URL`과 Memory OIDC client를 안전하게 주입한 뒤 다음 명령을 실행합니다.
+두 모델을 같은 fixture·소스·환경에서 비교하고, Models의 service 호출 사용량과 비용을 함께 확인합니다.
+실제 공급자를 호출하므로 요금이 발생합니다.
+
+```bash
+DREAM_EVAL_LIVE=1 DREAM_MODEL=anthropic/claude-opus-5.5 \
+  pnpm exec vitest run tests/dream-quality.integration.test.ts
+DREAM_EVAL_LIVE=1 DREAM_MODEL=openrouter/gpt-6-luna \
+  pnpm exec vitest run tests/dream-quality.integration.test.ts
+```
 
 코드·가중치 공개와 제한 없는 사용은 다릅니다. MiniMax·GLM·Qwen의 상업 이용·서비스 제공 조건은
 해당 라이선스를 확인합니다. OpenRouter를 쓰는 공개 모델도 외부 API 호출 비용이 발생합니다.
