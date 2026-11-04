@@ -9,4 +9,4 @@ app:
   configmap:
     enabled: true
     data:
-      GRAFANA_URL: "https://grafana.demo.rovr.dev"
+      GRAFANA_URL: "https://grafana.demo.opsp.dev"
