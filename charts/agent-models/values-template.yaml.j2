@@ -20,11 +20,17 @@ app:
       AUTH_BASE_URL: https://{{agent_models.hostname}}
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
+      # MODEL_* stays until every running Models release reads MODELS_*.
       MODEL_REQUEST_TIMEOUT_MS: '600000'
       MODEL_SHUTDOWN_GRACE_MS: '600000'
       MODEL_MAX_CONCURRENT_REQUESTS: '64'
       MODEL_MAX_REQUEST_BYTES: '100663296'
       MODEL_MAX_STREAM_BUFFER_BYTES: '268435456'
+      MODELS_REQUEST_TIMEOUT_MS: '600000'
+      MODELS_SHUTDOWN_GRACE_MS: '600000'
+      MODELS_MAX_CONCURRENT_REQUESTS: '64'
+      MODELS_MAX_REQUEST_BYTES: '100663296'
+      MODELS_MAX_STREAM_BUFFER_BYTES: '268435456'
       AWS_REGION: {{aws_region}}
   externalSecrets:
     enabled: true
@@ -33,7 +39,7 @@ app:
       name: DATABASE_URL
     - key: /k8s/{{cluster}}/agent-models/auth-secret
       name: AUTH_SECRET
-    - key: /k8s/{{cluster}}/agent-models/encryption-key
+    - key: /k8s/{{cluster}}/agent-models/aes-encryption-key
       name: AES_ENCRYPTION_KEY
     - key: /k8s/{{cluster}}/agent-models/oidc-client-id
       name: OIDC_CLIENT_ID

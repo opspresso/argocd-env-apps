@@ -24,7 +24,9 @@ app:
       AWS_REGION: ap-northeast-2
       DATABASE_POOL_SIZE: '4'
       DATABASE_QUEUE_POOL_SIZE: '2'
+      # AI_ADMISSION_POOL_SIZE and KNOWLEDGE_*_MODEL stay until every running Knowledge release reads the new names.
       AI_ADMISSION_POOL_SIZE: '9'
+      DATABASE_ADMISSION_POOL_SIZE: '9'
       AUTH_BASE_URL: https://knowledge.agrt.dev
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
@@ -43,7 +45,9 @@ app:
       EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
       RERANKER_MODEL: "openrouter/rerank-v3.5"
       KNOWLEDGE_EXTRACTION_MODEL: "openrouter/gpt-6-luna"
+      EXTRACTION_MODEL: "openrouter/gpt-6-luna"
       KNOWLEDGE_VERIFICATION_MODEL: "openrouter/deepseek-v4.1-flash"
+      VERIFICATION_MODEL: "openrouter/deepseek-v4.1-flash"
       # Processing defaults for the audio models a caller may request; selection is per job.
       AUDIO_PROCESSING_OPTIONS: "[{\"id\": \"openrouter/mai-transcribe-2\", \"kind\": \"transcription\"}, {\"id\": \"openrouter/deepseek-v4.1-flash\", \"kind\": \"summary\"}]"
       DOCUMENT_WORKER_ENABLED: 'false'
@@ -66,7 +70,7 @@ app:
     data:
     - key: /k8s/eks-demo/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/eks-demo/agent-knowledge/better-auth-secret
+    - key: /k8s/eks-demo/agent-knowledge/auth-secret
       name: AUTH_SECRET
     - key: /k8s/eks-demo/agent-knowledge/oidc-client-id
       name: OIDC_CLIENT_ID

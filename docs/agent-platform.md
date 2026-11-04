@@ -60,16 +60,16 @@ GitOps 값을 적용하려면 override를 reset합니다. Embedding 모델이나
 | `reranker` | `RERANKER_MODEL` | `RERANKER_MODEL` |
 | `decision` | `DECISION_MODEL` | - |
 | `dream` | `DREAM_MODEL`(Dreaming·세션 기억 추출) | - |
-| `extraction` | - | `KNOWLEDGE_EXTRACTION_MODEL`(검증 모델을 따로 두지 않으면 검증도 사용) |
-| `verification` | - | `KNOWLEDGE_VERIFICATION_MODEL`(원문과 추출 결과를 별도 모델로 검증) |
+| `extraction` | - | `EXTRACTION_MODEL`(검증 모델을 따로 두지 않으면 검증도 사용) |
+| `verification` | - | `VERIFICATION_MODEL`(원문과 추출 결과를 별도 모델로 검증) |
 | `transcription`, `summary` | - | `AUDIO_PROCESSING_OPTIONS`의 기본 처리 옵션 항목 |
 
 Knowledge의 전사·회의록 모델은 작업을 요청하는 쪽(Studio 등)이 작업마다 모델 ID로 고릅니다.
 `AUDIO_PROCESSING_OPTIONS`는 그 모델의 처리 옵션만 정하며 모델을 선택하지 않습니다.
 
 Forge의 `agent_forge.model_roles`는 ConfigMap의 `FORGE_MODEL_CHANNELS`로 렌더합니다.
-선택 ID와 실행 한도는 비밀값이 아니므로 Git에서 관리합니다. 이 블록이 없는 설치만
-`/k8s/<cluster>/agent-forge/model-roles` SSM을 사용하며 두 원천을 동시에 주입하지 않습니다.
+선택 ID와 실행 한도는 비밀값이 아니므로 Git에서 관리합니다. Forge를 배포하는 env는 이 블록을 반드시 선언합니다.
+선언이 없으면 렌더가 실패합니다.
 각 항목은 `id`, `runtime`, `model`(Models 선택 ID), `protocol`과 선택 한도만 가집니다. 공급자 연결 정보가
 있는 이전 `model-channels` 형식은 Forge가 시작 단계에서 거부합니다. 역할이 없으면 `[]`을 사용합니다.
 저장된 Workspace 프로필과 접수한 작업의 모델은 채널 기본값과 별개입니다. 기존 채널 ID는
@@ -149,22 +149,11 @@ EKS의 S3 SDK는 Pod Identity를 사용합니다. S3 endpoint와 정적 S3 키�
 
 External Secrets는 `/k8s/<cluster>/` 경로를 읽습니다. 앱 namespace와 Forge 실행 namespace에는
 각각 ECR generator와 `ecr-registry` Secret이 있습니다. EKS External Secrets의 IAM 연결을 사용하며
-앱에 ECR 장기 키를 전달하지 않습니다. 운영 클러스터의 경로는 `/k8s/eks-demo/`와 공통 `/k8s/common/`입니다.
+앱에 ECR 장기 키를 전달하지 않습니다. 운영 클러스터의 경로는 `/k8s/eks-demo/`입니다.
+경로 이름은 `/k8s/<cluster>/<service>/<env 이름에서 서비스 접두어를 뺀 kebab-case>`입니다
+(예: Forge `FORGE_GIT_CREDENTIAL_SECRET` → `agent-forge/git-credential-secret`). Agent 서비스는 `/k8s/common/`을 사용하지 않습니다.
 
-기존 Agent Delivery 설치를 Runway로 전환할 때는 이전 서비스가 값을 더 쓰지 않도록 중지하고,
-Studio의 기존 OIDC client 등록을 확인한 뒤 bootstrap보다 먼저 다음 명령으로 새 경로를 준비합니다.
-bootstrap을 먼저 적용하면 새 secret을 생성해 기존 인증과 풀 비밀번호가 달라질 수 있습니다.
-
-```bash
-python3 scripts/copy_runway_parameters.py --cluster eks-demo
-python3 scripts/copy_runway_parameters.py --cluster eks-demo --apply
-```
-
-복사는 인증 secret·OIDC client·풀 관리자 비밀번호와 테넌트 parameter의 원본을 유지하고 값을 출력하지 않습니다.
-대상 값이 다르거나 원본에 버전 이력·정책이 있으면 중단합니다. 전환 전 다시 실행해 복사할 값이 없는지 확인합니다.
-객체 저장소와 데이터베이스 이름은 이 명령이 옮기지 않으므로 별도로 확인합니다.
-
-신규 설치 또는 기존 값의 복사를 마친 설치에서 bootstrap을 실행합니다.
+bootstrap으로 누락된 parameter를 준비합니다.
 
 ```bash
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo
@@ -174,36 +163,41 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
 
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
-데이터·등록이 의존하는 값(`CONTINUITY`: Forge 키·조직·`model-roles`·GitHub OAuth, Models 키, Knowledge 인증 secret,
-네 서비스의 OIDC client)을 원본에서 그대로 복사하고, 나머지(DB URL·metrics token)만 대상 클러스터 값으로 만듭니다.
+데이터·등록이 의존하는 값(`CONTINUITY`: Studio 인증 secret·암호화 키, Memory·Knowledge 인증 secret,
+Forge 키·조직·GitHub OAuth, Models 인증 secret·암호화 키, 네 서비스의 OIDC client)을 원본에서 그대로 복사하고,
+나머지(DB URL·metrics token·schedule scan token)만 대상 클러스터 값으로 만듭니다.
 원본에 값이 하나라도 없거나 대상에 다른 값이 이미 있으면 쓰기 전에 중단합니다. 값은 출력하지 않습니다.
 
 ```bash
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from <원본 cluster>
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from <원본 cluster> --apply
 ```
-기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, Models의 세션 secret과 base64 32바이트 암호화 키,
-Forge 체크포인트·세션 키를 서로 독립적으로 생성합니다. DB URL이 기존 비밀번호와 모순되면 쓰기 전에 중단합니다.
-서비스 OIDC client와 Forge `model-roles`는 생성하지 않고 준비할 경로만 출력합니다.
+기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, 각 서비스의 인증 secret, Studio·Models의 base64 32바이트
+암호화 키, Forge 체크포인트·Git credential·모델 키를 서로 독립적으로 생성합니다. DB URL이 기존 비밀번호와
+모순되면 쓰기 전에 중단합니다. 서비스 OIDC client, Studio의 Google OAuth client와 plugins 저장소 token은
+생성하지 않고 준비할 경로만 출력합니다.
 Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으로 rollout해야 합니다.
 
 | SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
 | --- | --- | --- |
 | `agent-platform/database-url` | 여섯 서비스 | bootstrap |
 | `agent-<service>/metrics-bearer-token` | Studio·Memory·Knowledge·Forge와 수집기 | bootstrap |
-| `agent-models/auth-secret`, `encryption-key` | Models | bootstrap |
-| `agent-knowledge/better-auth-secret` | Knowledge web·worker | bootstrap |
-| `agent-forge/checkpoint-secret`, `credential-secret`, `model-secret`, `session-secret` | Forge | bootstrap |
+| `agent-studio/auth-secret`, `aes-encryption-key` | Studio | bootstrap |
+| `agent-studio/schedule-scan-token` | Studio web·ticker | bootstrap |
+| `agent-studio/google-client-id`, `google-client-secret` | Studio(Google 로그인을 켠 경우) | Google OAuth client 생성 후 |
+| `agent-studio/plugins-repo-token` | Studio | `PLUGINS_REPO` 저장소에 접근할 GitHub token |
+| `agent-memory/auth-secret` | Memory | bootstrap |
+| `agent-models/auth-secret`, `aes-encryption-key` | Models | bootstrap |
+| `agent-knowledge/auth-secret` | Knowledge web·worker | bootstrap |
+| `agent-forge/auth-secret`, `checkpoint-secret`, `git-credential-secret`, `model-secret` | Forge | bootstrap |
 | `agent-forge/organization-id` | Studio·Forge | bootstrap |
 | `agent-{models,memory,knowledge,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
 | `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
-| `agent-forge/model-roles` | Forge | Models 선택 후, 없으면 `[]` |
 | `agent-runway/auth-secret` | Runway | bootstrap(`agent_runway`가 있는 클러스터) |
 | `agent-runway/pool-admin-password`, `pool-database-url` | Runway, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
 | `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
 | `agent-runway/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
 
-Memory의 `AUTH_SECRET`은 `/k8s/common/agent-memory/better-auth-secret`을 유지합니다.
 Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.

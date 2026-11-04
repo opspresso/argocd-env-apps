@@ -47,7 +47,7 @@ def database_connections(platform):
         return int(config[chart]["DATABASE_POOL_SIZE"])
     # Knowledge web and worker share settings but own separate pools. The worker has no HTTP readiness pool.
     knowledge = sum(int(config["agent-knowledge"][key])
-                    for key in ("DATABASE_POOL_SIZE", "DATABASE_QUEUE_POOL_SIZE", "AI_ADMISSION_POOL_SIZE")) + 2 + 2
+                    for key in ("DATABASE_POOL_SIZE", "DATABASE_QUEUE_POOL_SIZE", "DATABASE_ADMISSION_POOL_SIZE")) + 2 + 2
     per_process = {
         "agent-studio": pool("agent-studio") + 4 + 1,  # content locks and readiness; the ticker only calls HTTP
         "agent-memory": pool("agent-memory") + 2 + 2 + 1,  # background sessions, OIDC locks, readiness

@@ -224,7 +224,7 @@ def test_new_service_maintenance_stops_only_its_processes(platform, chart, maint
 @pytest.mark.parametrize("platform", ["eks"])
 def test_knowledge_pool_preserves_provider_slots_and_cleanup_capacity(platform):
     config = resource("agent-knowledge", platform, "ConfigMap", "agent-knowledge")["data"]
-    assert int(config["AI_ADMISSION_POOL_SIZE"]) >= int(config["AI_PROVIDER_MAX_CONCURRENCY"]) + 1
+    assert int(config["DATABASE_ADMISSION_POOL_SIZE"]) >= int(config["AI_PROVIDER_MAX_CONCURRENCY"]) + 1
     assert 0 < int(config["AI_BATCH_MAX_CONCURRENCY"]) < int(config["AI_PROVIDER_MAX_CONCURRENCY"])
 
 

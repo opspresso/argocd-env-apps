@@ -40,7 +40,7 @@ app:
     timeoutSeconds: 2
     periodSeconds: 5
     failureThreshold: 60
-  # preStop 15s + MODEL_SHUTDOWN_GRACE_MS 600s + settlement ~30s + response close 10s, plus headroom.
+  # preStop 15s + MODELS_SHUTDOWN_GRACE_MS 600s + settlement ~30s + response close 10s, plus headroom.
   terminationGracePeriodSeconds: 690
   lifecycle:
     preStop:

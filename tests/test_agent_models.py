@@ -21,15 +21,15 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
     assert container["startupProbe"]["httpGet"] == container["livenessProbe"]["httpGet"]
     # SIGTERM -> preStop sleep -> drain admitted requests -> settle (~30s) -> close responses (10s).
     pre_stop = int(container["lifecycle"]["preStop"]["exec"]["command"][-1].split()[-1])
-    drain = int(config["MODEL_SHUTDOWN_GRACE_MS"]) // 1000
-    assert drain >= int(config["MODEL_REQUEST_TIMEOUT_MS"]) // 1000
+    drain = int(config["MODELS_SHUTDOWN_GRACE_MS"]) // 1000
+    assert drain >= int(config["MODELS_REQUEST_TIMEOUT_MS"]) // 1000
     assert pod["terminationGracePeriodSeconds"] >= pre_stop + drain + 30 + 10 + 30
     refs = resource("agent-models", platform, "ExternalSecret", "agent-models-external")["spec"]["data"]
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in refs}
     assert refs == {
         "DATABASE_URL": f"/k8s/{platform}-demo/agent-platform/database-url",
         "AUTH_SECRET": f"/k8s/{platform}-demo/agent-models/auth-secret",
-        "AES_ENCRYPTION_KEY": f"/k8s/{platform}-demo/agent-models/encryption-key",
+        "AES_ENCRYPTION_KEY": f"/k8s/{platform}-demo/agent-models/aes-encryption-key",
         "OIDC_CLIENT_ID": f"/k8s/{platform}-demo/agent-models/oidc-client-id",
         "OIDC_CLIENT_SECRET": f"/k8s/{platform}-demo/agent-models/oidc-client-secret",
     }

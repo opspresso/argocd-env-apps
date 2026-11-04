@@ -71,20 +71,20 @@ app:
   externalSecrets:
     enabled: true
     data:
-    - key: /k8s/common/agentops/better-auth-secret
+    - key: /k8s/eks-demo/agent-studio/auth-secret
       name: AUTH_SECRET
 
-    - key: /k8s/common/agentops/google-client-id
+    - key: /k8s/eks-demo/agent-studio/google-client-id
       name: GOOGLE_CLIENT_ID
-    - key: /k8s/common/agentops/google-client-secret
+    - key: /k8s/eks-demo/agent-studio/google-client-secret
       name: GOOGLE_CLIENT_SECRET
 
 
-    - key: /k8s/common/agent-studio/aes-encryption-key
+    - key: /k8s/eks-demo/agent-studio/aes-encryption-key
       name: AES_ENCRYPTION_KEY
-    - key: /k8s/common/agent-studio/github-token
+    - key: /k8s/eks-demo/agent-studio/plugins-repo-token
       name: PLUGINS_REPO_TOKEN
-    - key: /k8s/common/agent-studio/schedule-scan-token
+    - key: /k8s/eks-demo/agent-studio/schedule-scan-token
       name: SCHEDULE_SCAN_TOKEN
     - key: /k8s/eks-demo/agent-platform/database-url
       name: DATABASE_URL

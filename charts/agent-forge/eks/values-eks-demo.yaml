@@ -24,7 +24,9 @@ app:
   configmap:
     enabled: true
     data:
+      # HOST stays until every running Forge release reads HOSTNAME.
       HOST: 0.0.0.0
+      HOSTNAME: 0.0.0.0
       PORT: '3103'
       AUTH_BASE_URL: https://forge.agrt.dev
       ALLOWED_ORIGINS: https://forge.agrt.dev
@@ -37,6 +39,7 @@ app:
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      # Required: every env declares agent_forge.model_roles ([] when it has no role).
       FORGE_MODEL_CHANNELS: "[{\"id\": \"openrouter/minimax-m3.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/minimax-m3.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/deepseek-v4.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/deepseek-v4.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/glm-5.3\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/glm-5.3\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-luna\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-luna\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6.1-sol\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-astra\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-astra\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-opus-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-opus-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-sonnet-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-sonnet-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}]"
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
       RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
@@ -70,7 +73,7 @@ app:
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-forge/checkpoint-secret
       name: FORGE_CHECKPOINT_SECRET
-    - key: /k8s/eks-demo/agent-forge/credential-secret
+    - key: /k8s/eks-demo/agent-forge/git-credential-secret
       name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/eks-demo/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
@@ -80,7 +83,7 @@ app:
       name: OIDC_CLIENT_SECRET
     - key: /k8s/eks-demo/agent-forge/organization-id
       name: FORGE_ORGANIZATION_ID
-    - key: /k8s/eks-demo/agent-forge/session-secret
+    - key: /k8s/eks-demo/agent-forge/auth-secret
       name: AUTH_SECRET
     # Forge-owned GitHub OAuth app; callback https://<forge host>/api/github/callback.
     - key: /k8s/eks-demo/agent-forge/github-client-id

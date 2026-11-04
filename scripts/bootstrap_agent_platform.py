@@ -32,23 +32,23 @@ def aws(region, *arguments, payload=None):
 SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-knowledge", "agent-forge")
 
 # Values that existing data or registrations depend on. A migrated database stays readable only when the
-# new cluster uses the same keys, Forge organization, Studio-issued clients and Models role selections.
+# new cluster uses the same keys, Forge organization and Studio-issued clients.
 CONTINUITY = (
-    "agent-forge/checkpoint-secret", "agent-forge/credential-secret", "agent-forge/model-secret",
-    "agent-forge/session-secret", "agent-forge/organization-id", "agent-forge/model-roles",
+    "agent-studio/auth-secret", "agent-studio/aes-encryption-key", "agent-memory/auth-secret",
+    "agent-forge/checkpoint-secret", "agent-forge/git-credential-secret", "agent-forge/model-secret",
+    "agent-forge/auth-secret", "agent-forge/organization-id",
     "agent-forge/github-client-id", "agent-forge/github-client-secret",
-    "agent-models/auth-secret", "agent-models/encryption-key", "agent-knowledge/better-auth-secret",
+    "agent-models/auth-secret", "agent-models/aes-encryption-key", "agent-knowledge/auth-secret",
     *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
 )
+
+# Studio parameters that come from the Google OAuth client and the plugins repository, never generated.
+STUDIO_PROVIDED = ("google-client-id", "google-client-secret", "plugins-repo-token")
 
 
 # rovr parameters that come from the GitHub App and model providers, never generated.
 ROVR_PROVIDED = ("github-app-id", "github-app-private-key", "github-client-id", "github-client-secret",
                  "github-webhook-secret", "anthropic-api-key")
-
-# Existing Delivery credentials must be copied before bootstrap can create Runway credentials.
-RUNWAY_CONTINUITY = ("auth-secret", "pool-admin-password", "pool-database-url", "oidc-client-id",
-                     "oidc-client-secret", "github-app-id", "github-app-private-key")
 
 
 def parameter_values(prefix, existing, delivery=False, rovr=False):
@@ -65,12 +65,13 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         "@postgres.agent-studio.svc.cluster.local:5432/agent_platform")
     for service in ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge"):
         secret(f"{service}/metrics-bearer-token")
-    for path in ("agent-knowledge/better-auth-secret", "agent-forge/checkpoint-secret",
-                 "agent-forge/credential-secret", "agent-forge/model-secret", "agent-forge/session-secret",
-                 "agent-models/auth-secret"):
+    for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
+                 "agent-knowledge/auth-secret", "agent-forge/checkpoint-secret", "agent-forge/git-credential-secret",
+                 "agent-forge/model-secret", "agent-forge/auth-secret", "agent-models/auth-secret"):
         secret(path)
-    # Models requires canonical base64 of exactly 32 bytes.
-    secret("agent-models/encryption-key", lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
+    # Studio and Models require canonical base64 of exactly 32 bytes.
+    for path in ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key"):
+        secret(path, lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
     # Forge owns issuer-qualified principals; its organization is a configured namespace.
     # Memory/Knowledge organization IDs must instead come from their initialized installations.
     values[f"{prefix}/agent-forge/organization-id"] = existing.get(
@@ -116,11 +117,6 @@ def continuity_values(region, source, prefix):
 
 def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr=False):
     prefix = f"/k8s/{cluster}"
-    if delivery:
-        old = read_parameters(region, [f"{prefix}/agent-delivery/{key}" for key in RUNWAY_CONTINUITY])
-        new = read_parameters(region, [name.replace("/agent-delivery/", "/agent-runway/") for name in old])
-        if any(new.get(name.replace("/agent-delivery/", "/agent-runway/")) != value for name, value in old.items()):
-            raise RuntimeError("Copy existing Delivery parameters with scripts/copy_runway_parameters.py before bootstrap")
     copied = continuity_values(region, copy_from, prefix) if copy_from else {}
     names = list(dict.fromkeys([*parameter_values(prefix, {}, delivery, rovr), *copied]))
     existing = read_parameters(region, names)
@@ -137,6 +133,8 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
         source = f" (from {copy_from})" if name in copied else ""
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
+    print("Prepare from the Google OAuth client (when Google sign-in is enabled) and the plugins repository: "
+          + ", ".join(f"{prefix}/agent-studio/{name}" for name in STUDIO_PROVIDED))
     if rovr:
         print("Prepare from the rovr GitHub App and model providers: "
               + ", ".join(f"{prefix}/rovr/{name}" for name in ROVR_PROVIDED))
@@ -144,11 +142,9 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
         if delivery:
             print(f"Prepare from Studio Platform connections: {prefix}/agent-runway/oidc-client-id, oidc-client-secret")
         return 0 if apply or not missing else 1
-    # Studio issues each service client, and Forge roles name central Models selections.
-    # Operators prepare these after registration; they are never random secret material.
+    # Studio issues each service client. Operators prepare these after registration; they are never random.
     for service in SERVICE_CLIENTS + (("agent-runway",) if delivery else ()):
         print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
-    print(f"If agent_forge.model_roles is not declared in env, prepare and validate: {prefix}/agent-forge/model-roles")
     return 0 if apply or not missing else 1
 
 
