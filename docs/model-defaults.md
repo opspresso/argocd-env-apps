@@ -22,7 +22,7 @@ Models에서 모델을 수집한 것만으로 실행할 수 없습니다. 먼저
 | --- | --- | --- |
 | Studio 기본·일반, Helper·보고서 | `openrouter/deepseek-v4.1-flash` | 긴 문맥, 도구 호출과 일반 분석을 낮은 입력 비용으로 처리 |
 | Studio 빠른 응답, Memory Dreaming, Knowledge 지식 추출 | `openrouter/gpt-6-luna` | 반복 호출·분류·구조화 추출에 적합한 저비용 모델 |
-| Studio 코딩·이미지 이해, Forge 코딩 프로필 | `openrouter/minimax-m3.1-flash` | 코드 수정과 다단계 작업, 이미지 이해 지원 |
+| Studio 코딩·이미지 이해, Forge 코딩 프로필 | `openrouter/deepseek-v4.1-flash` | 코드 수정과 다단계 작업, 이미지 이해 지원 |
 | Studio 복잡한 추론 | `openrouter/glm-5.3` | 복잡한 추론을 별도 tier에 배정; 단순 요청에는 사용하지 않음 |
 | Studio 코드 리뷰 | `openrouter/gpt-6.1-sol` | 검토 품질을 위한 고정 모델. 일반 호출의 기본값으로 사용하지 않음 |
 | Forge 리뷰 프로필 | `openrouter/deepseek-v4.1-flash` | 코드 분석·도구 호출 지원, 반복 검토 비용 절감 |
