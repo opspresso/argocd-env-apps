@@ -65,9 +65,9 @@ agent_studio:
       tiers:
         fast: openrouter/gpt-6-luna
         general: openrouter/deepseek-v4.1-flash
-        coding: openrouter/minimax-m3.1-flash
+        coding: openrouter/deepseek-v4.1-flash
         reasoning: openrouter/glm-5.3
-        vision: openrouter/minimax-m3.1-flash
+        vision: openrouter/deepseek-v4.1-flash
       policies: {}
       localOnly: false
       maxCallCostUsd: 0
@@ -89,7 +89,7 @@ agent_memory:
     embedding: openrouter/text-embedding-3-small
     reranker: openrouter/rerank-v3.5
     decision: openrouter/jev-1.14
-    dream: openrouter/gpt-6-luna
+    dream: openrouter/gpt-6.1-sol
 
 agent_knowledge:
   hostname: knowledge.agrt.dev
