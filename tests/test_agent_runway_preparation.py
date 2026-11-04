@@ -35,9 +35,8 @@ def test_tenant_policy_guards_both_transition_roles():
                               check=True, capture_output=True, text=True).stdout
     policy = next(item for item in yaml.safe_load_all(rendered) if item and item.get("kind") == "ValidatingAdmissionPolicy")
     role = next(item["expression"] for item in policy["spec"]["variables"] if item["name"] == "tenantRole")
-    assert "role/agent-delivery-tenant-secrets" in role
     assert "role/agent-runway-tenant-secrets" in role
-    assert " || " in role
+    assert "agent-delivery" not in role
     assert policy["spec"]["failurePolicy"] == "Fail"
     assert any("!variables.tenantRole" in item["expression"] and "variables.tenantNamespace" in item["expression"]
                for item in policy["spec"]["validations"])

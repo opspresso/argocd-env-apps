@@ -1,10 +1,9 @@
-# The admission policy that keeps the Delivery tenant secrets role inside its own Project namespace.
+# The admission policy that keeps the Runway tenant secrets role inside its own Project namespace.
 # argocd-env-projects charts/app creates the namespaces app-<project>-<env> and their SecretStores
 # (agent-platform docs/APP_DELIVERY.md); this policy guards every SecretStore in the cluster.
 global:
   delivery:
     tenantSecretsRoleArn: ""
-    runwayTenantSecretsRoleArn: ""
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
@@ -32,7 +31,7 @@ raw:
           - name: aws
             expression: "has(object.spec.provider) && has(object.spec.provider.aws) ? object.spec.provider.aws : null"
           - name: tenantRole
-            expression: "variables.aws != null && has(variables.aws.role) && (variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.delivery.tenantSecretsRoleArn }}'{{ if .Values.global.delivery.runwayTenantSecretsRoleArn }} || variables.aws.role == '{{ .Values.global.delivery.runwayTenantSecretsRoleArn }}'{{ end }})"
+            expression: "variables.aws != null && has(variables.aws.role) && (variables.aws.role == '{{ required "tenantSecretsRoleArn is required" .Values.global.delivery.tenantSecretsRoleArn }}')"
           - name: labels
             expression: "namespaceObject != null && has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
           - name: tenantNamespace
@@ -41,7 +40,7 @@ raw:
             expression: "variables.aws != null && has(variables.aws.sessionTags) ? variables.aws.sessionTags : []"
         validations:
           - expression: "!variables.tenantNamespace || variables.tenantRole"
-            message: Tenant SecretStores must use the AWS provider with the Delivery tenant secrets role.
+            message: Tenant SecretStores must use the AWS provider with the Runway tenant secrets role.
           - expression: >-
               !variables.tenantRole || (
                 variables.tenantNamespace &&
