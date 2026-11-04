@@ -197,26 +197,24 @@ raw:
                       value: "arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-secrets"
                     - name: app.routing.hosts[0]
                       value: '{% raw %}{{ if eq .path.basename "{% endraw %}{{app_delivery.primary_environment}}{% raw %}" }}{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ .path.basename }}{{ end }}{% endraw %}.{{app_delivery.domain}}'
+                    # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
+                    # the Application; its guard checks that these labels name this project and environment.
+                    - name: app.namespace.labels.opspresso\.com/delivery-project
+                      value: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
+                    - name: app.namespace.labels.opspresso\.com/delivery-env
+                      value: '{% raw %}{{ .path.basename }}{% endraw %}'
               # The namespaced resources (kro instances) that resource-sync writes; AppProject projects limits the kinds.
               - repoURL: https://github.com/opspresso/argocd-env-projects.git
                 targetRevision: HEAD
                 path: '{% raw %}{{ .path.path }}{% endraw %}'
                 directory:
                   include: resources.yaml
+            # No CreateNamespace: Argo CD never deletes a namespace that option made, so a removed Project left its
+            # app-<slug>-<env> namespace behind. charts/app renders the namespace with the tenant labels instead.
             syncPolicy:
               automated:
                 prune: true
                 selfHeal: true
-              syncOptions:
-                - CreateNamespace=true
-              # The Agent Runway tenant secrets policy accepts the SecretStore only in a namespace with these labels.
-              managedNamespaceMetadata:
-                labels:
-                  # Tenant Pods may not run privileged, share host namespaces or mount host paths.
-                  pod-security.kubernetes.io/enforce: baseline
-                  opspresso.com/delivery-tenant: "true"
-                  opspresso.com/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
-                  opspresso.com/delivery-env: '{% raw %}{{ .path.basename }}{% endraw %}'
 
     # One Application per dedicated chart resource: the postgres or valkey chart of opspresso/helm-charts at the version
     # in projects/<slug>/<env>/resources/<name>.yaml, with that file as its values. Project, environment and namespace come
