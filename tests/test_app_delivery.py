@@ -6,7 +6,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# Agent Runway DELIVERY_ENVIRONMENTS name rule (agent-platform docs/DELIVERY_V2.md D1).
+# Agent Runway RUNWAY_ENVIRONMENTS name rule (agent-platform docs/DELIVERY_V2.md D1).
 ENVIRONMENT_NAME = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 
 

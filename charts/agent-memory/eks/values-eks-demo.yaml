@@ -10,7 +10,6 @@ app:
   configmap:
     enabled: true
     data:
-      AWS_REGION: ap-northeast-2
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://memory.agrt.dev
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
@@ -50,7 +49,7 @@ app:
   externalSecrets:
     enabled: true
     data:
-    - key: /k8s/common/agent-memory/better-auth-secret
+    - key: /k8s/eks-demo/agent-memory/auth-secret
       name: AUTH_SECRET
     - key: /k8s/eks-demo/agent-memory/oidc-client-id
       name: OIDC_CLIENT_ID

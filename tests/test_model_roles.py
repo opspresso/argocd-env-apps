@@ -1,6 +1,7 @@
 """Model roles name Agent Models selections declared per cluster, never provider settings."""
 import json
 
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, UndefinedError
 import pytest
 import yaml
 
@@ -10,7 +11,7 @@ ROLE_ENV = {
     "agent-memory": {"embedding": "EMBEDDING_MODEL", "reranker": "RERANKER_MODEL",
                      "decision": "DECISION_MODEL", "dream": "DREAM_MODEL"},
     "agent-knowledge": {"embedding": "EMBEDDING_MODEL", "reranker": "RERANKER_MODEL",
-                     "extraction": "KNOWLEDGE_EXTRACTION_MODEL", "verification": "KNOWLEDGE_VERIFICATION_MODEL"},
+                     "extraction": "EXTRACTION_MODEL", "verification": "VERIFICATION_MODEL"},
 }
 
 
@@ -53,15 +54,20 @@ def test_studio_model_defaults_reach_the_process_without_provider_configuration(
 @pytest.mark.parametrize("platform", ["eks"])
 def test_forge_model_roles_have_one_config_source(platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
-    expected = env["agent_forge"].get("model_roles")
+    expected = env["agent_forge"]["model_roles"]
     config = resource("agent-forge", platform, "ConfigMap", "agent-forge")["data"]
     secret = resource("agent-forge", platform, "ExternalSecret", "agent-forge-external")
     secret_names = {item["secretKey"] for item in secret["spec"]["data"]}
-    if expected is None:
-        assert "FORGE_MODEL_CHANNELS" not in config
-        assert "FORGE_MODEL_CHANNELS" in secret_names
-    else:
-        assert json.loads(config["FORGE_MODEL_CHANNELS"]) == expected
-        assert "FORGE_MODEL_CHANNELS" not in secret_names
-        assert len({role["id"] for role in expected}) == len(expected)
-        assert all(set(role) == {"id", "runtime", "model", "protocol", "maxOutputTokens", "maxRequestsPerRun"} for role in expected)
+    assert json.loads(config["FORGE_MODEL_CHANNELS"]) == expected
+    assert "FORGE_MODEL_CHANNELS" not in secret_names
+    assert len({role["id"] for role in expected}) == len(expected)
+    assert all(set(role) == {"id", "runtime", "model", "protocol", "maxOutputTokens", "maxRequestsPerRun"} for role in expected)
+
+
+def test_forge_requires_declared_model_roles():
+    env = yaml.safe_load((ROOT / "env" / "eks-demo.yaml").read_text())
+    del env["agent_forge"]["model_roles"]
+    template = Environment(loader=FileSystemLoader(ROOT / "charts" / "agent-forge"),
+                           undefined=StrictUndefined).get_template("values-template.yaml.j2")
+    with pytest.raises(UndefinedError, match="model_roles"):
+        template.render(env)

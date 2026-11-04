@@ -23,7 +23,8 @@ def test_check_reports_missing_without_writes_or_fabricated_installation_ids(cap
         assert bootstrap.bootstrap("eks-demo", "ap-northeast-2") == 1
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
     output = capsys.readouterr().out
-    assert f"{PREFIX}/agent-forge/model-roles" in output
+    for name in bootstrap.STUDIO_PROVIDED:
+        assert f"{PREFIX}/agent-studio/{name}" in output
     for service in bootstrap.SERVICE_CLIENTS:
         assert f"{PREFIX}/{service}/oidc-client-id" in output
     assert "organization-id" not in output.replace(f"{PREFIX}/agent-forge/organization-id", "")
@@ -31,6 +32,9 @@ def test_check_reports_missing_without_writes_or_fabricated_installation_ids(cap
     assert f"{PREFIX}/agent-memory/organization-id" not in desired
     assert f"{PREFIX}/agent-knowledge/organization-id" not in desired
     assert f"{PREFIX}/agent-forge/model-roles" not in desired
+    # Agent services keep every parameter under the cluster prefix.
+    assert all(name.startswith(f"{PREFIX}/") for name in desired)
+    assert not any(f"{PREFIX}/agent-studio/{name}" in desired for name in bootstrap.STUDIO_PROVIDED)
     # Studio issues OIDC clients; random values would never match a registration.
     assert not any("oidc-client" in name for name in desired)
     assert not any(part in name for name in desired for part in ("delegat", "policy", "/credentials", "neo4j"))
@@ -47,9 +51,14 @@ def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(
     assert values[f"{PREFIX}/agent-platform/database-url"].endswith(":5432/agent_platform")
     assert "existing-password%3Aescaped%2F%40@" in values[f"{PREFIX}/agent-platform/database-url"]
     assert not any(entry["Name"].endswith("/agent-studio/postgres-password") for entry in writes)
-    key = values[f"{PREFIX}/agent-models/encryption-key"]
-    assert len(base64.b64decode(key, validate=True)) == 32 and base64.b64encode(base64.b64decode(key)).decode() == key
-    assert len(values[f"{PREFIX}/agent-models/auth-secret"]) >= 32
+    keys = [values[f"{PREFIX}/{service}/aes-encryption-key"] for service in ("agent-studio", "agent-models")]
+    for key in keys:
+        assert len(base64.b64decode(key, validate=True)) == 32 and base64.b64encode(base64.b64decode(key)).decode() == key
+    assert keys[0] != keys[1]
+    for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
+                 "agent-knowledge/auth-secret", "agent-forge/auth-secret", "agent-forge/git-credential-secret",
+                 "agent-models/auth-secret"):
+        assert len(values[f"{PREFIX}/{path}"]) >= 32
     output = capsys.readouterr().out
     assert all(value not in output for value in values.values())
 
@@ -96,9 +105,9 @@ def test_copy_from_moves_continuity_values_and_generates_only_cluster_specific_o
 
 
 def test_copy_from_refuses_a_target_value_that_differs_from_the_source():
-    existing = {**source_values(), f"{TARGET}/agent-models/encryption-key": "another-key"}
+    existing = {**source_values(), f"{TARGET}/agent-models/aes-encryption-key": "another-key"}
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
-        with pytest.raises(RuntimeError, match="agent-models/encryption-key"):
+        with pytest.raises(RuntimeError, match="agent-models/aes-encryption-key"):
             bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="eks-demo-a")
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
@@ -124,23 +133,6 @@ def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys
     assert writes[f"{TARGET}/delivery-pool/postgres-password"] != admin
     assert f"{TARGET}/agent-runway/oidc-client-id" in capsys.readouterr().out
     assert not any("oidc-client" in name for name in writes)
-
-
-def test_existing_delivery_credentials_must_be_copied_before_bootstrap():
-    existing = {f"{TARGET}/agent-delivery/auth-secret": "existing-secret"}
-    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
-        with pytest.raises(RuntimeError, match="copy_runway_parameters.py"):
-            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True)
-    assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
-
-
-def test_bootstrap_accepts_copied_delivery_credentials():
-    existing = {f"{TARGET}/agent-delivery/auth-secret": "existing-secret",
-                f"{TARGET}/agent-runway/auth-secret": "existing-secret"}
-    with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
-        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, delivery=True) == 0
-    writes = [call.kwargs["payload"]["Name"] for call in aws.call_args_list if call.args[2] == "put-parameter"]
-    assert f"{TARGET}/agent-runway/auth-secret" not in writes
 
 
 def test_clusters_without_delivery_get_no_delivery_parameters():

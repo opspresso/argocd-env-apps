@@ -49,7 +49,6 @@ delivery_pool:
 # Agent Studio
 agent_studio:
   service:
-    key: agentops
     name: Agent Studio
     logo: agent-studio
     copyright: © OpsPresso. All rights reserved.
@@ -106,8 +105,6 @@ agent_knowledge:
 
 agent_forge:
   hostname: forge.agrt.dev
-  allowed_hosts:
-  - forge.agrt.dev
   # Runtime channels contain only Models selection IDs. Saved profiles choose their own model.
   model_roles:
   - {id: openrouter/minimax-m3.1-flash, runtime: opencode, model: openrouter/minimax-m3.1-flash, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}
@@ -175,7 +172,7 @@ rovr:
 app_delivery:
   enabled: true
   domain: apps.rovr.dev
-  # The ordered environment profile. Keep it equal to Agent Runway's DELIVERY_ENVIRONMENTS (argocd-env-apps
+  # The ordered environment profile. Keep it equal to Agent Runway's RUNWAY_ENVIRONMENTS (argocd-env-apps
   # agent-runway). An environment missing here gets no Application. Removing an environment deletes the Applications
   # of that environment, and their resources finalizer deletes every app and RdsPostgres in it: RDS keeps only its
   # final snapshot. Before adding an environment, check that no Project slug ends with -<environment>

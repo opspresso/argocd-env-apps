@@ -92,6 +92,7 @@ def test_application_secrets_follow_a_new_cluster_name(chart):
     template = Environment(loader=FileSystemLoader(ROOT / "charts" / chart)).get_template("values-template.yaml.j2")
     generated = template.render(context)
     assert "/k8s/eks-demo/" not in generated
+    assert "/k8s/common/" not in generated
     assert "/k8s/eks-other/agent-platform/database-url" in generated
 
 

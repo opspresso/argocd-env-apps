@@ -100,9 +100,9 @@ DREAM_EVAL_LIVE=1 DREAM_MODEL=openrouter/gpt-6-luna \
 | --- | --- | --- |
 | Studio 공통 역할·라우팅 | `agent_studio.model_usage` | `MODEL_USAGE_DEFAULTS` JSON. 저장된 override → 배포 기본값 → 미설정 |
 | Memory 역할 | `agent_memory.models` | `EMBEDDING_MODEL`, `RERANKER_MODEL`, `DECISION_MODEL`, `DREAM_MODEL`. 저장된 override가 우선 |
-| Knowledge 검색·추출·검증 | `agent_knowledge.models` | `EMBEDDING_MODEL`, `RERANKER_MODEL`, `KNOWLEDGE_EXTRACTION_MODEL`, `KNOWLEDGE_VERIFICATION_MODEL`. 저장된 override가 우선 |
+| Knowledge 검색·추출·검증 | `agent_knowledge.models` | `EMBEDDING_MODEL`, `RERANKER_MODEL`, `EXTRACTION_MODEL`, `VERIFICATION_MODEL`. 저장된 override가 우선 |
 | Knowledge 오디오 처리 옵션 | `agent_knowledge.models.transcription`, `summary` | `AUDIO_PROCESSING_OPTIONS`. 모델별 처리 옵션이며 실제 작업 모델 선택과 별개 |
-| Forge 런타임 채널 | `agent_forge.model_roles` | ConfigMap의 `FORGE_MODEL_CHANNELS`. 선언이 없는 설치만 기존 SSM `model-roles` 사용 |
+| Forge 런타임 채널 | `agent_forge.model_roles` | ConfigMap의 `FORGE_MODEL_CHANNELS`. 모든 env가 선언해야 하며 역할이 없으면 `[]` |
 | Agent별 모델·이미지 모델·자동 선택 | Studio Agent 설정 | 소유자가 저장. 배포 기본값으로 기존 Agent를 자동 덮어쓰지 않음 |
 | Forge 프로필·Knowledge 오디오 프로필 | 각 서비스의 프로필 | 소유자가 모델 선택을 저장. 접수한 작업과 기존 Workspace snapshot은 유지 |
 
