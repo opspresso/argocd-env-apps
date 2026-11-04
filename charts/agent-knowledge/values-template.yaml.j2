@@ -27,8 +27,6 @@ app:
       AWS_REGION: {{aws_region}}
       DATABASE_POOL_SIZE: '4'
       DATABASE_QUEUE_POOL_SIZE: '2'
-      # AI_ADMISSION_POOL_SIZE and KNOWLEDGE_*_MODEL stay until every running Knowledge release reads the new names.
-      AI_ADMISSION_POOL_SIZE: '9'
       DATABASE_ADMISSION_POOL_SIZE: '9'
       AUTH_BASE_URL: https://{{agent_knowledge.hostname}}
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
@@ -46,7 +44,7 @@ app:
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'
 {%- set models = agent_knowledge.models | default({}) %}
-{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('extraction', 'KNOWLEDGE_EXTRACTION_MODEL'), ('extraction', 'EXTRACTION_MODEL'), ('verification', 'KNOWLEDGE_VERIFICATION_MODEL'), ('verification', 'VERIFICATION_MODEL')] if models[key] is defined %}
+{%- for key, name in [('embedding', 'EMBEDDING_MODEL'), ('reranker', 'RERANKER_MODEL'), ('extraction', 'EXTRACTION_MODEL'), ('verification', 'VERIFICATION_MODEL')] if models[key] is defined %}
       {{name}}: {{models[key] | tojson}}
 {%- endfor %}
 {%- set audio = [] %}
