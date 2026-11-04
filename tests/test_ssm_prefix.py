@@ -14,7 +14,7 @@ from workload_policy import policy_errors
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_CHARTS = ("minio", "postgresql")
+DATA_CHARTS = ("postgresql",)
 ENV_FILES = sorted((ROOT / "env").glob("*.yaml"))
 
 
@@ -41,7 +41,7 @@ def test_shared_values_do_not_contain_cluster_specific_ssm_defaults():
 
 
 @pytest.mark.parametrize("chart", DATA_CHARTS)
-def test_missing_cluster_values_fail_instead_of_using_k3s(chart):
+def test_missing_cluster_values_fail_instead_of_using_a_default(chart):
     result = helm(chart)
     assert result.returncode != 0
     assert "ssmPrefix is required" in result.stderr
@@ -87,15 +87,15 @@ def test_data_charts_render_only_the_selected_clusters_secrets(chart, env_file, 
 
 @pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_application_secrets_follow_a_new_cluster_name(chart):
-    context = yaml.safe_load((ROOT / "env/k3s-demo.yaml").read_text())
-    context["cluster"] = "k3s-other"
+    context = yaml.safe_load((ROOT / "env/eks-demo.yaml").read_text())
+    context["cluster"] = "eks-other"
     template = Environment(loader=FileSystemLoader(ROOT / "charts" / chart)).get_template("values-template.yaml.j2")
     generated = template.render(context)
-    assert "/k8s/k3s-demo/" not in generated
-    assert "/k8s/k3s-other/agent-platform/database-url" in generated
+    assert "/k8s/eks-demo/" not in generated
+    assert "/k8s/eks-other/agent-platform/database-url" in generated
 
 
-@pytest.mark.parametrize("cluster", ["eks-demo", "k3s-demo", "local-demo"])
+@pytest.mark.parametrize("cluster", ["eks-demo", "eks-demo-a", "local-demo"])
 @pytest.mark.parametrize("scope", ["root", "global"])
 def test_validator_rejects_wrong_prefix_before_helm(cluster, scope, tmp_path):
     chart = tmp_path / "chart"
@@ -111,11 +111,11 @@ def test_validator_rejects_wrong_prefix_before_helm(cluster, scope, tmp_path):
 
 
 def test_validator_accepts_generated_cluster_values_without_a_label(tmp_path):
-    (tmp_path / "k3s").mkdir()
+    (tmp_path / "eks").mkdir()
     (tmp_path / "values.yaml").write_text("{}\n")
-    (tmp_path / "k3s/values-k3s-demo.yaml").write_text("ssmPrefix: /k8s/k3s-demo\n")
+    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("ssmPrefix: /k8s/eks-demo-a\n")
     target = {"name": "data", "namespace": "default", "chart": str(tmp_path),
-              "appset": "apps/k3s/data.yaml", "value_files": ["values.yaml", "k3s/values-k3s-demo.yaml"]}
+              "appset": "apps/eks/data.yaml", "value_files": ["values.yaml", "eks/values-eks-demo-a.yaml"]}
     result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
     with patch.object(validate.subprocess, "run", return_value=result) as run:
         assert validate.render(target, None) is None
@@ -123,10 +123,10 @@ def test_validator_accepts_generated_cluster_values_without_a_label(tmp_path):
 
 
 def test_validator_rejects_a_cluster_file_for_another_target(tmp_path):
-    (tmp_path / "k3s").mkdir()
-    (tmp_path / "k3s/values-k3s-demo.yaml").write_text("ssmPrefix: /k8s/eks-demo\n")
+    (tmp_path / "eks").mkdir()
+    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("ssmPrefix: /k8s/eks-demo\n")
     target = {"name": "data", "namespace": "default", "cluster": "eks-demo", "chart": str(tmp_path),
-              "appset": "apps/eks/data.yaml", "value_files": ["k3s/values-k3s-demo.yaml"]}
+              "appset": "apps/eks/data.yaml", "value_files": ["eks/values-eks-demo-a.yaml"]}
     with patch.object(validate.subprocess, "run") as run:
         assert validate.render(target, None) == "cluster values must match the target cluster: eks-demo"
     run.assert_not_called()

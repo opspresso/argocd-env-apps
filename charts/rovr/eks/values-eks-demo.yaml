@@ -45,11 +45,8 @@ app:
     - rovr.dev
     httpRoute:
       enabled: true
-
-
   podLabels:
     sidecar.istio.io/inject: "true"
-
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://rovr.dev
   serviceMonitor:

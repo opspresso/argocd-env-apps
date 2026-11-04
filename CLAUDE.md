@@ -9,8 +9,7 @@
 
 ```
 apps-eks.yaml                       # EKS용 App of Apps
-apps-k3s.yaml                       # k3s용 App of Apps
-apps/{eks,k3s}/                     # 플랫폼별 Application/ApplicationSet
+apps/eks/                           # EKS ApplicationSet
 charts/<project>/                  # wrapper Helm chart
 env/<cluster>.yaml                 # 클러스터별 변수. git files generator·Jinja2 입력
 scripts/gen_values.py              # 템플릿 × env → 플랫폼별 chart values
@@ -84,7 +83,7 @@ charts/<project>/
   첫 배포 때 자동 생성된다.
 - `prod`는 기본적으로 브랜치를 만들어 PR을 올린다. `auto_merge: true` (`TG_AUTO_MERGE=true`
   또는 `--auto-merge`)면 prod도 `main`에 바로 push한다. 나머지 phase는 항상 직접 push한다.
-- `eks-demo`는 `phase: prod`, `k3s-demo`는 `phase: alpha`를 사용한다. 운영 클러스터 `eks-demo`는 `values-prod.yaml`을 읽고,
+- `eks-demo`는 `phase: prod`를 사용한다. 운영 클러스터 `eks-demo`는 `values-prod.yaml`을 읽고,
   `values-alpha.yaml`을 읽는 배포 클러스터는 없다.
   EKS ApplicationSet이 읽는 앱과 MCP chart는 `values-prod.yaml`을 제공해야 한다.
   추가 EKS env의 phase는 각 `env/<cluster>.yaml`에서 선택한다.
@@ -95,7 +94,7 @@ charts/<project>/
 - 애플리케이션 chart 는 `opspresso/helm-charts` 의 `app` chart 를 dependency 로 쓴다.
   `app` chart 버전을 올릴 때 wrapper `version` 도 함께 올린다.
 - wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → `raw` 순서로 선택하며,
-  필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL·MinIO는 공식 또는 주요
+  필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL은 공식 또는 주요
   배포처의 전용 차트를 사용한다. Studio ticker·Knowledge worker는 `app.workloads`, 추가 리소스는 `app.raw`로 관리한다.
 - 한 chart 를 두 번 쓰거나 이름을 바꿔 붙일 때는 `alias` 로 values 키를 정한다
   (예: postgresql 의 `raw` → `bootstrap`).
@@ -114,33 +113,30 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 
 - 파일 이름이 클러스터 이름이고, 안의 `cluster` 필드와 일치해야 한다 (`{{cluster}}` 로 치환됨).
 - 클러스터별 SSM 경로는 템플릿의 `{{cluster}}`에서 만든다. 공통 `values.yaml`에 특정 클러스터의 경로를 기본값으로 두지 않는다.
-- `env` 는 플랫폼(`eks`, `k3s`, `local`)이며 렌더 출력 디렉터리이자 valueFiles 경로가 된다 (`{{env}}/values-{{cluster}}.yaml`).
+- `env` 는 플랫폼(`eks`, `local`)이며 렌더 출력 디렉터리이자 valueFiles 경로가 된다 (`{{env}}/values-{{cluster}}.yaml`).
   `scripts/gen_values.py`는 필수 템플릿 변수 누락, 지원하지 않는 env, cluster와 파일명 불일치를 거부한다.
   `resources`·`autoscaling`은 YAML boolean이어야 한다.
 - `replicas` 와 `autoscaling` 은 애플리케이션 템플릿의 `app.replicaCount` 및
-  `app.autoscaling.enabled`의 원천이다. k3s·local은 각각 `1`, `false`를 사용한다.
+  `app.autoscaling.enabled`의 원천이다. local은 `replicas: 1`, `autoscaling: false`를 사용한다.
 - `agent_studio_maintenance`는 Agent Studio만 위한 boolean이다. `true`이면 해당 클러스터의
   앱과 ticker를 0개로 내리고 HPA를 끈다.
   다른 앱과 PostgreSQL은 건드리지 않는다. 기본값은 `false`다.
   Memory·Knowledge·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
-- `storage_gc_maintenance`는 k3s 선언에서 네 Agent maintenance가 모두 `true`이고 `minio.console: false`일 때만 허용한다.
-  MinIO 서버·PVC는 유지하고 S3 ingress를 닫는다. [중지·재개 절차](docs/storage-gc-maintenance.md)를 따른다.
-- `metrics.backend`는 수집 방식을 정한다. EKS는 `prometheus`, k3s 선언은 Alloy가 직접 수집하는
-  `grafana-cloud`를 사용한다. ServiceMonitor는 `prometheus`에서만 생성한다.
+- `metrics.backend`는 `prometheus`만 허용한다. ServiceMonitor는 `prometheus`에서만 생성한다.
 - `resources` 는 workload의 requests/limits 사용 여부를 제어하는 env 원천값이다.
   `true`면 chart 기본 requests/limits를 유지하고, `false`면 템플릿이 resource block을
-  제거한다. 공통 chart는 EKS 기본값이며 k3s·local은 반드시 `resources: false`를 사용한다.
+  제거한다. 공통 chart는 EKS 기본값이며 local은 반드시 `resources: false`를 사용한다.
   worker·초기화 컨테이너·CronJob에도 requests/limits를 두지 않고 HPA·VPA·KEDA를 생성하지 않는다.
   PVC의 storage 요청은 유지하고 `scripts/validate.py`의 렌더 결과 검사로 이 규칙을 검증한다.
 - `phase` 는 그 클러스터가 읽을 `values-<phase>.yaml` 을 정한다.
 - env 파일을 추가하면 `scripts/build.sh` 가 모든 chart 에 대해 렌더 결과를 새로 만든다.
 
-## apps/{eks,k3s,local}/<project>.yaml
+## apps/eks/<project>.yaml
 
-- EKS는 `kind: ApplicationSet` + git files generator로 `env/*.yaml`을 읽는다. k3s 선언은 단일 클러스터의 `Application`을 사용한다.
+- EKS는 `kind: ApplicationSet` + git files generator로 `env/*.yaml`을 읽는다.
 - 운영 클러스터는 EKS `eks-demo`(phase `prod`)이며 같은 클러스터의 Argo CD가 `apps-eks.yaml`을 동기화한다.
-  `eks-demo-a`·`eks-demo-b`는 향후 서비스 클러스터 선언이다. k3s 선언(`apps-k3s.yaml`, `apps/k3s/`, `env/k3s-demo.yaml`, `charts/*/k3s/`)은 저장소에 남아 있지만 어느 클러스터에도 배포하지 않는다.
-  배포하지 않는 선언의 렌더 검증을 실제 배포로 보고하지 않는다. k3s 선언을 삭제하지 않는다.
+  `eks-demo-a`·`eks-demo-b`는 향후 서비스 클러스터 선언이다.
+  배포하지 않는 선언의 렌더 검증을 실제 배포로 보고하지 않는다.
 - 배포할 클러스터는 `generators.git.files` 의 주석을 풀어 고른다.
 - Application 이름은 `<project>-{{cluster}}`.
 - label `opspresso.com/group: apps`, `opspresso.com/cluster: {{cluster}}` 를 유지한다.

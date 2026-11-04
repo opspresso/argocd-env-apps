@@ -68,7 +68,7 @@ def database_connections(platform):
     return connections
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_database_budget_covers_application_growth_and_rollout_overlap(platform):
     connections = database_connections(platform)
     total = 2 * sum(connections.values())
@@ -77,7 +77,7 @@ def test_database_budget_covers_application_growth_and_rollout_overlap(platform)
     assert capacity >= total + OPERATIONS_RESERVE, (platform, connections, total, capacity)
 
 
-@pytest.mark.parametrize("platform,chart", [(platform, chart) for platform in ("eks", "k3s")
+@pytest.mark.parametrize("platform,chart", [(platform, chart) for platform in ("eks",)
                                            for chart in charts_for(platform) + (("rovr",) if rovr_declared(platform) else ())])
 def test_rollouts_never_exceed_the_two_generations_in_the_budget(chart, platform):
     """The budget doubles every process; no rollout may surge beyond its own replica count."""

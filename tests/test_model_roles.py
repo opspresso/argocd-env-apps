@@ -14,7 +14,7 @@ ROLE_ENV = {
 }
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", sorted(ROLE_ENV))
 def test_declared_roles_reach_the_service_and_undeclared_roles_stay_unset(chart, platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
@@ -24,7 +24,7 @@ def test_declared_roles_reach_the_service_and_undeclared_roles_stay_unset(chart,
         assert config.get(name) == models.get(key)
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_knowledge_audio_options_match_its_strict_schema(platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
     models = env["agent_knowledge"].get("models", {})
@@ -38,7 +38,7 @@ def test_knowledge_audio_options_match_its_strict_schema(platform):
     assert len({option["id"] for option in options}) == len(options)
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_model_defaults_reach_the_process_without_provider_configuration(platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
     expected = env["agent_studio"].get("model_usage")
@@ -50,7 +50,7 @@ def test_studio_model_defaults_reach_the_process_without_provider_configuration(
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_forge_model_roles_have_one_config_source(platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
     expected = env["agent_forge"].get("model_roles")

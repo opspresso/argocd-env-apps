@@ -31,7 +31,7 @@ def configured(platform):
     return context
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_enterprise_oidc_renders_to_real_manifests(platform):
     context = configured(platform)
     validate_agent_oidc(context)
@@ -57,7 +57,7 @@ def test_studio_enterprise_oidc_renders_to_real_manifests(platform):
 
 
 @pytest.mark.parametrize("service", CONSUMERS)
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_consumers_sign_in_only_through_studio_with_their_own_client(service, platform):
     chart = f"agent-{service}"
     config = resource(chart, platform, "ConfigMap", chart)["data"]
@@ -83,14 +83,14 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
 @pytest.mark.parametrize("key,value", [("oidc", {"issuer": "https://sso.example.test"}), ("google_sign_in", False),
                                         ("sign_in_domains", ["example.test"])])
 def test_consumer_external_sign_in_settings_are_rejected_before_generation(service, key, value):
-    context = yaml.safe_load((ROOT / "env" / "k3s-demo.yaml").read_text())
+    context = yaml.safe_load((ROOT / "env" / "eks-demo.yaml").read_text())
     context[f"agent_{service}"][key] = value
     with pytest.raises(ValueError, match="Studio OIDC"):
         validate_agent_oidc(context)
 
 
 def test_incomplete_studio_oidc_configuration_is_rejected_before_generation():
-    context = configured("k3s")
+    context = configured("eks")
     for changed in [{}, {"issuer": "https://sso.example.test"}, "not a mapping"]:
         invalid = copy.deepcopy(context)
         invalid["agent_studio"]["oidc"] = changed

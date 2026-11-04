@@ -6,7 +6,7 @@ from test_agent_platform import ROOT, manifests, resource
 from test_agent_memory_maintenance import render
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_models_readiness_native_identity_and_consumer_network(platform):
     config = resource("agent-models", platform, "ConfigMap", "agent-models")["data"]
     assert config["AUTH_BASE_URL"] == "https://models.agrt.dev"
@@ -36,12 +36,12 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
     ingress = resource("agent-models", platform, "NetworkPolicy", "agent-models")["spec"]["ingress"][0]
     assert ingress["ports"] == [{"protocol": "TCP", "port": 3400}]
     peers = {peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in ingress["from"] if "namespaceSelector" in peer}
-    assert peers == {"agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "kube-system" if platform == "k3s" else "istio-system"}
+    assert peers == {"agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "istio-system"}
     assert not any(doc["kind"] == "PersistentVolumeClaim" for doc in manifests("agent-models", platform))
     assert resource("agent-models", platform, "HTTPRoute", "agent-models")["spec"]["hostnames"] == ["models.agrt.dev"]
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_models_maintenance_stops_dispatch_without_removing_configuration(platform, tmp_path):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
     env["agent_models_maintenance"] = True

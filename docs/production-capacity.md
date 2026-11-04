@@ -2,7 +2,6 @@
 
 운영 클러스터는 EKS `eks-demo`(Auto Mode, phase `prod`)입니다. 기준 NodePool은 Graviton arm64 `m7g.xlarge` 2대이고,
 동적 NodePool `general`과 `workspaces`가 추가 용량을 만듭니다. 실제 사용량은 배포 때 다시 확인합니다.
-배포하지 않는 k3s 선언에는 compute requests/limits나 HPA를 두지 않고 PVC 용량과 Forge Pod/Job 수 제한만 유지합니다.
 
 ## EKS 워크로드
 
@@ -34,7 +33,7 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 
 ## PostgreSQL
 
-여섯 서비스는 같은 `agent_platform` DB를 사용합니다. k3s의 미배포 선언에는 Runway가 없습니다.
+여섯 서비스는 같은 `agent_platform` DB를 사용합니다.
 풀은 생성 여부보다 실제 동시 접속 가능 상한으로 계산합니다. 각 프로세스의 명시된 풀 크기는 다음과 같습니다.
 
 | 프로세스 | query | queue | readiness | 잠금·보조 | AI admission | 합계 |
@@ -44,7 +43,7 @@ rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 �
 | Knowledge web | 4 | 2 | 1 | maintenance 2 + OIDC 2 | 9 | 20 |
 | Knowledge worker | 4 | 2 | 0 | maintenance 2 + OIDC 2 | 9 | 19 |
 | Forge | 12 | 0 | 0 | 별도 pool 없음 | 0 | 12 |
-| Models (k3s / EKS) | 4 / 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 10 / 14 |
+| Models | 8 | 0 | 1 | OIDC 4 + lease 1 | 0 | 14 |
 | Runway (EKS) | 4 | 0 | 1 | OIDC 4 | 0 | 9 |
 | rovr (EKS) | 10 | 0 | 0 | leader lock은 query pool 공유 | 0 | 10 |
 
@@ -56,7 +55,7 @@ OIDC refresh는 같은 pool로 lease 행을 갱신하고 외부 응답을 기다
 Models readiness는 전용 연결 1개를 사용하므로 query pool이 포화돼도 probe가 연결을 기다리지 않습니다. lease 갱신도 전용 연결 1개를 사용합니다.
 
 Models의 DB 작업은 사용량 예약·정산과 세션의 짧은 transaction이며 공급자 호출 동안 연결을 잡지 않습니다.
-그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 k3s 4, EKS 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
+그래서 `DATABASE_POOL_SIZE`를 기본 16 대신 8로 주입합니다. 연결 대기는 `connectionTimeoutMillis`
 5초 뒤 실패하므로 pool을 줄인 뒤 연결 대기 시간과 오류를 관찰합니다.
 
 Knowledge AI admission pool9는 요청용8+정리/정책제어1 연결입니다. 전체8·batch4 제한은
@@ -65,7 +64,6 @@ batch4가 local admission 슬롯을 모두 점유할 수 있으므로 총량·ba
 
 | 환경 | 정상 최대 세대 | 2세대 rollout | 운영 여유 최소 | PostgreSQL 한도 |
 | --- | ---: | ---: | ---: | ---: |
-| k3s 선언(미배포) | `Studio9+Memory9+Knowledge(20+19)+Forge12+Models10 = 79` | 158 | 20 | 250 |
 | EKS `eks-demo` | `Studio6×9+Memory6×9+Knowledge(2×20+19)+Forge2×12+Models2×14+Delivery2×9+rovr2×10 = 257` | 514 | 20 | 550 |
 
 웹 Deployment는 `maxSurge: 100%`, `maxUnavailable: 0`이며 worker의 surge는 replica 수 이하입니다.

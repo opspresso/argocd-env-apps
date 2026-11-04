@@ -22,7 +22,7 @@ def render(chart, env, tmp_path):
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("maintenance", [False, True])
 def test_memory_maintenance_stops_only_memory_web(platform, maintenance, tmp_path):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())

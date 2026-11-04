@@ -33,7 +33,7 @@ fi
 GENERATED_VALUES=()
 shopt -s nullglob
 # find charts
-for PLATFORM in eks k3s local; do
+for PLATFORM in eks local; do
   for CHART in charts/*/; do
     if [ -f "${CHART}/values-template.yaml.j2" ] && [ -d "${CHART}/${PLATFORM}" ]; then
       echo

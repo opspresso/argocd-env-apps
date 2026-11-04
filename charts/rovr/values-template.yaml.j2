@@ -38,7 +38,7 @@ app:
     storageClass: {{sandbox.storage_class | default('') | tojson}}
     nodePool: {{sandbox.node_pool | default('') | tojson}}
     dnsCidrs:
-      - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
+      - 172.20.0.10/32
     allowPublic: {{sandbox.allow_public | default(true)}}
 {% if sandbox.cache is defined %}
     cache:
@@ -51,15 +51,8 @@ app:
     - {{rovr.hostname}}
     httpRoute:
       enabled: true
-{% if env == 'k3s' %}
-      parentRefs:
-        - name: traefik-gateway
-          namespace: traefik-gateway
-{% endif %}
-{% if env != 'k3s' %}
   podLabels:
     sidecar.istio.io/inject: "true"
-{% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{rovr.hostname}}
   serviceMonitor:

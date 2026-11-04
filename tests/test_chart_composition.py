@@ -10,7 +10,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def render(chart, platform="k3s", *settings):
+def render(chart, platform="eks", *settings):
     path = ROOT / "charts" / chart
     phase = "prod" if platform == "eks" else "alpha"
     command = ["helm", "template", "custom-release", str(path), "-n", "custom-namespace",
@@ -26,7 +26,7 @@ def render(chart, platform="k3s", *settings):
     return docs
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_runs_only_web_and_ticker_with_stable_identity(platform):
     docs = render("agent-studio", platform, "app.image.tag=v9.8.7")
     deployments = {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "Deployment"}
@@ -45,7 +45,7 @@ def test_studio_runs_only_web_and_ticker_with_stable_identity(platform):
 
 @pytest.mark.parametrize("backend", ["docker", "kubernetes"])
 def test_retired_settings_cannot_restore_a_studio_executor(backend):
-    docs = render("agent-studio", "k3s", f"app.workloads.workspaceWorker.backend={backend}",
+    docs = render("agent-studio", "eks", f"app.workloads.workspaceWorker.backend={backend}",
                   "app.workloads.workspaceWorker.legacyDocker.enabled=true", "app.legacyExecution.preserve=true")
     containers = [container for doc in docs if doc["kind"] == "Deployment"
                   for container in doc["spec"]["template"]["spec"]["containers"]]
@@ -55,7 +55,7 @@ def test_retired_settings_cannot_restore_a_studio_executor(backend):
 
 def test_config_changes_restart_studio_web():
     def checksum(value):
-        docs = render("agent-studio", "k3s", f"app.configmap.data.FORGE_URL={value}")
+        docs = render("agent-studio", "eks", f"app.configmap.data.FORGE_URL={value}")
         web = next(doc for doc in docs if doc["kind"] == "Deployment" and doc["metadata"]["name"] == "agent-studio")
         return web["spec"]["template"]["metadata"]["annotations"]["checksum/config"]
 
@@ -64,4 +64,4 @@ def test_config_changes_restart_studio_web():
 
 def test_argocd_network_policy_can_be_disabled():
     assert any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd"))
-    assert not any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd", "k3s", "networkPolicy.enabled=false"))
+    assert not any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd", "eks", "networkPolicy.enabled=false"))

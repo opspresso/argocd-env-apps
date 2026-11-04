@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 import bootstrap_agent_platform as bootstrap
 
-PREFIX = "/k8s/k3s-demo"
+PREFIX = "/k8s/eks-demo"
 
 
 def fake_ssm(existing):
@@ -20,7 +20,7 @@ def fake_ssm(existing):
 
 def test_check_reports_missing_without_writes_or_fabricated_installation_ids(capsys):
     with patch.object(bootstrap, "aws", side_effect=fake_ssm({})) as aws:
-        assert bootstrap.bootstrap("k3s-demo", "ap-northeast-2") == 1
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2") == 1
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
     output = capsys.readouterr().out
     assert f"{PREFIX}/agent-forge/model-roles" in output
@@ -40,7 +40,7 @@ def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(
     password = "existing-password:escaped/@"
     existing = {f"{PREFIX}/agent-studio/postgres-password": password}
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
-        assert bootstrap.bootstrap("k3s-demo", "ap-northeast-2", apply=True) == 0
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True) == 0
     writes = [call.kwargs["payload"] for call in aws.call_args_list if call.args[2] == "put-parameter"]
     assert all(entry["Type"] == "SecureString" and entry["Overwrite"] is False for entry in writes)
     values = {**existing, **{entry["Name"]: entry["Value"] for entry in writes}}
@@ -57,7 +57,7 @@ def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(
 def test_existing_parameters_are_never_rotated():
     values = bootstrap.parameter_values(PREFIX, {})
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(values)) as aws:
-        assert bootstrap.bootstrap("k3s-demo", "ap-northeast-2", apply=True) == 0
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True) == 0
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 
@@ -65,11 +65,11 @@ def test_inconsistent_existing_database_url_fails_before_any_write():
     existing = {f"{PREFIX}/agent-platform/database-url": "inconsistent"}
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
         with pytest.raises(RuntimeError, match="Inconsistent connection parameters"):
-            bootstrap.bootstrap("k3s-demo", "ap-northeast-2", apply=True)
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True)
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 
-SOURCE = "/k8s/k3s-demo"
+SOURCE = "/k8s/eks-demo-a"
 TARGET = "/k8s/eks-demo"
 
 
@@ -80,7 +80,7 @@ def source_values():
 def test_copy_from_moves_continuity_values_and_generates_only_cluster_specific_ones(capsys):
     existing = {**source_values(), f"{TARGET}/agent-studio/postgres-password": "target-password"}
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
-        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo") == 0
+        assert bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="eks-demo-a") == 0
     writes = {call.kwargs["payload"]["Name"]: call.kwargs["payload"] for call in aws.call_args_list
               if call.args[2] == "put-parameter"}
     for path in bootstrap.CONTINUITY:
@@ -99,7 +99,7 @@ def test_copy_from_refuses_a_target_value_that_differs_from_the_source():
     existing = {**source_values(), f"{TARGET}/agent-models/encryption-key": "another-key"}
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
         with pytest.raises(RuntimeError, match="agent-models/encryption-key"):
-            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo")
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="eks-demo-a")
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 
@@ -108,7 +108,7 @@ def test_copy_from_requires_every_source_value_before_any_write():
     del existing[f"{SOURCE}/agent-forge/organization-id"]
     with patch.object(bootstrap, "aws", side_effect=fake_ssm(existing)) as aws:
         with pytest.raises(RuntimeError, match="agent-forge/organization-id"):
-            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="k3s-demo")
+            bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="eks-demo-a")
     assert all(call.args[2] == "get-parameters" for call in aws.call_args_list)
 
 

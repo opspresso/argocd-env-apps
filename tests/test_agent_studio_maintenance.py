@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHART = ROOT / "charts" / "agent-studio"
 
 
-@pytest.mark.parametrize("platform", ["k3s", "eks"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_maintenance_stops_studio_writers_without_removing_dependencies(platform, tmp_path):
     if not list((CHART / "charts").glob("*.tgz")):
         pytest.skip("Run helm dependency update charts/agent-studio")

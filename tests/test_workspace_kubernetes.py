@@ -20,7 +20,7 @@ def render(platform, *overrides):
     return [item for item in yaml.safe_load_all(result.stdout) if item]
 
 
-@pytest.mark.parametrize("platform,max_pods", [("eks", "32"), ("k3s", "2")])
+@pytest.mark.parametrize("platform,max_pods", [("eks", "32")])
 def test_forge_isolation_permissions_and_total_capacity(platform, max_pods):
     docs = render(platform)
     namespace = "agent-forge-workspaces"
@@ -51,7 +51,7 @@ def test_forge_isolation_permissions_and_total_capacity(platform, max_pods):
     assert not any(item["kind"] == "ClusterRoleBinding" for item in docs)
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_gateway_and_policy_use_the_same_application_port(platform):
     docs = render(platform, "--set", "app.fullnameOverride=forge-gateway-fixture", "--set", "app.service.port=3103", "--set", "app.service.targetPort=3103")
     service = next(item for item in docs if item["kind"] == "Service" and item["metadata"]["name"] == "forge-gateway-fixture")
@@ -70,7 +70,7 @@ def test_sandbox_configuration_restarts_controller(setting):
     assert checksum(render("eks")) != checksum(render("eks", "--set", "app." + setting))
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_has_no_execution_resources(platform):
     from test_agent_platform import manifests
     docs = manifests("agent-studio", platform)

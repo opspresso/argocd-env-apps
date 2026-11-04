@@ -11,10 +11,6 @@ app:
     enabled: {{false if maintenance else autoscaling}}
   image:
     repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-studio
-{% if env == 'k3s' %}
-  imagePullSecrets:
-    - name: ecr-registry
-{% endif %}
 {% if not resources %}
   resources: null
 {% endif %}
@@ -46,20 +42,13 @@ app:
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       # PUBLIC_BASE_URL: https://{{agent_studio.hostname}}
       S3_BUCKET_NAME: agent-studio-static
-{% if env == 'k3s' %}
-      S3_ENDPOINT: http://minio.agent-studio.svc.cluster.local:9000
-{% endif %}
       ARTIFACT_ACCESS_MODE: proxied
       CATALOG_ENABLED: 'true'
       SLACK_LOADING_INDICATOR: ':loading:'
       TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
       EMBEDDING_DIM: native
       CATALOG_MIN_SCORE: '0.2'
-{% if env == 'k3s' %}
-      RERANKER_MIN_SCORE: '0.01'
-{% else %}
       RERANKER_MIN_SCORE: '0.05'
-{% endif %}
       UNKNOWN_MODEL_POLICY: allow
       # Agent Models owns provider connections, credentials, selections and usage.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
@@ -94,15 +83,8 @@ app:
 {%- endfor %}
     httpRoute:
       enabled: true
-{% if env == 'k3s' %}
-      parentRefs:
-        - name: traefik-gateway
-          namespace: traefik-gateway
-{% endif %}
-{% if env != 'k3s' %}
   podLabels:
     sidecar.istio.io/inject: "true"
-{% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_studio.hostname}}
 
@@ -136,12 +118,6 @@ app:
       name: SCHEDULE_SCAN_TOKEN
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
-{% if env == 'k3s' %}
-    - key: /k8s/{{cluster}}/agent-studio/minio-root-user
-      name: S3_ACCESS_KEY_ID
-    - key: /k8s/{{cluster}}/agent-studio/minio-root-password
-      name: S3_SECRET_ACCESS_KEY
-{% endif %}
     - key: /k8s/{{cluster}}/agent-studio/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
     - key: /k8s/{{cluster}}/agent-forge/organization-id
@@ -154,16 +130,10 @@ app:
   ingressPeers:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
-{% if env == 'k3s' %}
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: traefik
-          app.kubernetes.io/instance: traefik-kube-system
-{% endif %}
+          kubernetes.io/metadata.name: istio-system
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'addon-alloy' if env == 'k3s' else 'addon-prometheus'}}
+          kubernetes.io/metadata.name: addon-prometheus
   registry:
     region: {{aws_region}}
   workloads:

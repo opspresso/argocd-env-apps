@@ -9,7 +9,6 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-runway
 
-
   configmap:
     enabled: true
     data:
@@ -57,11 +56,8 @@ app:
     - runway.agrt.dev
     httpRoute:
       enabled: true
-
-
   podLabels:
     sidecar.istio.io/inject: "true"
-
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://runway.agrt.dev
   ingressPeers:

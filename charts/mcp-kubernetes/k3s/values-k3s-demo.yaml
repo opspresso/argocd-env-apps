@@ -1,8 +1,0 @@
-app:
-  replicaCount: 1
-
-  resources: null
-
-
-  autoscaling:
-    enabled: false

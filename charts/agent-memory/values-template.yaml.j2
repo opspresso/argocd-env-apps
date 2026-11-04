@@ -10,10 +10,6 @@ app:
     enabled: {{false if maintenance else autoscaling}}
   image:
     repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agent-memory
-{% if env == 'k3s' %}
-  imagePullSecrets:
-    - name: ecr-registry
-{% endif %}
 {% if not resources %}
   resources: null
 {% endif %}
@@ -54,15 +50,8 @@ app:
 {%- endfor %}
     httpRoute:
       enabled: true
-{% if env == 'k3s' %}
-      parentRefs:
-        - name: traefik-gateway
-          namespace: traefik-gateway
-{% endif %}
-{% if env != 'k3s' %}
   podLabels:
     sidecar.istio.io/inject: "true"
-{% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_memory.hostname}}
 
@@ -87,16 +76,10 @@ app:
   ingressPeers:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
-{% if env == 'k3s' %}
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: traefik
-          app.kubernetes.io/instance: traefik-kube-system
-{% endif %}
+          kubernetes.io/metadata.name: istio-system
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'addon-alloy' if env == 'k3s' else 'addon-prometheus'}}
+          kubernetes.io/metadata.name: addon-prometheus
   registry:
     region: {{aws_region}}
 {% endif %}
