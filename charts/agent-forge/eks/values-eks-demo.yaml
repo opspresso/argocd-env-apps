@@ -24,8 +24,6 @@ app:
   configmap:
     enabled: true
     data:
-      # HOST stays until every running Forge release reads HOSTNAME.
-      HOST: 0.0.0.0
       HOSTNAME: 0.0.0.0
       PORT: '3103'
       AUTH_BASE_URL: https://forge.agrt.dev
