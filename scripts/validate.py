@@ -13,7 +13,7 @@ to come from - a hand-written one is indistinguishable from a render and drifts
 without anyone noticing.
 
     ./scripts/validate.py                 # every Application or ApplicationSet in apps/
-    ./scripts/validate.py -r sample-node  # one chart
+    ./scripts/validate.py -r agent-studio  # one chart
 
 A chart with no Application or ApplicationSet in apps/ is not deployed and is
 not checked.

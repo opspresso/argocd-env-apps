@@ -141,7 +141,7 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 - Application 이름은 `<project>-{{cluster}}`.
 - label `opspresso.com/group: apps`, `opspresso.com/cluster: {{cluster}}` 를 유지한다.
 - `syncPolicy.automated` 는 chart 마다 다르다. 켜져 있는 것을 임의로 끄거나 반대로 켜지 않는다.
-- `apps/` 에 ApplicationSet 이 없는 chart 는 배포되지 않는다 (`charts/sample-spring`).
+- `apps/` 에 ApplicationSet 이 없는 chart 는 배포되지 않는다.
 
 ## gitops
 
@@ -161,7 +161,7 @@ payload 필드와 curl 예시는 [README](README.md#gitops) 참고.
 - 로컬 확인은 `--dry-run` 으로 한다. 파일만 갱신하고 git·GitHub 은 건드리지 않는다.
 
 ```bash
-TG_PROJECT="sample-grpc" TG_VERSION="v0.0.0" TG_PHASE="alpha" python3 scripts/gitops.py deploy --dry-run
+TG_PROJECT="mcp-argocd" TG_VERSION="v0.0.0" TG_PHASE="alpha" python3 scripts/gitops.py deploy --dry-run
 ```
 
 ## 재생성 · 검증
@@ -171,16 +171,16 @@ CPU limit은 필수가 아니다. 실제 Helm 렌더의 자원 정책과 최대 
 
 ```bash
 ./scripts/build.sh                      # 전체 chart 렌더
-./scripts/gen_values.py -r sample-node   # 한 chart 렌더
+./scripts/gen_values.py -r agent-studio  # 한 chart 렌더
 ./scripts/validate.py --all-charts      # 미배포 차트·환경까지 전체 검증
-./scripts/validate.py -r sample-node    # 한 chart만
+./scripts/validate.py -r agent-studio   # 한 chart만
 pytest                                  # scripts/와 배포 구성 테스트
 ```
 
 `.github/workflows/push.yml`은 main push에서 렌더 → Helm 검증 → pytest를 실행한 뒤 생성 파일을 게시한다. Argo CD가 동기화하기 전의 유일한 자동 검사다.
 GitOps 배포 커밋처럼 `values-alpha.yaml`·`values-prod.yaml`·`versions-*.json`만 바뀐 push는 렌더 결과가 같으므로 build를 시작하지 않는다. 이 파일을 손으로 고쳤다면 병합 전에 로컬 `./scripts/build.sh`와 `scripts/validate.py`를 실행한다.
 `.github/workflows/validate.yml`은 같은 검사를 수동으로만 실행한다. Pull request는 CI를 시작하지 않는다.
-`--all-charts`는 `apps/`에 없는 chart(`sample-spring`, `sample-grpc`)와 미사용 클러스터 values도 검사한다.
+`--all-charts`는 `apps/`에 없는 chart와 미사용 클러스터 values도 검사한다.
 CI와 생성 파일 게시 workflow는 이 전체 검사를 사용한다. wrapper의 자체 템플릿은 검사에서 거부한다.
 
 `scripts/validate.py` 는 `helm dependency update` 로 upstream chart 를 내려받는다.

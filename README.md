@@ -132,7 +132,7 @@ GitOps와 생성 파일 게시 workflow는 `gitops` concurrency 그룹을 공유
 {
   "event_type": "gitops",
   "client_payload": {
-    "project": "sample-node",
+    "project": "agent-studio",
     "version": "v1.2.3",
     "phase": "prod",
     "auto_merge": true
@@ -165,7 +165,7 @@ curl -sL -X POST \
 배포 커밋에는 대상 `values-<phase>.yaml`과 `versions-<phase>.json`만 포함한다.
 
 ```bash
-export TG_PROJECT="sample-grpc"
+export TG_PROJECT="mcp-argocd"
 export TG_VERSION="v0.0.0"
 export TG_PHASE="alpha"
 
@@ -177,7 +177,7 @@ prod 즉시 반영은 `TG_AUTO_MERGE=true` 또는 `--auto-merge`로 선택한다
 `--auto-merge`는 환경변수의 `false`보다 우선한다.
 
 ```bash
-TG_PROJECT="sample-node" TG_VERSION="v1.2.3" TG_PHASE="prod" \
+TG_PROJECT="agent-studio" TG_VERSION="v1.2.3" TG_PHASE="prod" \
   python3 scripts/gitops.py deploy --auto-merge --dry-run
 ```
 
@@ -189,7 +189,7 @@ PR 생성을 재개한다. `auto_merge`는 기존 PR 유무와 관계없이 `mai
 `TG_PHASE` 를 비우면 phase 목록을 찾아 fan-out 한다.
 
 ```bash
-TG_PROJECT="sample-grpc" TG_VERSION="v0.0.0" python3 scripts/gitops.py dispatch --dry-run
+TG_PROJECT="mcp-argocd" TG_VERSION="v0.0.0" python3 scripts/gitops.py dispatch --dry-run
 ```
 
 ## build
@@ -220,7 +220,7 @@ values 파일 누락이나 chart 오류를 Argo CD sync 가 아니라 CI 에서 
 # 배포하지 않는 차트·환경까지 포함한 전체 검사 (CI 기본)
 ./scripts/validate.py --all-charts
 
-./scripts/validate.py -r sample-node
+./scripts/validate.py -r agent-studio
 ```
 
 ## 서비스 실행 경계
