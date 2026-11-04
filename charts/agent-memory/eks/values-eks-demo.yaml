@@ -35,7 +35,7 @@ app:
       EMBEDDING_MODEL: "openrouter/text-embedding-3-small"
       RERANKER_MODEL: "openrouter/rerank-v3.5"
       DECISION_MODEL: "openrouter/jev-1.14"
-      DREAM_MODEL: "openrouter/gpt-6-luna"
+      DREAM_MODEL: "openrouter/gpt-6.1-sol"
   routing:
     hosts:
     - memory.agrt.dev
