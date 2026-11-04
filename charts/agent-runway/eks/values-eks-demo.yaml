@@ -180,26 +180,24 @@ raw:
                       value: "arn:aws:iam::396608815058:role/agent-runway-tenant-secrets"
                     - name: app.routing.hosts[0]
                       value: '{{ if eq .path.basename "prod" }}{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ .path.basename }}{{ end }}.apps.rovr.dev'
+                    # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
+                    # the Application; its guard checks that these labels name this project and environment.
+                    - name: app.namespace.labels.opspresso\.com/delivery-project
+                      value: '{{ index .path.segments 1 }}'
+                    - name: app.namespace.labels.opspresso\.com/delivery-env
+                      value: '{{ .path.basename }}'
               # The namespaced resources (kro instances) that resource-sync writes; AppProject projects limits the kinds.
               - repoURL: https://github.com/opspresso/argocd-env-projects.git
                 targetRevision: HEAD
                 path: '{{ .path.path }}'
                 directory:
                   include: resources.yaml
+            # No CreateNamespace: Argo CD never deletes a namespace that option made, so a removed Project left its
+            # app-<slug>-<env> namespace behind. charts/app renders the namespace with the tenant labels instead.
             syncPolicy:
               automated:
                 prune: true
                 selfHeal: true
-              syncOptions:
-                - CreateNamespace=true
-              # The Agent Runway tenant secrets policy accepts the SecretStore only in a namespace with these labels.
-              managedNamespaceMetadata:
-                labels:
-                  # Tenant Pods may not run privileged, share host namespaces or mount host paths.
-                  pod-security.kubernetes.io/enforce: baseline
-                  opspresso.com/delivery-tenant: "true"
-                  opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
-                  opspresso.com/delivery-env: '{{ .path.basename }}'
 
     # One Application per dedicated chart resource: the postgres or valkey chart of opspresso/helm-charts at the version
     # in projects/<slug>/<env>/resources/<name>.yaml, with that file as its values. Project, environment and namespace come
