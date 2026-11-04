@@ -28,6 +28,8 @@ app:
   #
   # `--stateless` returns no Mcp-Session-Id, so any replica can answer any
   # request. It gives up listChanged notifications, which nothing here uses.
+  #
+  # `--config` loads the tool denylist below. Command-line flags still win.
   args:
     - "--port"
     - "8080"
@@ -35,6 +37,36 @@ app:
     - "--toolsets"
     - "core"
     - "--stateless"
+    - "--config"
+    - "/etc/kubernetes-mcp-server/config.toml"
+
+  # `nodes_log` and `nodes_stats_summary` read the kubelet through the
+  # `nodes/proxy` subresource. The RBAC below does not grant it on purpose:
+  # `nodes/proxy` get also opens the kubelet API, which can run commands in
+  # pods, and this server has no authentication. Without the denylist the
+  # server lists both tools and every call fails with "Permission denied".
+  # Node usage stays available from `nodes_top` (metrics.k8s.io) and Grafana.
+  #
+  # The chart also exposes each key as an environment variable. The server
+  # ignores it. A change here rolls the pod through the config checksum.
+  configmap:
+    enabled: true
+    data:
+      config.toml: |
+        disabled_tools = ["nodes_log", "nodes_stats_summary"]
+
+  extraVolumes:
+    - name: config
+      configMap:
+        name: mcp-kubernetes
+        items:
+          - key: config.toml
+            path: config.toml
+
+  extraVolumeMounts:
+    - name: config
+      mountPath: /etc/kubernetes-mcp-server
+      readOnly: true
 
   service:
     name: http

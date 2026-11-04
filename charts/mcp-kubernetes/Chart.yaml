@@ -2,7 +2,7 @@ apiVersion: v2
 name: mcp-kubernetes
 description: Kubernetes MCP server Agent Studio calls — cluster-internal, read-only
 type: application
-version: v1.5.1
+version: v1.5.2
 appVersion: v1.0.0
 
 dependencies:
