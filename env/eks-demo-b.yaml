@@ -11,9 +11,9 @@ aws_region: ap-northeast-2
 
 # Network
 hostname:
-  internal: demo-in.rovr.dev
-  public: demo.rovr.dev
-  this: demo-b.rovr.dev
+  internal: demo-in.opsp.dev
+  public: demo.opsp.dev
+  this: demo-b.opsp.dev
 
 # Capacity
 replicas: 1
@@ -23,4 +23,4 @@ resources: true
 # Observability
 metrics:
   backend: prometheus
-grafana_url: https://grafana.demo.rovr.dev
+grafana_url: https://grafana.demo.opsp.dev
