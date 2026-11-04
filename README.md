@@ -3,7 +3,7 @@
 운영 클러스터 EKS `eks-demo`의 자원·확장 상한은 [용량 운영](docs/production-capacity.md)을 따른다.
 
 Agent Studio·Models·Memory·Knowledge·Forge·Runway의 EKS 구성, 저장소별 책임, Secret 준비와 배포 순서는
-[Agent Platform 배포](docs/agent-platform.md)를 따른다. 클러스터 사이의 데이터·도메인 이전은 [클러스터 이전](docs/cluster-migration.md)을 따른다.
+[Agent Platform 배포](docs/agent-platform.md)를 따른다.
 역할별 가성비 모델, OpenRouter 우선 원칙과 저장된 설정의 전환 방법은 [모델 기본값](docs/model-defaults.md)을 따른다.
 
 rovr(`rovr.dev`)의 구성, Secret 준비와 첫 배포 순서는 [rovr 배포](docs/rovr.md)를 따른다.
@@ -33,15 +33,11 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/opspresso/argocd-en
 
 운영 클러스터 `eks-demo`의 Argo CD는 `apps-eks.yaml`로 `apps/eks/`의 ApplicationSet을 등록한다.
 각 ApplicationSet은 `generators.git.files`에 나열한 env만 읽는다.
-k3s 선언(`apps-k3s.yaml`, `apps/k3s/`, `env/k3s-demo.yaml`, `charts/*/k3s/`)은 저장소에 남아 있지만 어느 클러스터에도 배포하지 않는다.
 
 replica 수, autoscaling 여부와 resource 사용 여부는 `env/<cluster>.yaml`이 원천이다.
 공통 `values.yaml`은 EKS를 기본으로 하며 EKS는 기존 env 설정을 적용한다.
-k3s 선언과 local fixture는 `replicas: 1`, `autoscaling: false`, `resources: false`로 선언한다.
-metrics backend는 `metrics.backend`로 선택하며, EKS는 `prometheus`, k3s 선언은
-`grafana-cloud`를 사용한다.
-`grafana-cloud`에서는 Alloy가 `/api/metrics`(Forge는 `/metrics`)를 직접 수집하므로 ServiceMonitor CRD와 로컬 metrics DB가
-필요하지 않다. `prometheus` backend만 ServiceMonitor를 생성한다.
+local fixture는 `replicas: 1`, `autoscaling: false`, `resources: false`로 선언한다.
+`metrics.backend`는 `prometheus`만 허용하며, 이 backend만 ServiceMonitor를 생성한다.
 각 chart의 기본 values가 운영용 requests/limits를 제공하며, `resources: false`인
 환경에서는 템플릿이 해당 resource block을 제거한다. 컨테이너·초기화 컨테이너·worker·CronJob에도 같은 규칙을 적용한다.
 Neo4j는 공식 차트가 강제하는 최소 requests(CPU `500m`, 메모리 `2Gi`)만 허용하며 limits는 두지 않는다.
@@ -57,7 +53,7 @@ MCP 인증 설정과 PostgreSQL 초기화 동작을 검증한다. 이 fixture는
 ## charts
 
 차트 구성은 `opspresso/helm-charts`의 `app` → `cronjob` → `raw` 순서로
-선택한다. PostgreSQL·MinIO·Neo4j 등 데이터 서비스는 공식 또는 주요 배포처의 전용 차트를
+선택한다. PostgreSQL 등 데이터 서비스는 공식 또는 주요 배포처의 전용 차트를
 사용한다. 공통 차트에 필요한 기능이 없으면 공통 차트를 확장하며, wrapper에는 `templates/`를 두지 않는다.
 
 Studio의 scan·plugin sync·reindex ticker와 Knowledge의 queue worker는
@@ -72,7 +68,7 @@ Agent 서비스의 공통 인증 설정·기업 프로필 스키마를 기존 �
 
 PostgreSQL은 Bitnami 전용 차트를 사용하며, `pgvector/pgvector` 이미지의 entrypoint·인증 환경변수·
 probe·데이터 경로를 values로 지정한다. `postgres` StatefulSet과 `data-postgres-0` PVC를 유지한다.
-MinIO는 Bitnami, Neo4j는 공식 Neo4j 차트를 사용하고, ExternalSecret과 PostgreSQL 초기화 Job은 `raw`로 관리한다.
+ExternalSecret과 PostgreSQL 초기화 Job은 `raw`로 관리한다.
 
 공통 차트 의존성 버전을 올릴 때는
 `helm-charts`의 게시를 확인하고, 원격 의존성으로 검증한 뒤 이 저장소에 반영한다.
@@ -96,12 +92,12 @@ phase 로 취급하지 않는다.
 sync 에 실패하기 때문이다.
 
 ApplicationSet 은 `env/*.yaml` 의 `phase` 필드로 어떤 `values-<phase>.yaml` 을 읽을지 정한다.
-`eks-demo`는 `phase: prod`, 배포하지 않는 `k3s-demo` 선언은 `phase: alpha`를 사용한다.
+`eks-demo`는 `phase: prod`를 사용한다.
 앱과 MCP의 두 phase values를 별도로 관리한다.
 
 클러스터별 SSM 경로는 `values-template.yaml.j2`가 `env/<cluster>.yaml`의 `cluster`에서
 생성한다. 공통 `values.yaml`에는 특정 클러스터의 `global.ssmPrefix`를 두지 않는다.
-PostgreSQL·MinIO·Neo4j는 클러스터 values가 없으면 렌더링에 실패하며, `scripts/validate.py`는
+PostgreSQL은 클러스터 values가 없으면 렌더링에 실패하며, `scripts/validate.py`는
 최종 `global.ssmPrefix`가 대상 클러스터와 다르면 실패한다. EKS 공통 기본값과 클러스터의
 자격 증명 경로는 별개다.
 

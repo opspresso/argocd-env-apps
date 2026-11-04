@@ -15,7 +15,6 @@ app:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: istio-system
-
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: addon-prometheus
@@ -58,11 +57,8 @@ app:
     - forge.agrt.dev
     httpRoute:
       enabled: true
-
-
   podLabels:
     sidecar.istio.io/inject: "true"
-
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://forge.agrt.dev
   externalSecrets:

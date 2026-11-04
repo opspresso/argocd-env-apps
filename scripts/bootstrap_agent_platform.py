@@ -154,7 +154,7 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cluster", default="k3s-demo")
+    parser.add_argument("--cluster", required=True)
     parser.add_argument("--apply", action="store_true", help="Create missing SecureStrings; never overwrite")
     parser.add_argument("--copy-from", metavar="CLUSTER",
                         help="Copy data-continuity values (keys, Forge organization, OIDC clients) from this cluster")
@@ -163,7 +163,7 @@ def main():
         parser.error("--copy-from must name a different cluster")
     env_path = Path(__file__).resolve().parents[1] / "env" / f"{args.cluster}.yaml"
     env = yaml.safe_load(env_path.read_text())
-    if env.get("env") not in {"eks", "k3s"} or env.get("cluster") != args.cluster:
+    if env.get("env") != "eks" or env.get("cluster") != args.cluster:
         parser.error("Select a cluster declared in env/<cluster>.yaml")
     account = aws(env["aws_region"], "sts", "get-caller-identity")["Account"]
     if account != str(env["aws_account_id"]):

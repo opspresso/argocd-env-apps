@@ -20,10 +20,10 @@ def project(tmp_path, monkeypatch):
 
 def test_renders_the_selected_platform(project):
     root, chart, args = project
-    (root / "env/k3s-demo.yaml").write_text("env: k3s\ncluster: k3s-demo\nreplicas: 1\n")
+    (root / "env/local-test.yaml").write_text("env: local\ncluster: local-test\nreplicas: 1\n")
     gen_values.gen_repos(args)
     assert yaml.safe_load((chart / "eks/values-eks-demo.yaml").read_text()) == {"cluster": "eks-demo", "replicas": 2}
-    assert not (chart / "eks/values-k3s-demo.yaml").exists()
+    assert not (chart / "eks/values-local-test.yaml").exists()
 
 
 def test_missing_variable_does_not_overwrite_existing_values(project):
@@ -48,11 +48,13 @@ def test_missing_template_fails(project):
     "env: eks\ncluster: other-cluster\nreplicas: 2\n",
     "env: eks\nreplicas: 2\n",
     "env: typo\ncluster: eks-demo\nreplicas: 2\n",
+    "env: k3s\ncluster: eks-demo\nreplicas: 2\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nresources: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_knowledge_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_forge_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nagent_studio_maintenance: 'false'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nmetrics: {backend: typo}\n",
+    "env: eks\ncluster: eks-demo\nreplicas: 2\nmetrics: {backend: grafana-cloud}\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\nmetrics: prometheus\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\ntrusted_proxy_cidrs: '10.10.0.0/16'\n",
     "env: eks\ncluster: eks-demo\nreplicas: 2\ntrusted_proxy_cidrs: [42]\n",
@@ -73,26 +75,6 @@ def test_later_environment_error_does_not_write_earlier_output(project):
     with pytest.raises(UndefinedError):
         gen_values.gen_repos(args)
     assert not (chart / "eks/values-eks-demo.yaml").exists()
-
-
-@pytest.mark.parametrize('change', ['missing_writer', 'console_enabled', 'eks', 'string_flag'])
-def test_storage_gc_requires_all_writers_and_console_paused(project, change):
-    root, chart, args = project
-    context = {'env': 'k3s', 'cluster': 'k3s-demo', 'replicas': 1, 'storage_gc_maintenance': True,
-               'minio': {'console': False}, **{f'agent_{name}_maintenance': True
-                                            for name in ('studio', 'memory', 'knowledge', 'forge')}}
-    if change == 'missing_writer':
-        context['agent_knowledge_maintenance'] = False
-    elif change == 'console_enabled':
-        context['minio']['console'] = True
-    elif change == 'eks':
-        context['env'] = 'eks'
-    else:
-        context['storage_gc_maintenance'] = 'true'
-    (root / 'env/k3s-demo.yaml').write_text(yaml.safe_dump(context))
-    with pytest.raises(ValueError):
-        gen_values.gen_repos(args)
-    assert not (chart / 'eks/values-eks-demo.yaml').exists()
 
 
 @pytest.mark.parametrize("invalid", ["false", "true", 0, 1, None, [], {}])

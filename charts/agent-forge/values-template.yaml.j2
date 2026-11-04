@@ -17,16 +17,10 @@ app:
   ingressPeers:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'kube-system' if env == 'k3s' else 'istio-system'}}
-{% if env == 'k3s' %}
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: traefik
-          app.kubernetes.io/instance: traefik-kube-system
-{% endif %}
+          kubernetes.io/metadata.name: istio-system
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: {{'addon-alloy' if env == 'k3s' else 'addon-prometheus'}}
+          kubernetes.io/metadata.name: addon-prometheus
   registry:
     region: {{aws_region}}
   ssmPrefix: /k8s/{{cluster}}
@@ -40,7 +34,7 @@ app:
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
-      FORGE_KUBE_NODE_POOL: '{{ "workspaces" if env == "eks" else "" }}'
+      FORGE_KUBE_NODE_POOL: 'workspaces'
       FORGE_GIT_ALLOWED_ORIGINS: https://github.com
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
@@ -60,7 +54,7 @@ app:
     diskMb: {{workspace_disk_mb | default(2048)}}
     cpus: {{workspace_cpus | default(1)}}
     dnsCidrs:
-      - {{ '172.20.0.10/32' if env == 'eks' else '10.43.0.10/32' }}
+      - 172.20.0.10/32
     allowPublic: {{workspace_allow_public | default(true)}}
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
     # Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
@@ -74,15 +68,8 @@ app:
     - {{agent_forge.hostname}}
     httpRoute:
       enabled: true
-{% if env == 'k3s' %}
-      parentRefs:
-        - name: traefik-gateway
-          namespace: traefik-gateway
-{% endif %}
-{% if env != 'k3s' %}
   podLabels:
     sidecar.istio.io/inject: "true"
-{% endif %}
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_forge.hostname}}
 {%- if agent_forge.model_roles is not defined %}

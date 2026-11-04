@@ -15,7 +15,7 @@ class ValidatePolicyTests(unittest.TestCase):
             ]}}},
         })
         result = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
-        for platform in ("eks", "k3s", "local"):
+        for platform in ("eks", "local"):
             target = {"name": "upstream", "chart": "charts/upstream", "namespace": "default",
                       "appset": f"addons/{platform}/upstream.yaml", "value_files": []}
             with self.subTest(platform=platform), patch.object(validate.subprocess, "run", return_value=result):

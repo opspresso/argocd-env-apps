@@ -74,14 +74,14 @@ def test_malformed_env_is_reported_as_a_render_failure(tmp_path, monkeypatch, ca
 
 
 def test_load_targets_includes_direct_applications(tmp_path):
-    apps = tmp_path / "apps" / "k3s"
+    apps = tmp_path / "apps" / "eks"
     apps.mkdir(parents=True)
     (apps / "agent-studio.yaml").write_text(
         """\
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: agent-studio-k3s
+  name: agent-studio-direct
 spec:
   source:
     path: charts/agent-studio

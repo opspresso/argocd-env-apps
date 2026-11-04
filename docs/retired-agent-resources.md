@@ -13,7 +13,7 @@ Knowledge 소스의 선택적 Neo4j adapter와 Forge의 독립 Docker provider�
 
 1. 실제 앱 프로세스의 `NEO4J_URI` 미설정과 Forge Kubernetes provider를 확인합니다.
    전체 namespace의 Pod와 workload template에서 이전 Service·PVC·namespace 소비자를 확인합니다.
-2. PostgreSQL과 MinIO의 PVC/PV UID를 보호 목록에 고정합니다. 두 PVC는 삭제하지 않습니다.
+2. PostgreSQL의 PVC/PV UID를 보호 목록에 고정합니다. 이 PVC는 삭제하지 않습니다.
    폐기 후보의 PVC/PV UID, reclaim policy, 저장 경로·크기와 내용을 별도로 확인합니다.
    `Delete` reclaim policy에서는 PVC 삭제가 실제 bytes 삭제로 이어집니다.
 3. GitOps 제거 변경을 검증하고 반영합니다. 실제 Application finalizer와 Argo prune 동작을 확인합니다.
@@ -24,7 +24,7 @@ Knowledge 소스의 선택적 Neo4j adapter와 Forge의 독립 Docker provider�
    활성 `agent-memory` namespace는 유지합니다.
 5. 삭제 직전에 PVC 소비자가 다시 생기지 않았는지 확인한 뒤 승인된 폐기 PVC만 제거합니다.
    namespace 전체 삭제는 그 안에 현재 Pod·Job·PVC와 다른 소유 자원이 없을 때만 수행합니다.
-6. PostgreSQL·MinIO PVC UID, 네 서비스 health와 Knowledge 검색·Forge checkpoint 복원을 확인합니다.
+6. PostgreSQL PVC UID, 네 서비스 health와 Knowledge 검색·Forge checkpoint 복원을 확인합니다.
    삭제 대상 재생성·남은 endpoints·고아 PV 여부도 확인합니다.
 
 구체적인 대상 UID와 실제 검증 결과는 운영 영수증에 기록합니다. GitOps 검사 통과만으로

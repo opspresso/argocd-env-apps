@@ -1,7 +1,7 @@
 # Agent Platform 모델 기본값
 
 이 문서는 `eks-demo` 운영자가 모델을 배정·변경할 때 사용합니다. 배포 값의 원본은
-[`env/eks-demo.yaml`](../env/eks-demo.yaml)입니다. k3s는 보관된 선언이며 운영 배포 대상이 아닙니다.
+[`env/eks-demo.yaml`](../env/eks-demo.yaml)입니다.
 
 ## 호출 경계
 

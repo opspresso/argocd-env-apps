@@ -9,7 +9,6 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-models
 
-
   configmap:
     enabled: true
     data:
@@ -42,17 +41,13 @@ app:
     - models.agrt.dev
     httpRoute:
       enabled: true
-
-
   podLabels:
     sidecar.istio.io/inject: "true"
-
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://models.agrt.dev
   ingressPeers:
   - namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: istio-system
-
   registry:
     region: ap-northeast-2

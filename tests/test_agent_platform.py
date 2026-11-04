@@ -38,7 +38,7 @@ def resource(chart, platform, kind, name, **overrides):
                 if doc["kind"] == kind and doc["metadata"]["name"] == name)
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_application_credentials_match_cluster_dependencies(chart, platform):
     secret = resource(chart, platform, "ExternalSecret", f"{chart}-external")
@@ -47,12 +47,8 @@ def test_application_credentials_match_cluster_dependencies(chart, platform):
     config = resource(chart, platform, "ConfigMap", chart)["data"]
     assert not any("BEDROCK" in key or "DYNAMO" in key or "NEO4J" in key for key in config)
     if chart in {"agent-studio", "agent-knowledge"}:
-        if platform == "eks":
-            assert "S3_ENDPOINT" not in config and "S3_ACCESS_KEY_ID" not in refs
-            assert config["S3_BUCKET_NAME"] == f"{chart}-static"
-        else:
-            assert config["S3_ENDPOINT"] == "http://minio.agent-studio.svc.cluster.local:9000"
-            assert refs["S3_ACCESS_KEY_ID"] == "/k8s/k3s-demo/agent-studio/minio-root-user"
+        assert "S3_ENDPOINT" not in config and "S3_ACCESS_KEY_ID" not in refs
+        assert config["S3_BUCKET_NAME"] == f"{chart}-static"
     else:
         assert not any(key.startswith("S3_") for key in config | refs)
     assert not any("WORKSPACE_PROVIDER" in key or "DOCKER_HOST" in key for key in config)
@@ -62,7 +58,7 @@ def test_application_credentials_match_cluster_dependencies(chart, platform):
                        for doc in manifests(chart, platform))
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_authentication_hosts_match_public_routes(chart, platform):
     config = resource(chart, platform, "ConfigMap", chart)["data"]
@@ -77,7 +73,7 @@ def test_authentication_hosts_match_public_routes(chart, platform):
         assert config["AUTH_BASE_URL"] == f"https://{hostname}"
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", ["agent-memory", "agent-knowledge", "agent-forge"])
 def test_metrics_auth_and_dependency_independent_liveness(chart, platform):
     service = resource(chart, platform, "Service", chart)
@@ -108,7 +104,7 @@ MCP_PORTS = {"mcp-argocd": 3000, "mcp-cloudwatch": 8000, "mcp-grafana": 8000, "m
 
 
 @pytest.mark.parametrize("chart", sorted(MCP_PORTS))
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_mcp_accepts_only_trusted_agent_execution_processes(chart, platform):
     policy = resource(chart, platform, "NetworkPolicy", chart)["spec"]
     assert policy["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": chart}
@@ -121,7 +117,7 @@ def test_mcp_accepts_only_trusted_agent_execution_processes(chart, platform):
     assert set(expression["values"]) == expected
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_knowledge_consumer_is_independent_of_web_and_shares_metrics_auth(platform):
     worker = resource("agent-knowledge", platform, "Deployment", "agent-knowledge-worker")
     web = resource("agent-knowledge", platform, "Deployment", "agent-knowledge")
@@ -147,7 +143,7 @@ def test_knowledge_consumer_is_independent_of_web_and_shares_metrics_auth(platfo
         assert not container.get("resources")
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_has_no_execution_or_cluster_authority(platform):
     config = resource("agent-studio", platform, "ConfigMap", "agent-studio")["data"]
     pod = resource("agent-studio", platform, "Deployment", "agent-studio")["spec"]["template"]["spec"]
@@ -170,7 +166,7 @@ def test_studio_has_no_execution_or_cluster_authority(platform):
     assert resource("agent-studio", platform, "Deployment", "agent-studio-ticker")["spec"]["replicas"] == 1
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("tag", ["v0.1.0", "v0.2.3"])
 def test_forge_and_sandbox_use_exactly_the_same_release(platform, tag):
     documents = manifests("agent-forge", platform, tag)
@@ -182,7 +178,7 @@ def test_forge_and_sandbox_use_exactly_the_same_release(platform, tag):
     assert len([doc for doc in documents if doc["kind"] == "Deployment"]) == 1
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", ["agent-studio", "agent-memory", "agent-knowledge", "agent-forge"])
 def test_namespace_registry_refresh_and_explicit_ingress(chart, platform):
     registry = resource(chart, platform, "ExternalSecret", "ecr-registry")["spec"]
@@ -191,13 +187,7 @@ def test_namespace_registry_refresh_and_explicit_ingress(chart, platform):
     policy = resource(chart, platform, "NetworkPolicy", chart)["spec"]
     peers = {item["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for item in policy["ingress"][0]["from"] if "namespaceSelector" in item}
     assert "agent-studio" in peers
-    assert ("kube-system" if platform == "k3s" else "istio-system") in peers
-    if platform == "k3s":
-        gateway = [peer for peer in policy["ingress"][0]["from"]
-                   if peer.get("namespaceSelector", {}).get("matchLabels") == {"kubernetes.io/metadata.name": "kube-system"}]
-        assert gateway == [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
-                            "podSelector": {"matchLabels": {"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-kube-system"}}}]
-        assert "traefik-gateway" not in peers
+    assert "istio-system" in peers
     if chart == "agent-studio":
         assert {"agent-forge", "agent-knowledge"} <= peers
     assert "agent-forge-workspaces" in peers if chart == "agent-forge" else "agent-forge-workspaces" not in peers
@@ -213,7 +203,7 @@ def test_eks_databases_keep_the_existing_persistent_storage(chart, name):
     assert workload["template"]["spec"]["containers"][0]["resources"]["requests"]
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart", ["agent-knowledge", "agent-forge"])
 @pytest.mark.parametrize("maintenance", [False, True])
 def test_new_service_maintenance_stops_only_its_processes(platform, chart, maintenance, tmp_path):
@@ -231,14 +221,14 @@ def test_new_service_maintenance_stops_only_its_processes(platform, chart, maint
         assert any(doc["kind"] == "Namespace" and doc["metadata"]["name"] == "agent-forge-workspaces" for doc in docs)
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_knowledge_pool_preserves_provider_slots_and_cleanup_capacity(platform):
     config = resource("agent-knowledge", platform, "ConfigMap", "agent-knowledge")["data"]
     assert int(config["AI_ADMISSION_POOL_SIZE"]) >= int(config["AI_PROVIDER_MAX_CONCURRENCY"]) + 1
     assert 0 < int(config["AI_BATCH_MAX_CONCURRENCY"]) < int(config["AI_PROVIDER_MAX_CONCURRENCY"])
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 @pytest.mark.parametrize("chart,port", [("agent-studio", 3000), ("agent-memory", 3000), ("agent-knowledge", 3000), ("agent-forge", 3103)])
 def test_agent_service_route_and_pod_share_the_same_port(chart, port, platform):
     service = resource(chart, platform, "Service", chart)["spec"]
@@ -259,7 +249,7 @@ def test_agent_service_route_and_pod_share_the_same_port(chart, port, platform):
         assert "http://agent-studio:3000" in ticker["command"][-1]
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_mcp_servers_are_read_only(platform):
     kubernetes = resource("mcp-kubernetes", platform, "Deployment", "mcp-kubernetes")
     assert "--read-only" in kubernetes["spec"]["template"]["spec"]["containers"][0]["args"]
@@ -276,7 +266,7 @@ def test_mcp_servers_are_read_only(platform):
     assert argocd["data"]["MCP_READ_ONLY"] == "true"
 
 
-@pytest.mark.parametrize("platform", ["eks", "k3s"])
+@pytest.mark.parametrize("platform", ["eks"])
 def test_studio_metrics_require_the_shared_bearer(platform):
     secret = resource("agent-studio", platform, "ExternalSecret", "agent-studio-external")
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}

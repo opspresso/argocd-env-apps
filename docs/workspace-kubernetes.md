@@ -11,15 +11,14 @@ Job owner가 있는 Pod는 EKS CNI 정책 적용을 위한 필수 조건입니�
 
 실행 Pod는 `sandbox` ServiceAccount를 사용하며 token을 mount하지 않습니다.
 운영 Secret·공급자 장기 키·Git token·hostPath도 전달하지 않습니다.
-namespace quota는 EKS `eks-demo`에서 Pod와 Job을 각각 32개로 제한합니다(`workspace_max_pods`). 배포하지 않는 k3s 선언은 2개입니다.
-`resources: false`인 k3s 선언은 compute requests/limits를 생략하고 Pod/Job 수와 `emptyDir.sizeLimit`을 유지합니다.
+namespace quota는 EKS `eks-demo`에서 Pod와 Job을 각각 32개로 제한합니다(`workspace_max_pods`).
 EKS는 CPU·메모리·ephemeral-storage requests/limits와 quota를 함께 선언합니다.
 
 ## 네트워크
 
 NetworkPolicy는 ingress/egress를 기본 거부합니다. 실행 Pod에는 다음 egress만 허용합니다.
 
-- cluster DNS: EKS `172.20.0.10/32`, k3s `10.43.0.10/32`와 CoreDNS Pod
+- cluster DNS: EKS `172.20.0.10/32`와 CoreDNS Pod
 - public IPv4 HTTP/HTTPS: private·loopback·link-local·metadata·multicast 대역 제외
 - 해당 Forge Service가 선택하는 Pod의 실제 HTTP 포트 `3103`
 
@@ -58,7 +57,7 @@ Studio에는 Workspace worker도 없습니다. Studio는 web과 ticker만 실행
 
 ## 검증
 
-`python3 scripts/validate.py --all-charts`와 pytest는 EKS와 k3s 선언의 이미지 결합,
+`python3 scripts/validate.py --all-charts`와 pytest는 EKS 선언의 이미지 결합,
 RBAC, Pod/Job quota, IPv4 네트워크, Service/Pod 포트, 폐기된 Studio 실행 자원 부재를 검사합니다.
 이 결과는 CNI의 실제 패킷 차단이나 실행 성공을 보장하지 않습니다.
 

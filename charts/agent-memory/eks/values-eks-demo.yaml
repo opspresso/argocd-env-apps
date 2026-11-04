@@ -7,7 +7,6 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-memory
 
-
   configmap:
     enabled: true
     data:
@@ -43,11 +42,8 @@ app:
     - memory.agrt.dev
     httpRoute:
       enabled: true
-
-
   podLabels:
     sidecar.istio.io/inject: "true"
-
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://memory.agrt.dev
 
@@ -73,7 +69,6 @@ app:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: istio-system
-
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: addon-prometheus

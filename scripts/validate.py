@@ -169,7 +169,7 @@ def additional_targets(targets):
     for definition in sorted(Path(CHARTS_DIR).glob("*/Chart.yaml")):
         chart = definition.parent
         phases = discover_phases(".", chart.name)
-        environments = sorted(path for platform in ("eks", "k3s", "local")
+        environments = sorted(path for platform in ("eks", "local")
                               for path in (chart / platform).glob("values-*.yaml"))
         variants = []
         for environment in environments:
@@ -246,7 +246,7 @@ def render(target, env_file):
         elif "ssmPrefix" in values:
             prefix_present = True
             prefix = values["ssmPrefix"]
-        if resolved.parent.name in {"eks", "k3s", "local"} and resolved.stem.startswith("values-"):
+        if resolved.parent.name in {"eks", "local"} and resolved.stem.startswith("values-"):
             value_clusters.add(resolved.stem.removeprefix("values-"))
         args += ["-f", path]
 

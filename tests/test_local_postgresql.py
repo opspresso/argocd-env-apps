@@ -1,4 +1,4 @@
-"""Fresh-volume PostgreSQL contracts shared by k3s and local Kubernetes."""
+"""Fresh-volume PostgreSQL contracts shared by EKS and local Kubernetes."""
 
 from pathlib import Path
 import shutil
@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(params=["eks", "k3s", "local"])
+@pytest.fixture(params=["eks", "local"])
 def manifests(request, local_env, tmp_path):
     if not shutil.which("helm"):
         pytest.skip("Helm is required to validate deployment manifests")

@@ -22,7 +22,7 @@ def render(chart, platform):
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
 
 
-@pytest.mark.parametrize('platform', ['eks', 'k3s'])
+@pytest.mark.parametrize('platform', ['eks'])
 def test_ticker_is_one_resident_unprivileged_deployment(platform):
     docs = render('agent-studio', platform)
     assert not any(doc['kind'] == 'CronJob' for doc in docs)
@@ -44,7 +44,7 @@ def test_ticker_is_one_resident_unprivileged_deployment(platform):
         'secretKeyRef': {'name': 'agent-studio-external', 'key': 'SCHEDULE_SCAN_TOKEN'}}}]
 
 
-@pytest.mark.parametrize('platform', ['eks', 'k3s'])
+@pytest.mark.parametrize('platform', ['eks'])
 def test_studio_separates_boot_liveness_and_database_readiness(platform):
     docs = render('agent-studio', platform)
     deployment = next(doc for doc in docs if doc['kind'] == 'Deployment' and doc['metadata']['name'] == 'agent-studio')

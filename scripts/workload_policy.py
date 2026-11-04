@@ -1,4 +1,4 @@
-"""k3s/local omit compute reservations; EKS requires explicit resource budgets."""
+"""local omits compute reservations; EKS requires explicit resource budgets."""
 
 from pathlib import Path
 
@@ -6,8 +6,8 @@ import yaml
 import re
 
 
-PLATFORMS = {"eks", "k3s", "local"}
-UNRESERVED_PLATFORMS = {"k3s", "local"}
+PLATFORMS = {"eks", "local"}
+UNRESERVED_PLATFORMS = {"local"}
 AUTOSCALERS = {"HorizontalPodAutoscaler", "VerticalPodAutoscaler", "ScaledObject", "ScaledJob"}
 VM_WORKLOADS = {"VMAgent", "VMAlert", "VMAlertmanager", "VMAuth", "VMCluster", "VMSingle"}
 
@@ -66,22 +66,6 @@ def policy_errors(manifests, platform):
         elif kind in VM_WORKLOADS and document.get("spec", {}).get("useDefaultResources") is not False:
             errors.append(f"{owner} spec.useDefaultResources must be false")
         inspect(document, owner, vm_workload=kind in VM_WORKLOADS)
-        if kind == "HelmChartConfig":
-            # k3s deploys its bundled Traefik chart from this embedded values document.
-            values = yaml.safe_load(document.get("spec", {}).get("valuesContent", ""))
-            inspect(values, owner, "spec.valuesContent")
-            if document.get("metadata", {}).get("name") == "traefik":
-                values = values or {}
-                # Traefik dereferences resources.limits; removing the parent map breaks rendering.
-                # Null children remove Helm defaults, while empty maps merge those defaults back in.
-                resources = values.get("resources")
-                if not isinstance(resources, dict) or any(
-                    field not in resources or resources[field] is not None
-                    for field in ("requests", "limits")
-                ):
-                    errors.append(f"{owner} valuesContent.resources must keep a map with requests/limits explicitly null")
-                if values.get("autoscaling", {}).get("enabled") is not False:
-                    errors.append(f"{owner} valuesContent.autoscaling.enabled must be false")
     return errors
 
 def production_resource_errors(manifests):

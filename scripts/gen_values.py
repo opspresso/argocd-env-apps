@@ -10,13 +10,13 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 
 PLATFORM = "eks"
-PLATFORMS = {"eks", "k3s", "local"}
+PLATFORMS = {"eks", "local"}
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="Helm chart gen")
     p.add_argument("-r", "--reponame", required=True, help="chart name")
-    p.add_argument("-p", "--platform", choices=["eks", "k3s", "local"], default=PLATFORM)
+    p.add_argument("-p", "--platform", choices=["eks", "local"], default=PLATFORM)
     return p.parse_args()
 
 
@@ -80,14 +80,9 @@ def gen_values(t, reponame, platform=PLATFORM):
                     raise ValueError("{} must declare a supported env".format(env_path))
                 if v.get("cluster") != os.path.splitext(env_file)[0]:
                     raise ValueError("{} cluster must match its filename".format(env_path))
-                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_knowledge_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "agent_runway_maintenance", "storage_gc_maintenance"):
+                for key in ("resources", "autoscaling", "agent_studio_maintenance", "agent_memory_maintenance", "agent_knowledge_maintenance", "agent_forge_maintenance", "agent_models_maintenance", "agent_runway_maintenance"):
                     if key in v and not isinstance(v[key], bool):
                         raise ValueError("{} {} must be a boolean".format(env_path, key))
-                if v.get("storage_gc_maintenance"):
-                    paused = all(v.get(f"agent_{service}_maintenance") is True
-                                 for service in ("studio", "memory", "knowledge", "forge"))
-                    if v.get("env") != "k3s" or not paused or v.get("minio", {}).get("console") is not False:
-                        raise ValueError("storage_gc_maintenance requires k3s, all Agent services paused and minio.console false")
                 validate_agent_oidc(v)
                 proxies = v.get("trusted_proxy_cidrs", [])
                 if not isinstance(proxies, list):
@@ -102,9 +97,9 @@ def gen_values(t, reponame, platform=PLATFORM):
                 metrics = v.get("metrics")
                 if metrics is not None and (
                     not isinstance(metrics, dict)
-                    or metrics.get("backend") not in {"prometheus", "grafana-cloud"}
+                    or metrics.get("backend") != "prometheus"
                 ):
-                    raise ValueError("{} metrics.backend must be prometheus or grafana-cloud".format(env_path))
+                    raise ValueError("{} metrics.backend must be prometheus".format(env_path))
 
                 if v.get("env") != platform:
                     continue
