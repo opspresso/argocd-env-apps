@@ -49,6 +49,13 @@ app:
         - /bin/sh
         - -c
         - sleep 15
+  # The istio sidecar is native, so it stops only after the app has exited. Waiting for clients'
+  # idle connections (the mesh default EXIT_ON_ZERO_ACTIVE_CONNECTIONS) then serves no request and only
+  # delays pod removal: Prometheus keeps its scrape connection open for 5 minutes after the last scrape.
+  podAnnotations:
+    proxy.istio.io/config: |
+      proxyMetadata:
+        EXIT_ON_ZERO_ACTIVE_CONNECTIONS: "false"
   autoscaling:
     enabled: true
     minReplicas: 2
