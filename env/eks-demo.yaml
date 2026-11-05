@@ -31,7 +31,7 @@ grafana_url: http://grafana.addon-grafana.svc.cluster.local
 # Maintenance
 agent_studio_maintenance: false
 agent_memory_maintenance: false
-agent_knowledge_maintenance: true
+agent_knowledge_maintenance: false
 agent_forge_maintenance: false
 agent_models_maintenance: false
 agent_runway_maintenance: false
