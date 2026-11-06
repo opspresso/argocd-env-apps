@@ -56,6 +56,8 @@ app:
       name: OIDC_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-runway/pool-database-url
       name: RUNWAY_POOL_DATABASE_URL
+    - key: /k8s/{{cluster}}/agent-runway/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
 {%- if agent_runway.delivery is defined and agent_runway.delivery.github_app | default(false) %}
     - key: /k8s/{{cluster}}/agent-runway/github-app-id
       name: RUNWAY_GITHUB_APP_ID
@@ -78,6 +80,11 @@ app:
   - namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: addon-prometheus
+  ssmPrefix: /k8s/{{cluster}}
+  serviceMonitor:
+    enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
+    labels:
+      release: prometheus-{{cluster}}
   registry:
     region: {{aws_region}}
 {% endif %}

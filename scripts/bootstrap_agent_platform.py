@@ -78,6 +78,7 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
     if delivery:
         secret("agent-runway/auth-secret")
+        secret("agent-runway/metrics-bearer-token")
         secret("delivery-pool/postgres-password")
         # Delivery administers the pool as a non-superuser; the pool bootstrap sets this password.
         admin = secret("agent-runway/pool-admin-password")
