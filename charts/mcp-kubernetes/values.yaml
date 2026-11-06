@@ -172,3 +172,11 @@ raw:
             ports:
               - protocol: TCP
                 port: 8080
+          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: addon-prometheus
+            ports:
+              - protocol: TCP
+                port: 15090
