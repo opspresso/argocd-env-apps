@@ -53,6 +53,8 @@ app:
       name: OIDC_CLIENT_SECRET
     - key: /k8s/eks-demo/agent-runway/pool-database-url
       name: RUNWAY_POOL_DATABASE_URL
+    - key: /k8s/eks-demo/agent-runway/metrics-bearer-token
+      name: METRICS_BEARER_TOKEN
   routing:
     hosts:
     - runway.agrt.dev
@@ -69,6 +71,11 @@ app:
   - namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: addon-prometheus
+  ssmPrefix: /k8s/eks-demo
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-eks-demo
   registry:
     region: ap-northeast-2
 

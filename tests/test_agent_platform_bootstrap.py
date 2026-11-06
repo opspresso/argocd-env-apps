@@ -130,6 +130,7 @@ def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys
     assert writes[f"{TARGET}/agent-runway/pool-database-url"] == (
         f"postgresql://delivery_admin:{admin}@postgres.delivery-pool.svc.cluster.local:5432/postgres")
     assert len(writes[f"{TARGET}/agent-runway/auth-secret"]) >= 32
+    assert len(writes[f"{TARGET}/agent-runway/metrics-bearer-token"]) >= 32
     assert writes[f"{TARGET}/delivery-pool/postgres-password"] != admin
     assert f"{TARGET}/agent-runway/oidc-client-id" in capsys.readouterr().out
     assert not any("oidc-client" in name for name in writes)

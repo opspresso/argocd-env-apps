@@ -71,3 +71,20 @@ def test_workflow_submission_policy_binds_the_runway_identity_and_namespace():
     assert not any(key.endswith("_TEMPLATE") for key in config)
     rules = {resource_name for rule in policy["matchConstraints"]["resourceRules"] for resource_name in rule["resources"]}
     assert rules == {"workflows", "secrets"}
+
+
+def test_prometheus_scrapes_runway_metrics_with_the_app_bearer_token():
+    monitor = resource("agent-runway", "eks", "ServiceMonitor", "agent-runway")
+    assert monitor["metadata"]["labels"]["release"] == "prometheus-eks-demo"
+    endpoint, = monitor["spec"]["endpoints"]
+    service = resource("agent-runway", "eks", "Service", "agent-runway")["spec"]
+    assert endpoint["path"] == "/metrics"
+    assert endpoint["port"] in {port["name"] for port in service["ports"]}
+    credentials = endpoint["authorization"]["credentials"]
+    token = resource("agent-runway", "eks", "ExternalSecret", credentials["name"])["spec"]
+    assert token["target"]["name"] == credentials["name"]
+    remote, = [item["remoteRef"]["key"] for item in token["data"] if item["secretKey"] == credentials["key"]]
+    app = resource("agent-runway", "eks", "ExternalSecret", "agent-runway-external")["spec"]["data"]
+    assert {"secretKey": "METRICS_BEARER_TOKEN", "remoteRef": {"key": remote}} in [
+        {"secretKey": item["secretKey"], "remoteRef": {"key": item["remoteRef"]["key"]}} for item in app]
+    assert remote == "/k8s/eks-demo/agent-runway/metrics-bearer-token"
