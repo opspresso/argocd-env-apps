@@ -40,3 +40,34 @@ def test_tenant_policy_guards_both_transition_roles():
     assert policy["spec"]["failurePolicy"] == "Fail"
     assert any("!variables.tenantRole" in item["expression"] and "variables.tenantNamespace" in item["expression"]
                for item in policy["spec"]["validations"])
+
+
+def test_workflow_submission_policy_binds_the_runway_identity_and_namespace():
+    import subprocess
+    import yaml
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    chart = root / "charts/delivery-tenants"
+    rendered = subprocess.run(["helm", "template", "delivery-tenants-eks-demo", str(chart),
+                               "-f", str(chart / "values.yaml"), "-f", str(chart / "eks/values-eks-demo.yaml")],
+                              check=True, capture_output=True, text=True).stdout
+    docs = {(item["kind"], item["metadata"]["name"]): item for item in yaml.safe_load_all(rendered) if item}
+    policy = docs[("ValidatingAdmissionPolicy", "runway-delivery-submissions")]["spec"]
+    binding = docs[("ValidatingAdmissionPolicyBinding", "runway-delivery-submissions")]["spec"]
+    assert binding == {"policyName": "runway-delivery-submissions", "validationActions": ["Deny"]}
+    assert policy["failurePolicy"] == "Fail"
+
+    # The policy must follow the namespace Runway submits to and the ServiceAccount it runs as.
+    config = resource("agent-runway", "eks", "ConfigMap", "agent-runway")["data"]
+    assert policy["matchConstraints"]["namespaceSelector"] == {
+        "matchLabels": {"kubernetes.io/metadata.name": config["RUNWAY_WORKFLOW_NAMESPACE"]}}
+    application = yaml.safe_load((root / "apps/eks/agent-runway.yaml").read_text())
+    namespace = application["spec"]["template"]["spec"]["destination"]["namespace"]
+    account = resource("agent-runway", "eks", "Deployment", "agent-runway")["spec"]["template"]["spec"]["serviceAccountName"]
+    assert policy["matchConditions"] == [{
+        "name": "runway", "expression": f"request.userInfo.username == 'system:serviceaccount:{namespace}:{account}'"}]
+    # Runway reads its template names from RUNWAY_*_TEMPLATE and falls back to these names.
+    assert not any(key.endswith("_TEMPLATE") for key in config)
+    rules = {resource_name for rule in policy["matchConstraints"]["resourceRules"] for resource_name in rule["resources"]}
+    assert rules == {"workflows", "secrets"}
