@@ -141,6 +141,60 @@ app:
                 kind: ECRAuthorizationToken
                 name: agent-knowledge-ecr
     - |
+      # Runs the new image's read-only schema check before Argo CD changes anything. A non-zero exit fails the
+      # sync, so the running Pods keep the old image (agent-knowledge docs/OPERATIONS.md). Without the database
+      # Secret the release is a first install whose startup creates the schema, so the check has nothing to compare.
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: agent-knowledge-schema-check
+        namespace: {{ include "app.namespace" . }}
+        annotations:
+          argocd.argoproj.io/hook: PreSync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+      spec:
+        backoffLimit: 2
+        activeDeadlineSeconds: 300
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: agent-knowledge-schema-check
+              sidecar.istio.io/inject: "false"
+          spec:
+            restartPolicy: Never
+            automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+            imagePullSecrets:
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+            containers:
+              - name: schema-check
+                image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+                command:
+                  - sh
+                  - -c
+                  - |
+                    if [ -z "${DATABASE_URL:-}" ]; then
+                      echo '{"check":"agent-knowledge-schema","status":"skipped","reason":"no database Secret yet"}'
+                      exit 0
+                    fi
+                    exec node scripts/schema-check.mjs
+                env:
+                  - name: DATABASE_URL
+                    valueFrom:
+                      secretKeyRef:
+                        name: agent-knowledge-external
+                        key: DATABASE_URL
+                        optional: true
+      {{- if .Values.resources }}
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 64Mi
+                  limits:
+                    memory: 256Mi
+      {{- end }}
+    - |
       {{- if .Values.workloads.worker.enabled }}
       apiVersion: v1
       kind: Service
