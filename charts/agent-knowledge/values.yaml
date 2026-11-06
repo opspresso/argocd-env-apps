@@ -241,6 +241,8 @@ app:
         imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 2 }}
         podAnnotations:
           checksum/config: {{ toYaml .Values.configmap | sha256sum }}
+          # The worker reads the main app's ExternalSecret; restart it when that entry list changes, like the web Pods.
+          checksum/external-secrets: {{ toJson (dict "data" .Values.externalSecrets.data "dataFrom" .Values.externalSecrets.dataFrom) | sha256sum }}
         {{- if not .Values.resources }}
         resources: null
         {{- end }}

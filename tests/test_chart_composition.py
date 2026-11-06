@@ -65,3 +65,23 @@ def test_config_changes_restart_studio_web():
 def test_argocd_network_policy_can_be_disabled():
     assert any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd"))
     assert not any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd", "eks", "networkPolicy.enabled=false"))
+
+
+def test_external_secret_entries_restart_knowledge_web_and_worker():
+    def checksums(*settings):
+        docs = render("agent-knowledge", "eks", *settings)
+        return {doc["metadata"]["name"]: doc["spec"]["template"]["metadata"]["annotations"]["checksum/external-secrets"]
+                for doc in docs if doc["kind"] == "Deployment"}
+
+    before = checksums()
+    assert set(before) == {"agent-knowledge", "agent-knowledge-worker"}
+    # The worker reads the web app's ExternalSecret, so both follow the same entry list.
+    assert len(set(before.values())) == 1
+    after = checksums("app.externalSecrets.data[0].key=/k8s/other/database-url")
+    assert all(after[name] != before[name] for name in before)
+    # dataFrom counts as well.
+    source = "app.externalSecrets.dataFrom[0].find.name.regexp=.*"
+    before_from = checksums(source, "app.externalSecrets.dataFrom[0].find.path=/k8s/before")
+    after_from = checksums(source, "app.externalSecrets.dataFrom[0].find.path=/k8s/after")
+    assert len(set(before_from.values())) == len(set(after_from.values())) == 1
+    assert all(after_from[name] != before_from[name] for name in before)
