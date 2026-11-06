@@ -67,7 +67,10 @@ charts/<project>/
 `ENV_HASH` 는 **`values-<phase>.yaml` 만** 해시한 값이다 (`scripts/chart.py:157`). `values.yaml` 이나
 `<platform>/values-<cluster>.yaml` 이 바뀌어도 움직이지 않는다. 다만 pod 재시작은 이것에 의존하지
 않는다 — upstream `app` chart 가 `checksum/config`·`checksum/secret` 을 병합된 값 전체에서
-계산해 deployment 에 달아준다. `ENV_HASH` 는 앱이 자기 버전을 env 로 읽기 위한 값에 가깝다.
+계산해 deployment 에 달아준다. `checksum/external-secrets`(app v2.3.0+)는 `externalSecrets.data`·`dataFrom`
+항목(이름·출처)이 바뀌면 pod 를 재시작한다. SSM 에서 바뀐 값은 다음 재시작에 반영된다.
+main app 의 ExternalSecret 을 읽는 worker 는 `overrides` 에 같은 annotation 을 둔다(agent-knowledge).
+`ENV_HASH` 는 앱이 자기 버전을 env 로 읽기 위한 값에 가깝다.
 
 `ENV_HASH` 는 배포할 때만 다시 계산된다. 그래서 `values-<phase>.yaml` 을 손으로 고치면 다음 배포
 전까지 옛 해시가 남고, **같은 버전을 다시 배포해도 `ENV_HASH` 한 줄은 바뀐다.** 재배포 diff 에
