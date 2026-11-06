@@ -79,3 +79,9 @@ def test_external_secret_entries_restart_knowledge_web_and_worker():
     assert len(set(before.values())) == 1
     after = checksums("app.externalSecrets.data[0].key=/k8s/other/database-url")
     assert all(after[name] != before[name] for name in before)
+    # dataFrom counts as well.
+    source = "app.externalSecrets.dataFrom[0].find.name.regexp=.*"
+    before_from = checksums(source, "app.externalSecrets.dataFrom[0].find.path=/k8s/before")
+    after_from = checksums(source, "app.externalSecrets.dataFrom[0].find.path=/k8s/after")
+    assert len(set(before_from.values())) == len(set(after_from.values())) == 1
+    assert all(after_from[name] != before_from[name] for name in before)
