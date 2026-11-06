@@ -13,6 +13,16 @@ app:
     name: http
     port: 3103
     targetPort: 3103
+    # Sandboxes call the model proxy only on this port (sandbox.port); 3103 answers /model/ with 404.
+    extraPorts:
+    - name: sandbox
+      port: 3104
+      targetPort: sandbox
+      protocol: TCP
+  extraPorts:
+  - name: sandbox
+    containerPort: 3104
+    protocol: TCP
   controller:
     strategy:
       rollingUpdate:
@@ -285,7 +295,7 @@ app:
               - {protocol: TCP, port: 80}
               - {protocol: TCP, port: 443}
       {{- end }}
-          # Native CLIs reach only this installation's authenticated Forge Gateway.
+          # Native CLIs reach only this installation's model proxy on the sandbox port.
           - to:
               - namespaceSelector:
                   matchLabels:
@@ -294,7 +304,7 @@ app:
                   matchLabels:
       {{- include "app.selectorLabels" . | nindent 14 }}
             ports:
-              - {protocol: TCP, port: {{ .Values.service.targetPort }}}
+              - {protocol: TCP, port: {{ .Values.sandbox.port }}}
       {{- with .Values.sandbox.extraEgress }}
       {{ toYaml . | indent 4 }}
       {{- end }}
@@ -305,7 +315,8 @@ app:
         name: agent-forge-sandbox
       data:
         FORGE_SANDBOX_IMAGE: {{ printf "%s:sandbox-%s" .Values.image.repository .Values.image.tag | quote }}
-        FORGE_SANDBOX_API_URL: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "app.fullname" .) (include "app.namespace" .) .Values.service.port | quote }}
+        FORGE_SANDBOX_PORT: {{ .Values.sandbox.port | quote }}
+        FORGE_SANDBOX_API_URL: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "app.fullname" .) (include "app.namespace" .) .Values.sandbox.port | quote }}
         FORGE_SANDBOX_MEMORY_MB: {{ .Values.sandbox.memoryMb | quote }}
         FORGE_SANDBOX_DISK_MB: {{ .Values.sandbox.diskMb | quote }}
         FORGE_SANDBOX_CPUS: {{ .Values.sandbox.cpus | quote }}
@@ -354,6 +365,17 @@ app:
             ports:
               - protocol: TCP
                 port: {{ .Values.service.targetPort }}
+          # Sandbox Pods reach only the model proxy port.
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ .Values.sandbox.namespace | quote }}
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: agent-forge-sandbox
+            ports:
+              - protocol: TCP
+                port: {{ .Values.sandbox.port }}
           # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
           - from:
               - namespaceSelector:
@@ -367,6 +389,8 @@ app:
   automountServiceAccountToken: true
   sandbox:
     namespace: agent-forge-workspaces
+    # The model proxy port; equals service.extraPorts[sandbox].port and extraPorts[sandbox].containerPort.
+    port: 3104
     maxPods: 2
     memoryMb: 1024
     diskMb: 2048
@@ -393,4 +417,3 @@ app:
         kubernetes.io/metadata.name: addon-alloy
   servicePeers:
   - agent-studio
-  - agent-forge-workspaces

@@ -190,7 +190,8 @@ def test_namespace_registry_refresh_and_explicit_ingress(chart, platform):
     assert "istio-system" in peers
     if chart == "agent-studio":
         assert {"agent-forge", "agent-knowledge"} <= peers
-    assert "agent-forge-workspaces" in peers if chart == "agent-forge" else "agent-forge-workspaces" not in peers
+    # Forge admits its sandboxes on the sandbox port only (tests/test_workspace_kubernetes.py).
+    assert "agent-forge-workspaces" not in peers
 
 
 @pytest.mark.parametrize("chart,name", [("postgresql", "postgres")])
