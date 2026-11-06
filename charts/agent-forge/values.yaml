@@ -354,6 +354,14 @@ app:
             ports:
               - protocol: TCP
                 port: {{ .Values.service.targetPort }}
+          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: addon-prometheus
+            ports:
+              - protocol: TCP
+                port: 15090
   registry:
     region: ap-northeast-2
   automountServiceAccountToken: true

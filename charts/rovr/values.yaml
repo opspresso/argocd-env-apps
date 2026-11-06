@@ -422,6 +422,14 @@ app:
             ports:
               - protocol: TCP
                 port: 8081
+          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: addon-prometheus
+            ports:
+              - protocol: TCP
+                port: 15090
     - |
       {{- $db := .Values.database }}
       # rovr's own database and role on the shared PostgreSQL. The Job runs in
