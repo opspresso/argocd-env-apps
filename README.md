@@ -40,9 +40,10 @@ local fixture는 `replicas: 1`, `autoscaling: false`, `resources: false`로 선�
 `metrics.backend`는 `prometheus`만 허용하며, 이 backend만 ServiceMonitor를 생성한다.
 각 chart의 기본 values가 운영용 requests/limits를 제공하며, `resources: false`인
 환경에서는 템플릿이 해당 resource block을 제거한다. 컨테이너·초기화 컨테이너·worker·CronJob에도 같은 규칙을 적용한다.
-Neo4j는 공식 차트가 강제하는 최소 requests(CPU `500m`, 메모리 `2Gi`)만 허용하며 limits는 두지 않는다.
-HPA·VPA·KEDA autoscaler를 생성하지 않으며 PVC storage 요청은 유지한다.
-`scripts/validate.py`는 위 Neo4j 최소 requests를 제외한 compute requests/limits나 autoscaler가 남으면 실패한다.
+EKS의 컨테이너·초기화 컨테이너·테스트 작업에는 양수 CPU·메모리 requests와 메모리 limit이 필요하다.
+CPU limit은 필수가 아니며 autoscaling은 환경 설정을 따른다.
+local fixture에서는 compute requests/limits와 HPA·VPA·KEDA를 생성하지 않고 PVC storage 요청은 유지한다.
+`scripts/validate.py`는 실제 Helm 렌더 결과를 각 플랫폼의 자원 정책에 맞춰 검사한다.
 
 ## 로컬 Kubernetes 개발 환경
 
