@@ -198,7 +198,8 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
 | `agent-runway/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
 
-Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 `GET /api/v1/installation`에서 읽습니다.
+Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 공개 MCP `installation_get`으로 확인합니다.
+요청 header와 확인 주기는 [Studio 서비스 연결 계약](https://github.com/opspresso/agent-studio/blob/main/docs/design/agent-services.md#연결-설정)을 따릅니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
 
