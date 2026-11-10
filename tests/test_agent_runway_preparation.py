@@ -1,5 +1,7 @@
 """The prepared chart must use the new identity at every runtime boundary."""
 
+import re
+
 from test_agent_platform import resource
 
 
@@ -71,6 +73,12 @@ def test_workflow_submission_policy_binds_the_runway_identity_and_namespace():
     assert not any(key.endswith("_TEMPLATE") for key in config)
     rules = {resource_name for rule in policy["matchConstraints"]["resourceRules"] for resource_name in rule["resources"]}
     assert rules == {"workflows", "secrets"}
+    # Every WorkflowTemplate Runway submits by default (agent-runway src/lib/config.ts) must be admitted, or that
+    # Target kind's deploys and the golden image bakes are denied at submission.
+    reference = next(item["expression"] for item in policy["validations"] if "workflowTemplateRef.name in" in item["expression"])
+    admitted = set(re.search(r"workflowTemplateRef\.name in \[([^\]]*)\]", reference).group(1).replace("'", "").replace(" ", "").split(","))
+    assert admitted == {"app-build", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "app-deploy-asg", "app-remove-asg",
+                        "resource-sync", "image-bake"}
 
 
 def test_prometheus_scrapes_runway_metrics_with_the_app_bearer_token():
