@@ -78,6 +78,23 @@ app:
     - {{agent_runway.hostname}}
     httpRoute:
       enabled: true
+  # Every eks-demo node is Spot. Spread the replicas over AZs and nodes so one reclaim leaves a replica serving.
+  # ScheduleAnyway: a replica still starts when one AZ has no Spot capacity.
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agent-runway
+      matchLabelKeys: [pod-template-hash]
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agent-runway
+      matchLabelKeys: [pod-template-hash]
   podLabels:
     sidecar.istio.io/inject: "true"
   podAnnotations:
