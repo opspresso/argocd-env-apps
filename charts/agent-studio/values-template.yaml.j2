@@ -38,6 +38,7 @@ app:
       OIDC_LOGOUT_MODE: {{ oidc.logout_mode | default('app') | tojson }}
       OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
       OIDC_DISPLAY_NAME: {{ oidc.display_name | default("SSO") | tojson }}
+      OIDC_TRUST_EMAIL: {{ (oidc.trust_email | default(false)) | string | lower | tojson }}
 {% endif %}
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       # PUBLIC_BASE_URL: https://{{agent_studio.hostname}}

@@ -48,10 +48,21 @@ def test_studio_enterprise_oidc_renders_to_real_manifests(platform):
     assert config["OIDC_SCOPES"] == oidc["scopes"]
     assert json.loads(config["OIDC_PROFILE_CLAIMS"]) == oidc["profile_claims"]
     assert config["OIDC_LOGOUT_MODE"] == "app"
+    assert config["OIDC_TRUST_EMAIL"] == "false"
     assert refs["OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-id"
     assert refs["OIDC_CLIENT_SECRET"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-secret"
     assert "OIDC_CLIENT_SECRET" not in config
     assert "GOOGLE_CLIENT_ID" not in refs and "GOOGLE_CLIENT_SECRET" not in refs
+
+
+@pytest.mark.parametrize("platform", ["eks"])
+def test_studio_trust_email_renders_as_text(platform):
+    context = configured(platform)
+    context["agent_studio"]["oidc"]["trust_email"] = True
+    validate_agent_oidc(context)
+    chart = ROOT / "charts" / "agent-studio"
+    values = Environment(loader=FileSystemLoader(chart), undefined=StrictUndefined).get_template("values-template.yaml.j2").render(context)
+    assert yaml.safe_load(values)["app"]["configmap"]["data"]["OIDC_TRUST_EMAIL"] == "true"
 
 
 @pytest.mark.parametrize("service", CONSUMERS)
@@ -101,6 +112,10 @@ def test_incomplete_studio_oidc_configuration_is_rejected_before_generation():
     invalid = copy.deepcopy(context)
     invalid["agent_studio"]["oidc"]["logout_mode"] = "unknown"
     with pytest.raises(ValueError, match="logout_mode"):
+        validate_agent_oidc(invalid)
+    invalid = copy.deepcopy(context)
+    invalid["agent_studio"]["oidc"]["trust_email"] = "true"
+    with pytest.raises(ValueError, match="trust_email"):
         validate_agent_oidc(invalid)
     context["agent_studio"]["google_sign_in"] = "false"
     with pytest.raises(ValueError, match="boolean"):

@@ -30,6 +30,7 @@ app:
       OIDC_LOGOUT_MODE: "app"
       OIDC_PROFILE_CLAIMS: "{}"
       OIDC_DISPLAY_NAME: "LLDAP"
+      OIDC_TRUST_EMAIL: "true"
 
       AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
       # PUBLIC_BASE_URL: https://studio.agrt.dev
