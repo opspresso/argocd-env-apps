@@ -3,10 +3,11 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-models
     tag: latest
+  # Working set p95 137Mi (7 days to 2026-11-10).
   resources:
     requests:
       cpu: 10m
-      memory: 128Mi
+      memory: 160Mi
     limits:
       memory: 1Gi
   service:

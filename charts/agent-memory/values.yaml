@@ -3,11 +3,12 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-memory
     tag: latest
-  # The limit covers a measured 530Mi peak under concurrent recalls.
+  # The limit covers a measured 530Mi peak under concurrent recalls; working set
+  # p95 is 207Mi (7 days to 2026-11-10).
   resources:
     requests:
       cpu: 50m
-      memory: 192Mi
+      memory: 256Mi
     limits:
       memory: 1Gi
   service:

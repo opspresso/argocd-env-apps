@@ -76,9 +76,10 @@ postgresql:
       enabled: true
       size: 5Gi
     resources:
+      # agent-studio working set p95 662Mi, peak 828Mi (7 days to 2026-11-10).
       requests:
         cpu: 50m
-        memory: 512Mi
+        memory: 768Mi
       limits:
         cpu: 2000m
         memory: 2Gi
