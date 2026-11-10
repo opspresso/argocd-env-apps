@@ -138,9 +138,13 @@ agent_runway:
       # a Project's application.yaml can replace it per environment.
       - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false, deployOn: {branches: [main]}}
       - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true, deployOn: {tags: ["v*"]}}
-    # A GitHub App issues checkout tokens for private app repositories. Set true only after
-    # /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
+    # github_app: the App's credentials issue checkout tokens for private app repositories and check the App's
+    # installation. Set true only after /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
     github_app: false
+    # github_webhook: the App sends the pushes of the repositories it is installed on (push deployments), signed
+    # with /k8s/<cluster>/agent-runway/github-webhook-secret. github_app_slug is the App's URL name for the install link.
+    github_webhook: true
+    github_app_slug: agrt-dev
 
 # Applications
 # rovr: goal-driven coding agents (opspresso/rovr).

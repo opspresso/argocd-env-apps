@@ -38,6 +38,8 @@ app:
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
       RUNWAY_ENVIRONMENTS: '[{"approval": "none", "deployOn": {"branches": ["main"]}, "name": "dev", "primary": false, "requiresPrevious": false, "sandbox": true}, {"approval": "owner", "deployOn": {"tags": ["v*"]}, "name": "prod", "primary": true, "requiresPrevious": true, "sandbox": false}]'
+      # The GitHub App's URL name, for the console's install link (Agent Runway v0.45.0 or later).
+      RUNWAY_GITHUB_APP_SLUG: agrt-dev
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 
   externalSecrets:
@@ -55,6 +57,9 @@ app:
       name: RUNWAY_POOL_DATABASE_URL
     - key: /k8s/eks-demo/agent-runway/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
+    # The App's webhook secret signs the pushes it sends to /api/webhooks/github (Agent Runway v0.45.0 or later).
+    - key: /k8s/eks-demo/agent-runway/github-webhook-secret
+      name: RUNWAY_GITHUB_WEBHOOK_SECRET
   routing:
     hosts:
     - runway.agrt.dev
