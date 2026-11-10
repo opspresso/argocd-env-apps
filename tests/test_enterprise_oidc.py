@@ -24,8 +24,6 @@ def configured(platform):
         "issuer": "https://identity.example.test/realms/company",
         "provider_id": "enterprise",
         "scopes": "openid profile email groups",
-        "client_id_parameter": f"/k8s/{platform}-demo/agent-studio/oidc-client-id",
-        "client_secret_parameter": f"/k8s/{platform}-demo/agent-studio/oidc-client-secret",
         "profile_claims": {"teams": "/directory~1groups", "department": "/company/department", "roles": "/realm_access/roles"},
     }
     return context
@@ -50,8 +48,8 @@ def test_studio_enterprise_oidc_renders_to_real_manifests(platform):
     assert config["OIDC_SCOPES"] == oidc["scopes"]
     assert json.loads(config["OIDC_PROFILE_CLAIMS"]) == oidc["profile_claims"]
     assert config["OIDC_LOGOUT_MODE"] == "app"
-    assert refs["OIDC_CLIENT_ID"] == oidc["client_id_parameter"]
-    assert refs["OIDC_CLIENT_SECRET"] == oidc["client_secret_parameter"]
+    assert refs["OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-id"
+    assert refs["OIDC_CLIENT_SECRET"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-secret"
     assert "OIDC_CLIENT_SECRET" not in config
     assert "GOOGLE_CLIENT_ID" not in refs and "GOOGLE_CLIENT_SECRET" not in refs
 
@@ -91,11 +89,15 @@ def test_consumer_external_sign_in_settings_are_rejected_before_generation(servi
 
 def test_incomplete_studio_oidc_configuration_is_rejected_before_generation():
     context = configured("eks")
-    for changed in [{}, {"issuer": "https://sso.example.test"}, "not a mapping"]:
+    for changed in [{}, {"issuer": " "}, "not a mapping"]:
         invalid = copy.deepcopy(context)
         invalid["agent_studio"]["oidc"] = changed
         with pytest.raises(ValueError):
             validate_agent_oidc(invalid)
+    invalid = copy.deepcopy(context)
+    invalid["agent_studio"]["oidc"]["client_secret_parameter"] = "/k8s/common/agent-studio/oidc-client-secret"
+    with pytest.raises(ValueError, match="not supported"):
+        validate_agent_oidc(invalid)
     invalid = copy.deepcopy(context)
     invalid["agent_studio"]["oidc"]["logout_mode"] = "unknown"
     with pytest.raises(ValueError, match="logout_mode"):

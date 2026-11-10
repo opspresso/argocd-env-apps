@@ -78,7 +78,8 @@ Forge의 `agent_forge.model_roles`는 ConfigMap의 `FORGE_MODEL_CHANNELS`로 렌
 ### Studio 기업 OIDC
 
 `agent_studio.oidc` 블록은 Keycloak을 포함한 기업 OIDC 연결을 선언합니다.
-실제 client ID·secret은 SSM SecureString으로 준비하고 env에는 경로만 기록합니다.
+client ID·secret은 다른 서비스 client처럼 `/k8s/<cluster>/agent-studio/oidc-client-id`·`oidc-client-secret`
+SecureString에서 읽습니다. env에는 경로를 적지 않습니다.
 이 블록이 없으면 Studio는 현재 Google 연결을 유지합니다.
 
 ```yaml
@@ -91,8 +92,6 @@ agent_studio:
     display_name: Company SSO
     scopes: openid profile email
     logout_mode: app
-    client_id_parameter: /k8s/example/agent-studio/oidc-client-id
-    client_secret_parameter: /k8s/example/agent-studio/oidc-client-secret
     profile_claims:
       teams: /company/teams
       department: /company/department

@@ -24,6 +24,13 @@ app:
       AUTH_BASE_URL: https://studio.agrt.dev
       AUTH_PASSWORD: 'true'
 
+      OIDC_ISSUER: "https://sso.demo.opsp.dev"
+      OIDC_PROVIDER_ID: "lldap"
+      OIDC_SCOPES: "openid email profile"
+      OIDC_LOGOUT_MODE: "app"
+      OIDC_PROFILE_CLAIMS: "{}"
+      OIDC_DISPLAY_NAME: "LLDAP"
+
       AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
       # PUBLIC_BASE_URL: https://studio.agrt.dev
       S3_BUCKET_NAME: agent-studio-static
@@ -96,6 +103,12 @@ app:
     - key: /k8s/eks-demo/agent-studio/google-client-secret
       name: GOOGLE_CLIENT_SECRET
 
+
+    # The enterprise IdP client, under the cluster prefix like every service client.
+    - key: /k8s/eks-demo/agent-studio/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agent-studio/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
 
     - key: /k8s/eks-demo/agent-studio/aes-encryption-key
       name: AES_ENCRYPTION_KEY
