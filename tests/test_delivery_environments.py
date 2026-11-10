@@ -30,7 +30,8 @@ def test_every_rendered_profile_is_valid():
             assert set(environment) - {"deployOn"} == FIELDS, (name, environment)
             trigger = environment.get("deployOn", {})
             assert set(trigger) <= TRIGGER_KEYS, (name, environment)
-            assert all(isinstance(pattern, str) for key in TRIGGER_KEYS for pattern in trigger.get(key, [])), (name, environment)
+            for key in TRIGGER_KEYS & set(trigger):
+                assert isinstance(trigger[key], list) and all(isinstance(pattern, str) for pattern in trigger[key]), (name, environment)
             assert NAME.match(environment["name"]), (name, environment)
             assert environment["approval"] in ("none", "owner"), (name, environment)
             assert all(isinstance(environment[key], bool) for key in ("primary", "sandbox", "requiresPrevious"))
