@@ -5,7 +5,7 @@
 
 ## EKS 워크로드
 
-requests는 `eks-demo`의 유휴 peak working set에 여유를 더한 값입니다. memory limit은 48 동시 요청 부하
+requests는 `eks-demo`에서 측정한 7일 working set p95(2026-11-10 기준)에 여유를 더한 값입니다. memory limit은 48 동시 요청 부하
 시험 peak(Studio 1.1Gi, Memory 530Mi, Models 400Mi, Knowledge 230Mi, Forge 185Mi)보다 크게 둡니다.
 Models의 400Mi는 v0.1.10의 요청 signal 누수 수정 전에 측정한 값입니다. 수정 후 같은 부하를 반복했을 때 working set은
 54~79Mi에서 늘지 않았고 재시작은 없었습니다. Models limit 1Gi는 이 값보다 크므로 유지합니다.
@@ -14,21 +14,22 @@ CPU HPA를 쓰는 Studio·Memory는 70% 목표가 의미 있도록 CPU request�
 | 워크로드 | requests CPU / memory | memory limit | 확장 |
 | --- | --- | --- | --- |
 | Studio web | 50m / 384Mi | 2Gi | 2~6, active Agent 실행 8/Pod·app CPU 70% |
-| Memory web | 50m / 192Mi | 1Gi | 2~6, app CPU 70% |
-| Knowledge web | 25m / 192Mi | 1Gi | 2, app CPU 70% |
+| Memory web | 50m / 256Mi | 1Gi | 2~6, app CPU 70% |
+| Knowledge web | 25m / 224Mi | 1Gi | 2, app CPU 70% |
 | Knowledge queue worker | 25m / 256Mi | 2Gi | 1, web과 분리 |
-| Forge controller/gateway/worker | 25m / 256Mi | 1Gi | 2, app CPU 70% |
-| Models | 10m / 128Mi | 1Gi | 2, app CPU 70% |
+| Forge controller/gateway/worker | 25m / 448Mi | 1Gi | 2, app CPU 70% |
+| Models | 10m / 160Mi | 1Gi | 2, app CPU 70% |
 | Runway | 10m / 128Mi | 512Mi | 2 |
-| PostgreSQL | 50m / 512Mi | 2Gi | 단일 StatefulSet, 550 connections |
+| PostgreSQL | 50m / 768Mi | 2Gi | 단일 StatefulSet, 550 connections |
 | Runway pool PostgreSQL | 25m / 128Mi | 512Mi | 단일 StatefulSet |
 | Forge Sandbox | 1 / 2Gi | 2Gi | namespace에서 최대 Pod32·Job32 |
 
 Studio의 active execution metric은 Studio Agent 실행을 나타냅니다. native 모델 요청은
 Forge가 별도 집계합니다. Istio sidecar CPU는 앱 CPU에 합산하지 않습니다.
 노드 수 계산은 sidecar·DaemonSet·rolling surge와 가장 큰 노드 한 대 손실까지 포함해야 합니다.
-낮은 유휴 CPU만으로 production 기준 노드를 줄이지 않습니다. 기준 노드 2대는 전체 requests
-(addons·sidecar 포함 약 2.0 vCPU·11.8Gi)를 노드 한 대(3.77 vCPU·14.3Gi allocatable)가 수용하는 조건으로 정했습니다.
+낮은 유휴 CPU만으로 production 기준 노드를 줄이지 않습니다. 2026-11-10의 실행 중 Pod 전체 requests는
+addons·sidecar를 포함해 약 3.5 vCPU·21.5Gi입니다(Sandbox·tenant 앱 제외). 가장 큰 항목은 GitLab 5.8Gi, Argo CD 3.3Gi,
+Prometheus 2.9Gi입니다. 노드 수를 바꿀 때는 이 합계와 노드 한 대 손실을 함께 계산합니다.
 rolling surge와 순간 증가분은 `general` NodePool이 노드를 추가해 처리합니다.
 
 ## PostgreSQL
