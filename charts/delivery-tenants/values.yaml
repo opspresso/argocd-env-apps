@@ -6,12 +6,13 @@ global:
     tenantSecretsRoleArn: ""
     # What the Agent Runway ServiceAccount may submit to the Delivery namespace. argocd-env-projects charts/delivery
     # grants it create on Workflows and Secrets there; this policy narrows both to the shapes Runway sends
-    # (agent-runway src/infrastructure/delivery/argo-workflows.ts). The raw chart reads only global values.
+    # (agent-runway src/infrastructure/workflow/argo.ts). The raw chart reads only global values.
     submissions:
       namespace: app-delivery
       user: system:serviceaccount:agent-runway:agent-runway
-      # The WorkflowTemplates of argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults).
-      workflowTemplates: [app-build, app-deploy, app-remove, resource-sync]
+      # The WorkflowTemplates of argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the
+      # aws-eks, aws-eb and aws-asg Target deploy and remove, the namespace resource sync and the golden image bake.
+      workflowTemplates: [app-build, app-deploy, app-remove, app-deploy-eb, app-remove-eb, app-deploy-asg, app-remove-asg, resource-sync, image-bake]
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
