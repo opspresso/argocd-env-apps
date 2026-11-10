@@ -10,6 +10,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 FIELDS = {"name", "primary", "approval", "sandbox", "requiresPrevious"}
+# deployOn is optional: the branch and tag patterns whose repository webhook pushes deploy to the environment.
+TRIGGER_KEYS = {"branches", "tags"}
 
 
 def rendered_profiles():
@@ -25,7 +27,10 @@ def test_every_rendered_profile_is_valid():
     for name, environments in profiles:
         assert environments, name
         for environment in environments:
-            assert set(environment) == FIELDS, (name, environment)
+            assert set(environment) - {"deployOn"} == FIELDS, (name, environment)
+            trigger = environment.get("deployOn", {})
+            assert set(trigger) <= TRIGGER_KEYS, (name, environment)
+            assert all(isinstance(pattern, str) for key in TRIGGER_KEYS for pattern in trigger.get(key, [])), (name, environment)
             assert NAME.match(environment["name"]), (name, environment)
             assert environment["approval"] in ("none", "owner"), (name, environment)
             assert all(isinstance(environment[key], bool) for key in ("primary", "sandbox", "requiresPrevious"))
@@ -40,8 +45,8 @@ def test_every_rendered_profile_is_valid():
 def test_eks_demo_uses_the_default_profile():
     profile = dict(rendered_profiles())["values-eks-demo.yaml"]
     assert profile == [
-        {"name": "dev", "primary": False, "approval": "none", "sandbox": True, "requiresPrevious": False},
-        {"name": "prod", "primary": True, "approval": "owner", "sandbox": False, "requiresPrevious": True},
+        {"name": "dev", "primary": False, "approval": "none", "sandbox": True, "requiresPrevious": False, "deployOn": {"branches": ["main"]}},
+        {"name": "prod", "primary": True, "approval": "owner", "sandbox": False, "requiresPrevious": True, "deployOn": {"tags": ["v*"]}},
     ]
 
 
