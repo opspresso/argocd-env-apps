@@ -48,6 +48,8 @@ def validate_agent_oidc(context):
     mode = oidc.get("logout_mode", "app")
     if not isinstance(mode, str) or mode not in {"app", "provider"}:
         raise ValueError("agent_studio.oidc.logout_mode is not supported")
+    if not isinstance(oidc.get("trust_email", False), bool):
+        raise ValueError("agent_studio.oidc.trust_email must be a boolean")
 
 
 def gen_repos(args):

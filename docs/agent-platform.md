@@ -92,6 +92,7 @@ agent_studio:
     display_name: Company SSO
     scopes: openid profile email
     logout_mode: app
+    trust_email: false
     profile_claims:
       teams: /company/teams
       department: /company/department
@@ -99,8 +100,12 @@ agent_studio:
       roles: /company/roles
 ```
 
-`google_sign_in: false`는 Studio의 Google credential 주입을 끕니다. 기존 Google 계정과 새 OIDC 계정을
-이메일만으로 자동 연결하지 않으므로 전환할 계정을 먼저 확인합니다. `provider_id`는 기존 계정과
+`google_sign_in: false`는 Studio의 Google credential 주입을 끕니다.
+`trust_email`은 Studio `OIDC_TRUST_EMAIL`(Studio v0.240.0 이상)이 되며 기본값은 `false`입니다.
+`false`이면 기존 Google 계정과 새 OIDC 계정을 이메일만으로 연결하지 않으므로 전환할 계정을 먼저 확인합니다.
+`true`이면 IdP가 `email_verified=true`로 보낸 이메일이 Studio의 확인된 이메일과 같을 때 첫 OIDC 로그인에서
+기존 계정에 연결합니다. 사용자가 IdP에서 자기 이메일을 바꿀 수 없을 때만 켭니다. 바꿀 수 있으면 다른 사람의
+계정을 가져갈 수 있습니다. eks-demo는 LLDAP UI를 관리자 그룹에만 열어 이 조건을 지킵니다. `provider_id`는 기존 계정과
 callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `provider_id: keycloak`을 유지합니다.
 새 설치 기본값은 `oidc`입니다. 회사 팀·역할은 표시 정보이며 앱 권한을 자동 부여하지 않습니다.
 

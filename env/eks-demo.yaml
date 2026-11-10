@@ -63,6 +63,10 @@ agent_studio:
     issuer: https://sso.demo.opsp.dev
     provider_id: lldap
     display_name: LLDAP
+    # LLDAP sign-in links to the Studio account with the same email. Safe only
+    # because users cannot change their own LLDAP email: the LLDAP UI admits
+    # only sso.admin_groups (argocd-env-addons charts/lldap).
+    trust_email: true
   # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
   model_usage:
     defaultModel: openrouter/deepseek-v4.1-flash
