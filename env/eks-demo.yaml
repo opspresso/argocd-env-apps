@@ -134,8 +134,10 @@ agent_runway:
     # Keep the names and the primary environment equal to argocd-env-addons app_delivery.environments and
     # app_delivery.primary_environment, or deployments to a missing environment never sync.
     environments:
-      - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false}
-      - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true}
+      # deployOn: the repository webhook pushes that deploy to the environment (Agent Runway v0.43.0 or later);
+      # a Project's application.yaml can replace it per environment.
+      - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false, deployOn: {branches: [main]}}
+      - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true, deployOn: {tags: ["v*"]}}
     # A GitHub App issues checkout tokens for private app repositories. Set true only after
     # /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
     github_app: false
