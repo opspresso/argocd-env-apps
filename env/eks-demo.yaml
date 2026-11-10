@@ -55,6 +55,14 @@ agent_studio:
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
+  # Platform sign-in: the Dex client agent-studio (argocd-env-addons charts/dex).
+  # One Dex session serves the addons and Studio; the Agent services sign in
+  # through Studio. argocd-env-addons install/eks/secrets.sh creates
+  # /k8s/eks-demo/agent-studio/oidc-client-id and oidc-client-secret.
+  oidc:
+    issuer: https://sso.demo.opsp.dev
+    provider_id: lldap
+    display_name: LLDAP
   # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
   model_usage:
     defaultModel: openrouter/deepseek-v4.1-flash

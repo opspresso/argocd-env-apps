@@ -38,9 +38,11 @@ def validate_agent_oidc(context):
         return
     if not isinstance(oidc, dict):
         raise ValueError("agent_studio.oidc must be a mapping")
-    for key in ("issuer", "client_id_parameter", "client_secret_parameter"):
-        if not isinstance(oidc.get(key), str) or not oidc[key].strip():
-            raise ValueError(f"agent_studio.oidc.{key} is required")
+    if not isinstance(oidc.get("issuer"), str) or not oidc["issuer"].strip():
+        raise ValueError("agent_studio.oidc.issuer is required")
+    for key in ("client_id_parameter", "client_secret_parameter"):
+        if key in oidc:
+            raise ValueError(f"agent_studio.oidc.{key} is not supported; Studio reads /k8s/<cluster>/agent-studio/oidc-client-id and oidc-client-secret")
     if not isinstance(oidc.get("profile_claims", {}), dict):
         raise ValueError("agent_studio.oidc.profile_claims must be a mapping")
     mode = oidc.get("logout_mode", "app")

@@ -122,9 +122,10 @@ app:
       name: GOOGLE_CLIENT_SECRET
 {% endif %}
 {% if oidc is not none %}
-    - key: {{ oidc.client_id_parameter | tojson }}
+    # The enterprise IdP client, under the cluster prefix like every service client.
+    - key: /k8s/{{cluster}}/agent-studio/oidc-client-id
       name: OIDC_CLIENT_ID
-    - key: {{ oidc.client_secret_parameter | tojson }}
+    - key: /k8s/{{cluster}}/agent-studio/oidc-client-secret
       name: OIDC_CLIENT_SECRET
 {% endif %}
     - key: /k8s/{{cluster}}/agent-studio/aes-encryption-key
