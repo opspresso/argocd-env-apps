@@ -57,6 +57,10 @@ app:
       name: RUNWAY_POOL_DATABASE_URL
     - key: /k8s/eks-demo/agent-runway/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
+    - key: /k8s/eks-demo/agent-runway/github-app-id
+      name: RUNWAY_GITHUB_APP_ID
+    - key: /k8s/eks-demo/agent-runway/github-app-private-key
+      name: RUNWAY_GITHUB_APP_PRIVATE_KEY
     # The App's webhook secret signs the pushes it sends to /api/webhooks/github (Agent Runway v0.45.0 or later).
     - key: /k8s/eks-demo/agent-runway/github-webhook-secret
       name: RUNWAY_GITHUB_WEBHOOK_SECRET
