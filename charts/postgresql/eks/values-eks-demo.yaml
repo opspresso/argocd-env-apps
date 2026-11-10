@@ -4,6 +4,20 @@ global:
 postgresql:
   primary:
 
+    # Every Agent service shares this database, so it runs on its own on-demand NodePool
+    # (terraform-env-demo demo/6-eks-node/65-agent-database.tf), never on Spot.
+    nodeSelector:
+      karpenter.sh/nodepool: agent-database
+    tolerations:
+      - key: opspresso.com/agent-database
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    # Blocks voluntary disruption (drift, consolidation); only node expiry drains the database.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+
+
     # Docker Official PostgreSQL applies these flags to existing data directories.
     args: ["-c", "max_connections=550", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]
 

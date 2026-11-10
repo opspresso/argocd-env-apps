@@ -2,9 +2,23 @@
   enabled: false
 {% else %}global:
   ssmPrefix: /k8s/{{cluster}}
-{% endif %}{% if (postgresql is defined and postgresql.storage is defined) or not resources %}
+{% endif %}{% if (postgresql is defined and (postgresql.storage is defined or postgresql.node_pool is defined)) or not resources %}
 postgresql:
   primary:
+{% if postgresql is defined and postgresql.node_pool is defined %}
+    # Every Agent service shares this database, so it runs on its own on-demand NodePool
+    # (terraform-env-demo demo/6-eks-node/65-agent-database.tf), never on Spot.
+    nodeSelector:
+      karpenter.sh/nodepool: {{postgresql.node_pool}}
+    tolerations:
+      - key: opspresso.com/agent-database
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    # Blocks voluntary disruption (drift, consolidation); only node expiry drains the database.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+{% endif %}
 {% if postgresql is defined and postgresql.max_connections is defined %}
     # Docker Official PostgreSQL applies these flags to existing data directories.
     args: ["-c", {{ ('max_connections=' ~ postgresql.max_connections) | tojson }}, "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]
