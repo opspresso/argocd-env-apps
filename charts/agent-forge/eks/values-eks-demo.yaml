@@ -32,7 +32,6 @@ app:
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: 'workspaces'
-      FORGE_GIT_ALLOWED_ORIGINS: https://github.com
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
@@ -104,8 +103,6 @@ app:
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-forge/checkpoint-secret
       name: FORGE_CHECKPOINT_SECRET
-    - key: /k8s/eks-demo/agent-forge/git-credential-secret
-      name: FORGE_GIT_CREDENTIAL_SECRET
     - key: /k8s/eks-demo/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
     - key: /k8s/eks-demo/agent-forge/oidc-client-id
@@ -116,11 +113,6 @@ app:
       name: FORGE_ORGANIZATION_ID
     - key: /k8s/eks-demo/agent-forge/auth-secret
       name: AUTH_SECRET
-    # Forge-owned GitHub OAuth app; callback https://<forge host>/api/github/callback.
-    - key: /k8s/eks-demo/agent-forge/github-client-id
-      name: FORGE_GITHUB_CLIENT_ID
-    - key: /k8s/eks-demo/agent-forge/github-client-secret
-      name: FORGE_GITHUB_CLIENT_SECRET
     # Static scrape credential for /metrics, shared with Alloy and the ServiceMonitor.
     - key: /k8s/eks-demo/agent-forge/metrics-bearer-token
       name: METRICS_BEARER_TOKEN

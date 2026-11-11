@@ -56,8 +56,7 @@ def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(
         assert len(base64.b64decode(key, validate=True)) == 32 and base64.b64encode(base64.b64decode(key)).decode() == key
     assert keys[0] != keys[1]
     for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
-                 "agent-knowledge/auth-secret", "agent-forge/auth-secret", "agent-forge/git-credential-secret",
-                 "agent-models/auth-secret"):
+                 "agent-knowledge/auth-secret", "agent-forge/auth-secret", "agent-models/auth-secret"):
         assert len(values[f"{PREFIX}/{path}"]) >= 32
     output = capsys.readouterr().out
     assert all(value not in output for value in values.values())

@@ -178,7 +178,7 @@ External Secrets는 `/k8s/<cluster>/` 경로를 읽습니다. 앱 namespace와 F
 각각 ECR generator와 `ecr-registry` Secret이 있습니다. EKS External Secrets의 IAM 연결을 사용하며
 앱에 ECR 장기 키를 전달하지 않습니다. 운영 클러스터의 경로는 `/k8s/eks-demo/`입니다.
 경로 이름은 `/k8s/<cluster>/<service>/<env 이름에서 서비스 접두어를 뺀 kebab-case>`입니다
-(예: Forge `FORGE_GIT_CREDENTIAL_SECRET` → `agent-forge/git-credential-secret`). Agent 서비스는 `/k8s/common/`을 사용하지 않습니다.
+(예: Forge `FORGE_CHECKPOINT_SECRET` → `agent-forge/checkpoint-secret`). Agent 서비스는 `/k8s/common/`을 사용하지 않습니다.
 
 bootstrap으로 누락된 parameter를 준비합니다.
 
@@ -217,7 +217,7 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-memory/auth-secret` | Memory | bootstrap |
 | `agent-models/auth-secret`, `aes-encryption-key` | Models | bootstrap |
 | `agent-knowledge/auth-secret` | Knowledge web·worker | bootstrap |
-| `agent-forge/auth-secret`, `checkpoint-secret`, `git-credential-secret`, `model-secret` | Forge | bootstrap |
+| `agent-forge/auth-secret`, `checkpoint-secret`, `model-secret` | Forge | bootstrap |
 | `agent-forge/organization-id` | Studio·Forge | bootstrap |
 | `agent-{models,memory,knowledge,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
 | `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
@@ -252,12 +252,8 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 공급자·Git 장기 키는 Sandbox에 전달하지 않습니다. 자세한 권한·보존 계약은
 [Kubernetes Workspace 운영](workspace-kubernetes.md)을 따릅니다.
 
-Forge 고유 Git 연결에는 GitHub OAuth App이 필요합니다. Forge는
-`FORGE_GITHUB_CLIENT_ID`, `FORGE_GITHUB_CLIENT_SECRET`으로 이 앱을 읽습니다. OAuth App의 callback은
-`<AUTH_BASE_URL>/api/github/callback`, scope는 `repo workflow read:user`입니다.
-ExternalSecret은 두 값을 `/k8s/<cluster>/agent-forge/github-client-id`,
-`/k8s/<cluster>/agent-forge/github-client-secret` SecureString에서 읽습니다. 두 parameter가 없으면
-Forge Secret 동기화가 실패하므로 배포 전에 만듭니다.
+Forge에는 Git 호스트 설정이나 credential이 없습니다(Forge v0.40.0 이상). 사용자는 Studio에서 Git 호스트를 연결하고,
+Forge는 사용할 때마다 Studio에서 짧은 수명의 Git token을 받습니다. 호스트는 [Studio Git 호스트](#studio-git-호스트)에서 선언합니다.
 
 내부 Service와 Pod 포트는 Studio·Memory·Knowledge(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.

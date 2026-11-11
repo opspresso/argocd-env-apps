@@ -35,9 +35,8 @@ SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-knowledge", "agent-for
 # new cluster uses the same keys, Forge organization and Studio-issued clients.
 CONTINUITY = (
     "agent-studio/auth-secret", "agent-studio/aes-encryption-key", "agent-memory/auth-secret",
-    "agent-forge/checkpoint-secret", "agent-forge/git-credential-secret", "agent-forge/model-secret",
+    "agent-forge/checkpoint-secret", "agent-forge/model-secret",
     "agent-forge/auth-secret", "agent-forge/organization-id",
-    "agent-forge/github-client-id", "agent-forge/github-client-secret",
     "agent-models/auth-secret", "agent-models/aes-encryption-key", "agent-knowledge/auth-secret",
     *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
 )
@@ -67,7 +66,7 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
     for service in ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge"):
         secret(f"{service}/metrics-bearer-token")
     for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
-                 "agent-knowledge/auth-secret", "agent-forge/checkpoint-secret", "agent-forge/git-credential-secret",
+                 "agent-knowledge/auth-secret", "agent-forge/checkpoint-secret",
                  "agent-forge/model-secret", "agent-forge/auth-secret", "agent-models/auth-secret"):
         secret(path)
     # Studio and Models require canonical base64 of exactly 32 bytes.
