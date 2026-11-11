@@ -2,9 +2,29 @@
   enabled: false
 {% else %}global:
   ssmPrefix: /k8s/{{cluster}}
-{% endif %}{% if (postgresql is defined and postgresql.storage is defined) or not resources %}
+{% endif %}{% if (postgresql is defined and postgresql.storage is defined) or core_tier | default(false) or not resources %}
 postgresql:
   primary:
+{% if core_tier | default(false) %}
+    # Every Agent service shares this database. It runs only on the on-demand core nodes
+    # (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
+    tolerations:
+      - key: opspresso.com/tier
+        operator: Equal
+        value: core
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Delays voluntary disruption only: drift (03:00-05:00 KST window) and expiry still drain it after at most the NodeClaim terminationGracePeriod, restarting it once.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+{% endif %}
 {% if postgresql is defined and postgresql.max_connections is defined %}
     # Docker Official PostgreSQL applies these flags to existing data directories.
     args: ["-c", {{ ('max_connections=' ~ postgresql.max_connections) | tojson }}, "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]

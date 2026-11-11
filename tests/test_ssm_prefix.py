@@ -51,6 +51,8 @@ def test_missing_cluster_values_fail_instead_of_using_a_default(chart):
 def test_empty_eks_service_settings_preserve_common_defaults(chart):
     context = yaml.safe_load((ROOT / "env/eks-demo.yaml").read_text())
     context[chart] = {}
+    # core_tier is a cluster placement, not a service setting; tests/test_core_tier.py covers it.
+    context["core_tier"] = False
     template = Environment(loader=FileSystemLoader(ROOT / "charts" / chart)).get_template("values-template.yaml.j2")
     assert yaml.safe_load(template.render(context)) == {"global": {"ssmPrefix": "/k8s/eks-demo"}}
 

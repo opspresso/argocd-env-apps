@@ -4,6 +4,26 @@ global:
 postgresql:
   primary:
 
+    # Every Agent service shares this database. It runs only on the on-demand core nodes
+    # (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
+    tolerations:
+      - key: opspresso.com/tier
+        operator: Equal
+        value: core
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Delays voluntary disruption only: drift (03:00-05:00 KST window) and expiry still drain it after at most the NodeClaim terminationGracePeriod, restarting it once.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+
+
     # Docker Official PostgreSQL applies these flags to existing data directories.
     args: ["-c", "max_connections=550", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=4MB"]
 

@@ -22,6 +22,9 @@ trusted_proxy_cidrs:
 replicas: 1
 autoscaling: true
 resources: true
+# Critical services run on the on-demand core NodePools (terraform-env-demo demo/6-eks-node/51-core-node-pool.tf):
+# PostgreSQL requires them, the Agent services and rovr prefer them.
+core_tier: true
 
 # Observability
 metrics:

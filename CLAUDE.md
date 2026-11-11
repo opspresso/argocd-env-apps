@@ -125,6 +125,10 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
   앱과 ticker를 0개로 내리고 HPA를 끈다.
   다른 앱과 PostgreSQL은 건드리지 않는다. 기본값은 `false`다.
   Memory·Knowledge·Forge·Models도 각각 `agent_<service>_maintenance`로 자기 프로세스만 정지한다.
+- `core_tier: true`는 중요 서비스를 terraform-env-demo `demo/6-eks-node/51-core-node-pool.tf`의 on-demand
+  `core-2a`·`core-2c` 노드(label·taint `opspresso.com/tier=core`)에 둔다. PostgreSQL은 required affinity와
+  `karpenter.sh/do-not-disrupt`를 쓰고, Agent 서비스·worker·ticker·rovr는 preferred affinity로 기본 복제본을 core에 두며
+  HPA 증가분과 rollout surge는 Spot으로 넘친다. core NodePool이 없는 클러스터에서는 켜지 않는다.
 - `metrics.backend`는 `prometheus`만 허용한다. ServiceMonitor는 `prometheus`에서만 생성한다.
 - `resources` 는 workload의 requests/limits 사용 여부를 제어하는 env 원천값이다.
   `true`면 chart 기본 requests/limits를 유지하고, `false`면 템플릿이 resource block을
