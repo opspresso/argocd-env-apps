@@ -178,13 +178,12 @@ agent_runway:
     domain: apps.rovr.dev
     argocd_domain: demo.opsp.dev
     # The environments the first boot stores (agent-platform docs/APP_DELIVERY.md), rendered as RUNWAY_ENVIRONMENTS;
-    # later changes are made in the Agent Runway console. Keep the names and the primary environment equal to
-    # argocd-env-addons app_delivery.environments and app_delivery.primary_environment, or deployments to a missing
-    # environment never sync. The first boot also makes the pipeline `default` with these environments in this order;
-    # administrators set triggers, promotion order and sizes in pipelines.
+    # later changes are made in the Agent Runway console. Keep the names equal to app_delivery.environments below, or
+    # deployments to a missing environment never sync. The first boot also makes the pipeline `default` with these
+    # environments in this order; administrators set triggers, promotion order and sizes in pipelines.
     environments:
-      - {name: dev, primary: false, approval: none, sandbox: true}
-      - {name: prod, primary: true, approval: owner, sandbox: false}
+      - {name: dev, approval: none, sandbox: true}
+      - {name: prod, approval: owner, sandbox: false}
     # github_app: the App's credentials issue checkout tokens for private app repositories and check the App's
     # installation. Set true only after /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
     github_app: true
@@ -220,18 +219,18 @@ rovr:
       access_point_id: fsap-02ca3faf77d338014
       size: 50Gi
 
-# Apps that Agent Runway deploys: hosts <slug>.<domain> for the primary environment and <slug>-<env>.<domain> for the
-# others (terraform-env-demo 3-alb issues the wildcard certificate).
+# Apps that Agent Runway deploys. Agent Runway chooses each host: <slug>.<domain> for the last stage of the Project's
+# pipeline and <slug>-<env>.<domain> for the others, or <slug>-<env>.<domain> for every stage when the Project asks
+# for it (terraform-env-demo 3-alb issues the wildcard certificate).
 app_delivery:
   enabled: true
   domain: apps.rovr.dev
-  # The ordered environment profile. Keep it equal to Agent Runway's RUNWAY_ENVIRONMENTS (argocd-env-apps
-  # agent-runway). An environment missing here gets no Application. Removing an environment deletes the Applications
+  # The environments that get Applications. Keep the names equal to Agent Runway's environments (its console; the
+  # first boot stores agent.delivery.environments above). An environment missing here gets no Application. Removing an environment deletes the Applications
   # of that environment, and their resources finalizer deletes every app and RdsPostgres in it: RDS keeps only its
   # final snapshot. Before adding an environment, check that no Project slug ends with -<environment>
   # (ls argocd-env-projects/projects | grep -- '-<environment>$'), or two hosts collide.
   environments: [dev, prod]
-  primary_environment: prod
   # The Kubernetes API server (Service IP and control plane endpoints) that Delivery runner Pods may reach.
   # Check after a control plane change: kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes
   api_server_cidrs: [172.20.0.1/32, 10.10.114.40/32, 10.10.149.55/32]

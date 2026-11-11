@@ -39,7 +39,7 @@ app:
       RUNWAY_WORKFLOWS_URL: https://workflows.demo.opsp.dev
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
-      RUNWAY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "primary": false, "sandbox": true}, {"approval": "owner", "name": "prod", "primary": true, "sandbox": false}]'
+      RUNWAY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "sandbox": true}, {"approval": "owner", "name": "prod", "sandbox": false}]'
       # The GitHub App's URL name, for the console's install link (Agent Runway v0.45.0 or later).
       RUNWAY_GITHUB_APP_SLUG: agrt-dev
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
@@ -209,7 +209,9 @@ raw:
                     - '../../{{ .path.path }}/app.yaml'
                   # resources.yaml may come before the first deployment writes app.yaml.
                   ignoreMissingValueFiles: true
-                  # charts/app wraps the opspresso app chart; its guard refuses any other environment, namespace or host.
+                  # charts/app wraps the opspresso app chart; its guard refuses any other environment or namespace, and a
+                  # host that is not <slug>.<domain> or <slug>-<environment>.<domain>. Agent Runway chooses the host; the
+                  # deploy step writes it to app.yaml.
                   parameters:
                     - name: app.tenant.project
                       value: '{{ index .path.segments 1 }}'
@@ -217,8 +219,6 @@ raw:
                       value: '{{ .path.basename }}'
                     - name: app.tenant.environments
                       value: "dev prod"
-                    - name: app.tenant.primaryEnvironment
-                      value: "prod"
                     - name: app.tenant.domain
                       value: "apps.rovr.dev"
                     - name: app.tenant.cluster
@@ -227,8 +227,6 @@ raw:
                       value: "ap-northeast-2"
                     - name: app.tenant.tenantSecretsRoleArn
                       value: "arn:aws:iam::396608815058:role/agent-runway-tenant-secrets"
-                    - name: app.routing.hosts[0]
-                      value: '{{ if eq .path.basename "prod" }}{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ .path.basename }}{{ end }}.apps.rovr.dev'
                     # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
                     # the Application; its guard checks that these labels name this project and environment.
                     - name: app.namespace.labels.opspresso\.com/delivery-project
