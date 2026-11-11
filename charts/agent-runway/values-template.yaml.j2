@@ -43,10 +43,6 @@ app:
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
       RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
-{%- if agent_runway.delivery.github_app_slug is defined %}
-      # The GitHub App's URL name, for the console's install link (Agent Runway v0.45.0 or later).
-      RUNWAY_GITHUB_APP_SLUG: {{agent_runway.delivery.github_app_slug}}
-{%- endif %}
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {% endif %}
   externalSecrets:
@@ -64,17 +60,6 @@ app:
       name: RUNWAY_POOL_DATABASE_URL
     - key: /k8s/{{cluster}}/agent-runway/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
-{%- if agent_runway.delivery is defined and agent_runway.delivery.github_app | default(false) %}
-    - key: /k8s/{{cluster}}/agent-runway/github-app-id
-      name: RUNWAY_GITHUB_APP_ID
-    - key: /k8s/{{cluster}}/agent-runway/github-app-private-key
-      name: RUNWAY_GITHUB_APP_PRIVATE_KEY
-{%- endif %}
-{%- if agent_runway.delivery is defined and agent_runway.delivery.github_webhook | default(false) %}
-    # The App's webhook secret signs the pushes it sends to /api/webhooks/github (Agent Runway v0.45.0 or later).
-    - key: /k8s/{{cluster}}/agent-runway/github-webhook-secret
-      name: RUNWAY_GITHUB_WEBHOOK_SECRET
-{%- endif %}
   routing:
     hosts:
     - {{agent_runway.hostname}}
