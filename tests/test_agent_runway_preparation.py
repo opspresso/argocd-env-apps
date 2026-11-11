@@ -72,12 +72,12 @@ def test_workflow_submission_policy_binds_the_runway_identity_and_namespace():
     # Runway reads its template names from RUNWAY_*_TEMPLATE and falls back to these names.
     assert not any(key.endswith("_TEMPLATE") for key in config)
     rules = {resource_name for rule in policy["matchConstraints"]["resourceRules"] for resource_name in rule["resources"]}
-    assert rules == {"workflows", "secrets"}
+    assert rules == {"workflows"}
     # Every WorkflowTemplate Runway submits by default (agent-runway src/lib/config.ts) must be admitted, or that
     # target type's deploys are denied at submission.
     reference = next(item["expression"] for item in policy["validations"] if "workflowTemplateRef.name in" in item["expression"])
     admitted = set(re.search(r"workflowTemplateRef\.name in \[([^\]]*)\]", reference).group(1).replace("'", "").replace(" ", "").split(","))
-    assert admitted == {"app-build", "app-build-v2", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "resource-sync"}
+    assert admitted == {"app-build-v2", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "resource-sync"}
 
 
 def test_prometheus_scrapes_runway_metrics_with_the_app_bearer_token():

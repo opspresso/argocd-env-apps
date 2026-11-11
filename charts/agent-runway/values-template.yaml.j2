@@ -29,10 +29,10 @@ app:
       RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: {{cluster}}
-      # The image registry app-build pushes to (charts/delivery registry); a deleted Project's repository there is removed.
+      # The image registry app-build-v2 pushes to (charts/delivery registry); a deleted Project's repository there is removed.
       RUNWAY_IMAGE_REGISTRY: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/projects
 {% if agent_runway.delivery is defined %}
-      # App Delivery uses the app-build and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
+      # App Delivery uses the app-build-v2 and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
       # The retired RUNWAY_WORKFLOW_TEMPLATE setting is rejected at startup.
       # The service account CA lets fetch trust the API server.
       RUNWAY_WORKFLOW_NAMESPACE: {{agent_runway.delivery.namespace}}

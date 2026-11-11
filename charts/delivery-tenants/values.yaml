@@ -5,15 +5,14 @@ global:
   delivery:
     tenantSecretsRoleArn: ""
     # What the Agent Runway ServiceAccount may submit to the Delivery namespace. argocd-env-projects charts/delivery
-    # grants it create on Workflows and Secrets there; this policy narrows both to the shapes Runway sends
+    # grants it create on Workflows there; this policy narrows them to the shape Runway sends
     # (agent-runway src/infrastructure/workflow/argo.ts). The raw chart reads only global values.
     submissions:
       namespace: app-delivery
       user: system:serviceaccount:agent-runway:agent-runway
       # The WorkflowTemplates of argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the eks and
-      # eb target deploy and remove, and the namespace resource sync. app-build-v2 builds from the source archive
-      # Agent Runway uploads; app-build stays admitted until the running Agent Runway submits only app-build-v2.
-      workflowTemplates: [app-build, app-build-v2, app-deploy, app-remove, app-deploy-eb, app-remove-eb, resource-sync]
+      # eb target deploy and remove, and the namespace resource sync.
+      workflowTemplates: [app-build-v2, app-deploy, app-remove, app-deploy-eb, app-remove-eb, resource-sync]
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.
@@ -73,7 +72,6 @@ raw:
     - |
       # A Workflow from Runway runs a reviewed WorkflowTemplate with parameters only. Any other spec field could
       # replace the steps (templates), the identity (serviceAccountName) or the Pod (podSpecPatch, volumes).
-      # The checkout token Secret is the only Secret Runway creates: <workflow>-checkout, owned by that Workflow.
       {{- $s := .Values.global.delivery.submissions }}
       apiVersion: admissionregistration.k8s.io/v1
       kind: ValidatingAdmissionPolicy
@@ -90,38 +88,22 @@ raw:
               apiVersions: ["*"]
               operations: [CREATE, UPDATE]
               resources: [workflows]
-            - apiGroups: [""]
-              apiVersions: ["*"]
-              operations: [CREATE, UPDATE]
-              resources: [secrets]
         matchConditions:
           - name: runway
             expression: {{ printf "request.userInfo.username == '%s'" (required "global.delivery.submissions.user is required" $s.user) | quote }}
         variables:
-          - name: workflow
-            expression: "request.resource.resource == 'workflows'"
           - name: spec
-            expression: "variables.workflow && has(object.spec) ? object.spec : {}"
+            expression: "has(object.spec) ? object.spec : {}"
         validations:
-          - expression: "!variables.workflow || variables.spec.all(k, k in ['workflowTemplateRef', 'arguments'])"
+          - expression: "variables.spec.all(k, k in ['workflowTemplateRef', 'arguments'])"
             messageExpression: "'Runway Workflows may set only spec.workflowTemplateRef and spec.arguments, not: ' + variables.spec.filter(k, !(k in ['workflowTemplateRef', 'arguments'])).join(', ')"
           - expression: >-
-              !variables.workflow || (
-                has(variables.spec.workflowTemplateRef) &&
-                variables.spec.workflowTemplateRef.all(k, k == 'name') &&
-                variables.spec.workflowTemplateRef.name in {{ required "global.delivery.submissions.workflowTemplates is required" $s.workflowTemplates | toJson | replace "\"" "'" }}
-              )
+              has(variables.spec.workflowTemplateRef) &&
+              variables.spec.workflowTemplateRef.all(k, k == 'name') &&
+              variables.spec.workflowTemplateRef.name in {{ required "global.delivery.submissions.workflowTemplates is required" $s.workflowTemplates | toJson | replace "\"" "'" }}
             message: {{ printf "Runway Workflows must reference one of the namespaced WorkflowTemplates %s by name." (join ", " $s.workflowTemplates) | quote }}
-          - expression: "!variables.workflow || !has(variables.spec.arguments) || variables.spec.arguments.all(k, k == 'parameters')"
+          - expression: "!has(variables.spec.arguments) || variables.spec.arguments.all(k, k == 'parameters')"
             message: Runway Workflow arguments may carry parameters only.
-          - expression: >-
-              variables.workflow || (
-                object.metadata.name.endsWith('-checkout') &&
-                has(object.metadata.ownerReferences) &&
-                object.metadata.ownerReferences.exists(r,
-                  r.apiVersion == 'argoproj.io/v1alpha1' && r.kind == 'Workflow' && object.metadata.name == r.name + '-checkout')
-              )
-            message: Runway creates only <workflow>-checkout Secrets owned by that Workflow.
     - |
       apiVersion: admissionregistration.k8s.io/v1
       kind: ValidatingAdmissionPolicyBinding
