@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r"^[a-z][a-z0-9]{1,11}$")
-FIELDS = {"name", "primary", "approval", "sandbox"}
+FIELDS = {"name", "approval", "sandbox"}
 
 
 def rendered_profiles():
@@ -29,18 +29,17 @@ def test_every_rendered_profile_is_valid():
             assert set(environment) == FIELDS, (name, environment)
             assert NAME.match(environment["name"]), (name, environment)
             assert environment["approval"] in ("none", "owner"), (name, environment)
-            assert all(isinstance(environment[key], bool) for key in ("primary", "sandbox"))
+            assert isinstance(environment["sandbox"], bool), (name, environment)
         names = [environment["name"] for environment in environments]
         assert len(names) == len(set(names)), name
-        assert sum(environment["primary"] for environment in environments) == 1, name
         assert sum(environment["sandbox"] for environment in environments) <= 1, name
 
 
 def test_eks_demo_uses_the_default_profile():
     profile = dict(rendered_profiles())["values-eks-demo.yaml"]
     assert profile == [
-        {"name": "dev", "primary": False, "approval": "none", "sandbox": True},
-        {"name": "prod", "primary": True, "approval": "owner", "sandbox": False},
+        {"name": "dev", "approval": "none", "sandbox": True},
+        {"name": "prod", "approval": "owner", "sandbox": False},
     ]
 
 

@@ -49,11 +49,12 @@ class AppDeliveryProfileTests(unittest.TestCase):
                 parameters = {p["name"]: p["value"] for p in chart["helm"]["parameters"]}
                 # The chart guard checks the environment against these parameters, which a values file cannot override.
                 self.assertEqual(parameters["app.tenant.environments"], " ".join(profile["environments"]))
-                self.assertEqual(parameters["app.tenant.primaryEnvironment"], profile["primary_environment"])
                 self.assertEqual(parameters["app.tenant.tenantSecretsRoleArn"],
                                  f"arn:aws:iam::{context['aws_account_id']}:role/agent-runway-tenant-secrets")
-                self.assertIn(f'eq .path.basename "{profile["primary_environment"]}"', parameters["app.routing.hosts[0]"])
-                self.assertTrue(parameters["app.routing.hosts[0]"].endswith("." + profile["domain"]))
+                # Agent Runway chooses the host and app.yaml carries it; a parameter here would override it.
+                self.assertNotIn("app.routing.hosts[0]", parameters)
+                self.assertNotIn("app.tenant.primaryEnvironment", parameters)
+                self.assertEqual(parameters["app.tenant.domain"], profile["domain"])
                 self.assertEqual(chart["helm"]["valueFiles"], ["../../{{ .path.path }}/app.yaml"])
                 self.assertTrue(chart["helm"]["ignoreMissingValueFiles"])
                 self.assertEqual(resources["directory"], {"include": "resources.yaml"})

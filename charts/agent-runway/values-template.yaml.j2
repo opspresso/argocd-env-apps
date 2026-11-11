@@ -221,7 +221,9 @@ raw:
                     - '{% raw %}../../{{ .path.path }}/app.yaml{% endraw %}'
                   # resources.yaml may come before the first deployment writes app.yaml.
                   ignoreMissingValueFiles: true
-                  # charts/app wraps the opspresso app chart; its guard refuses any other environment, namespace or host.
+                  # charts/app wraps the opspresso app chart; its guard refuses any other environment or namespace, and a
+                  # host that is not <slug>.<domain> or <slug>-<environment>.<domain>. Agent Runway chooses the host; the
+                  # deploy step writes it to app.yaml.
                   parameters:
                     - name: app.tenant.project
                       value: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
@@ -229,8 +231,6 @@ raw:
                       value: '{% raw %}{{ .path.basename }}{% endraw %}'
                     - name: app.tenant.environments
                       value: "{{ app_delivery.environments | join(' ') }}"
-                    - name: app.tenant.primaryEnvironment
-                      value: "{{app_delivery.primary_environment}}"
                     - name: app.tenant.domain
                       value: "{{app_delivery.domain}}"
                     - name: app.tenant.cluster
@@ -239,8 +239,6 @@ raw:
                       value: "{{aws_region}}"
                     - name: app.tenant.tenantSecretsRoleArn
                       value: "arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-secrets"
-                    - name: app.routing.hosts[0]
-                      value: '{% raw %}{{ if eq .path.basename "{% endraw %}{{app_delivery.primary_environment}}{% raw %}" }}{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ .path.basename }}{{ end }}{% endraw %}.{{app_delivery.domain}}'
                     # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
                     # the Application; its guard checks that these labels name this project and environment.
                     - name: app.namespace.labels.opspresso\.com/delivery-project
