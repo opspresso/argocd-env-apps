@@ -28,7 +28,7 @@ app:
       OIDC_PROVIDER_ID: "lldap"
       OIDC_SCOPES: "openid email profile groups"
       OIDC_LOGOUT_MODE: "app"
-      OIDC_PROFILE_CLAIMS: "{\"company\": {\"claim\": \"/groups\", \"match\": \"^company:(.+)$\"}, \"department\": {\"claim\": \"/groups\", \"match\": \"^department:(.+)$\"}, \"jobTitle\": {\"claim\": \"/groups\", \"match\": \"^title:(.+)$\"}, \"roles\": {\"claim\": \"/groups\", \"match\": \"^role:(.+)$\"}, \"teams\": {\"claim\": \"/groups\", \"match\": \"^(?!lldap_)[^:]+$\"}}"
+      OIDC_PROFILE_CLAIMS: "{\"company\": {\"claim\": \"/groups\", \"match\": \"^org-(.+)$\"}, \"department\": {\"claim\": \"/groups\", \"match\": \"^dept-(.+)$\"}, \"jobTitle\": {\"claim\": \"/groups\", \"match\": \"^title-(.+)$\"}, \"roles\": {\"claim\": \"/groups\", \"match\": \"^role-(.+)$\"}, \"teams\": {\"claim\": \"/groups\", \"match\": \"^(?!lldap_|org-|dept-|title-|role-).+$\"}}"
       OIDC_DISPLAY_NAME: "LLDAP"
       OIDC_TRUST_EMAIL: "true"
 
