@@ -178,9 +178,9 @@ agent_runway:
     domain: apps.rovr.dev
     argocd_domain: demo.opsp.dev
     # The environments the first boot stores (agent-platform docs/APP_DELIVERY.md), rendered as RUNWAY_ENVIRONMENTS;
-    # later changes are made in the Agent Runway console. Keep the names equal to app_delivery.environments below, or
-    # deployments to a missing environment never sync. The first boot also makes the pipeline `default` with these
-    # environments in this order; administrators set triggers, promotion order and sizes in pipelines.
+    # later changes are made in the Agent Runway console and need no change here. The first boot also makes the
+    # pipeline `default` with these environments in this order; administrators set triggers, promotion order and
+    # sizes in pipelines.
     environments:
       - {name: dev, approval: none, sandbox: true}
       - {name: prod, approval: owner, sandbox: false}
@@ -225,12 +225,8 @@ rovr:
 app_delivery:
   enabled: true
   domain: apps.rovr.dev
-  # The environments that get Applications. Keep the names equal to Agent Runway's environments (its console; the
-  # first boot stores agent.delivery.environments above). An environment missing here gets no Application. Removing an environment deletes the Applications
-  # of that environment, and their resources finalizer deletes every app and RdsPostgres in it: RDS keeps only its
-  # final snapshot. Before adding an environment, check that no Project slug ends with -<environment>
-  # (ls argocd-env-projects/projects | grep -- '-<environment>$'), or two hosts collide.
-  environments: [dev, prod]
+  # No list of environments lives here: Agent Runway owns them (its console), and every projects/<slug>/<env>
+  # directory it writes in argocd-env-projects gets an Application.
   # The Kubernetes API server (Service IP and control plane endpoints) that Delivery runner Pods may reach.
   # Check after a control plane change: kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes
   api_server_cidrs: [172.20.0.1/32, 10.10.114.40/32, 10.10.149.55/32]
