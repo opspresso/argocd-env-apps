@@ -19,7 +19,7 @@ postgresql:
                 - key: opspresso.com/tier
                   operator: In
                   values: [core]
-    # Blocks voluntary disruption such as consolidation; drift waits for the core maintenance window.
+    # Delays voluntary disruption only: drift (03:00-05:00 KST window) and expiry still drain it after at most the NodeClaim terminationGracePeriod, restarting it once.
     podAnnotations:
       karpenter.sh/do-not-disrupt: "true"
 
