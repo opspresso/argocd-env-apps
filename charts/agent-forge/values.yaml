@@ -3,11 +3,11 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-forge
     tag: latest
-  # Working set p95 400Mi (7 days to 2026-11-10).
+  # Working set p95 400Mi, peak 403Mi; CPU p95 64m (7 days to 2026-11-11).
   resources:
     requests:
-      cpu: 25m
-      memory: 448Mi
+      cpu: 80m
+      memory: 464Mi
     limits:
       memory: 1Gi
   service:
