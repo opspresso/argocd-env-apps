@@ -37,7 +37,7 @@ agent_memory_maintenance: false
 agent_knowledge_maintenance: false
 agent_forge_maintenance: false
 agent_models_maintenance: false
-agent_runway_maintenance: true
+agent_runway_maintenance: false
 rovr_maintenance: false
 
 # Data stores
