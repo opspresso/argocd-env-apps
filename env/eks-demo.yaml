@@ -66,6 +66,10 @@ agent_studio:
     issuer: https://sso.demo.opsp.dev
     provider_id: lldap
     display_name: LLDAP
+    # Dex sessions store the claims of the latest direct sign-in and reuse them
+    # for SSO into every other client. Without groups here, a Studio sign-in
+    # erases the LLDAP groups that Argo CD, Grafana and GitLab receive.
+    scopes: openid email profile groups
     # LLDAP sign-in links to the Studio account with the same email. Safe only
     # because users cannot change their own LLDAP email: the LLDAP UI admits
     # only sso.admin_groups (argocd-env-addons charts/lldap).
