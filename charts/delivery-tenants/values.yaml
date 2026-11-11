@@ -10,9 +10,9 @@ global:
     submissions:
       namespace: app-delivery
       user: system:serviceaccount:agent-runway:agent-runway
-      # The WorkflowTemplates of argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the
-      # aws-eks, aws-eb and aws-asg Target deploy and remove, the namespace resource sync and the golden image bake.
-      workflowTemplates: [app-build, app-deploy, app-remove, app-deploy-eb, app-remove-eb, app-deploy-asg, app-remove-asg, resource-sync, image-bake]
+      # The WorkflowTemplates of argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the eks and
+      # eb target deploy and remove, and the namespace resource sync.
+      workflowTemplates: [app-build, app-deploy, app-remove, app-deploy-eb, app-remove-eb, resource-sync]
 
 raw:
   # The raw chart renders one document per template, so all tenant objects form one v1 List.

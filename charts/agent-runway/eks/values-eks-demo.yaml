@@ -39,7 +39,7 @@ app:
       RUNWAY_WORKFLOWS_URL: https://workflows.demo.opsp.dev
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
-      RUNWAY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "primary": false, "requiresPrevious": false, "sandbox": true}, {"approval": "owner", "name": "prod", "primary": true, "requiresPrevious": true, "sandbox": false}]'
+      RUNWAY_ENVIRONMENTS: '[{"approval": "none", "name": "dev", "primary": false, "sandbox": true}, {"approval": "owner", "name": "prod", "primary": true, "sandbox": false}]'
       # The GitHub App's URL name, for the console's install link (Agent Runway v0.45.0 or later).
       RUNWAY_GITHUB_APP_SLUG: agrt-dev
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt

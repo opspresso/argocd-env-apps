@@ -159,14 +159,14 @@ agent_runway:
     namespace: app-delivery
     domain: apps.rovr.dev
     argocd_domain: demo.opsp.dev
-    # The environment profiles the first boot stores (agent-platform docs/DELIVERY_V4.md), rendered as RUNWAY_ENVIRONMENTS;
+    # The environments the first boot stores (agent-platform docs/APP_DELIVERY.md), rendered as RUNWAY_ENVIRONMENTS;
     # later changes are made in the Agent Runway console. Keep the names and the primary environment equal to
     # argocd-env-addons app_delivery.environments and app_delivery.primary_environment, or deployments to a missing
-    # environment never sync. A Project's application.yaml sets its trigger and promotion order; requiresPrevious
-    # keeps prod from being a Project's first environment.
+    # environment never sync. The first boot also makes the pipeline `default` with these environments in this order;
+    # administrators set triggers, promotion order and sizes in pipelines.
     environments:
-      - {name: dev, primary: false, approval: none, sandbox: true, requiresPrevious: false}
-      - {name: prod, primary: true, approval: owner, sandbox: false, requiresPrevious: true}
+      - {name: dev, primary: false, approval: none, sandbox: true}
+      - {name: prod, primary: true, approval: owner, sandbox: false}
     # github_app: the App's credentials issue checkout tokens for private app repositories and check the App's
     # installation. Set true only after /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
     github_app: true
