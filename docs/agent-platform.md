@@ -109,6 +109,29 @@ agent_studio:
 callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `provider_id: keycloak`을 유지합니다.
 새 설치 기본값은 `oidc`입니다. 회사 팀·역할은 표시 정보이며 앱 권한을 자동 부여하지 않습니다.
 
+### Studio Git 호스트
+
+`agent_studio.git_hosts`는 사용자가 Studio **도구 → Git 계정**에서 연결할 Git 호스트를 선언합니다(Studio v0.242.0 이상).
+Forge와 Runway는 이 연결로 사용자의 저장소를 씁니다. 두 서비스에는 Git 호스트 설정이나 credential이 없습니다.
+계약은 agent-platform `docs/GIT_CONNECTIONS.md`를 따릅니다.
+
+```yaml
+agent_studio:
+  git_hosts:
+    - name: github              # 이름은 GIT_HOST_SECRETS의 key와 같습니다.
+      provider: github          # github 또는 gitlab
+      origin: https://github.com
+      client_id: <OAuth application의 client ID>
+```
+
+1. Git 호스트마다 OAuth application을 등록합니다. redirect URI는 `https://<agent_studio.hostname>/api/git/callback`입니다.
+   GitLab application은 scope `api`, `read_repository`, `write_repository`를 허용합니다.
+2. client secret을 `/k8s/<cluster>/agent-studio/git-host-secrets` SecureString에 JSON 객체 하나로 저장합니다.
+   key는 호스트 `name`, 값은 그 application의 client secret입니다. 이 parameter가 없으면 Studio Secret 동기화가 실패하므로
+   `git_hosts`를 추가하기 전에 만듭니다.
+3. `git_hosts`를 추가해 배포한 다음 Studio Pod에서 `node build/upgrade-platform-auth.cjs --apply`를 실행합니다.
+   기존 Forge·Runway client가 `platform:git` scope와 토큰 교환 grant를 받습니다.
+
 기존 DB는 새 image의 데이터 보존 전환 도구로 현재 schema로 바꿉니다. 도구는 정해진 시작 schema만 받습니다.
 
 | 서비스 | 현재 schema | 시작 schema와 도구 |
@@ -190,6 +213,7 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-studio/schedule-scan-token` | Studio web·ticker | bootstrap |
 | `agent-studio/google-client-id`, `google-client-secret` | Studio(Google 로그인을 켠 경우) | Google OAuth client 생성 후 |
 | `agent-studio/plugins-repo-token` | Studio | `PLUGINS_REPO` 저장소에 접근할 GitHub token |
+| `agent-studio/git-host-secrets` | Studio(`agent_studio.git_hosts`를 정한 경우) | 각 Git 호스트에 OAuth application 등록 후 |
 | `agent-memory/auth-secret` | Memory | bootstrap |
 | `agent-models/auth-secret`, `aes-encryption-key` | Models | bootstrap |
 | `agent-knowledge/auth-secret` | Knowledge web·worker | bootstrap |

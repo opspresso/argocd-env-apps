@@ -42,8 +42,9 @@ CONTINUITY = (
     *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
 )
 
-# Studio parameters that come from the Google OAuth client and the plugins repository, never generated.
-STUDIO_PROVIDED = ("google-client-id", "google-client-secret", "plugins-repo-token")
+# Studio parameters that come from the Google OAuth client, the plugins repository and the Git hosts' OAuth
+# applications, never generated.
+STUDIO_PROVIDED = ("google-client-id", "google-client-secret", "plugins-repo-token", "git-host-secrets")
 
 
 # rovr parameters that come from the GitHub App and model providers, never generated.
@@ -134,7 +135,8 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
         source = f" (from {copy_from})" if name in copied else ""
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
-    print("Prepare from the Google OAuth client (when Google sign-in is enabled) and the plugins repository: "
+    print("Prepare from the Google OAuth client (when Google sign-in is enabled), the plugins repository and "
+          "the Git hosts' OAuth applications (when agent_studio.git_hosts is set): "
           + ", ".join(f"{prefix}/agent-studio/{name}" for name in STUDIO_PROVIDED))
     if rovr:
         print("Prepare from the rovr GitHub App and model providers: "
