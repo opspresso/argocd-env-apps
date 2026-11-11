@@ -61,6 +61,9 @@ app:
       # PR review reaches GitHub with the caller's GitHub MCP grant.
       GITHUB_API_URL: https://api.github.com
       GITHUB_WEB_URL: https://github.com
+      # Git hosts whose accounts users connect in Studio; Forge and Runway get each user's Git token from Studio
+      # (agent-platform/docs/GIT_CONNECTIONS.md, Agent Studio v0.242.0 or later).
+      GIT_HOSTS: "[{\"clientId\": \"Ov23liWo0mJ9kFk43v9N\", \"name\": \"github\", \"origin\": \"https://github.com\", \"provider\": \"github\"}, {\"clientId\": \"2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4\", \"name\": \"gitlab\", \"origin\": \"https://gitlab.com\", \"provider\": \"gitlab\"}, {\"clientId\": \"agent-studio-git\", \"name\": \"gitlab-demo\", \"origin\": \"https://gitlab.demo.opsp.dev\", \"provider\": \"gitlab\"}]"
   routing:
     hosts:
     - studio.agrt.dev
@@ -133,6 +136,11 @@ app:
       name: PLUGINS_REPO_TOKEN
     - key: /k8s/eks-demo/agent-studio/schedule-scan-token
       name: SCHEDULE_SCAN_TOKEN
+
+    # One JSON object: Git host name -> OAuth client secret. A host without a key is a public client.
+    - key: /k8s/eks-demo/agent-studio/git-host-secrets
+      name: GIT_HOST_SECRETS
+
     - key: /k8s/eks-demo/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-studio/metrics-bearer-token

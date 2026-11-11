@@ -84,6 +84,24 @@ agent_studio:
     # because users cannot change their own LLDAP email: the LLDAP UI admits
     # only sso.admin_groups (argocd-env-addons charts/lldap).
     trust_email: true
+  # Git hosts whose accounts users connect in Studio (Tools > Git accounts). client_id is the OAuth application on
+  # that host, with the redirect URI https://<hostname>/api/git/callback; its client secret is the key <name> of the
+  # JSON in /k8s/<cluster>/agent-studio/git-host-secrets. github: the OAuth App agent-studio-git of the opspresso
+  # organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo: gitlab.oauth_applications in
+  # argocd-env-addons env/eks-demo.yaml.
+  git_hosts:
+    - name: github
+      provider: github
+      origin: https://github.com
+      client_id: Ov23liWo0mJ9kFk43v9N
+    - name: gitlab
+      provider: gitlab
+      origin: https://gitlab.com
+      client_id: 2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4
+    - name: gitlab-demo
+      provider: gitlab
+      origin: https://gitlab.demo.opsp.dev
+      client_id: agent-studio-git
   # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
   model_usage:
     defaultModel: openrouter/deepseek-v4.1-flash
