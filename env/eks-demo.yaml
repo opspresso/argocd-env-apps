@@ -84,7 +84,7 @@ agent_studio:
     # because users cannot change their own LLDAP email: the LLDAP UI admits
     # only sso.admin_groups (argocd-env-addons charts/lldap).
     trust_email: true
-  # Git hosts whose accounts users connect in Studio (Tools > Git accounts). client_id is the OAuth application on
+  # Git hosts whose accounts users connect in Studio (Profile > Git accounts). client_id is the OAuth application on
   # that host, with the redirect URI https://<hostname>/api/git/callback; its client secret is the key <name> of the
   # JSON in /k8s/<cluster>/agent-studio/git-host-secrets. github: the OAuth App agent-studio-git of the opspresso
   # organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo: gitlab.oauth_applications in
@@ -184,13 +184,6 @@ agent_runway:
     environments:
       - {name: dev, approval: none, sandbox: true}
       - {name: prod, approval: owner, sandbox: false}
-    # github_app: the App's credentials issue checkout tokens for private app repositories and check the App's
-    # installation. Set true only after /k8s/<cluster>/agent-runway/github-app-id and github-app-private-key exist in SSM.
-    github_app: true
-    # github_webhook: the App sends the pushes of the repositories it is installed on (push deployments), signed
-    # with /k8s/<cluster>/agent-runway/github-webhook-secret. github_app_slug is the App's URL name for the install link.
-    github_webhook: true
-    github_app_slug: agrt-dev
 
 # Applications
 # rovr: goal-driven coding agents (opspresso/rovr).

@@ -111,7 +111,7 @@ callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `
 
 ### Studio Git 호스트
 
-`agent_studio.git_hosts`는 사용자가 Studio **도구 → Git 계정**에서 연결할 Git 호스트를 선언합니다(Studio v0.242.0 이상).
+`agent_studio.git_hosts`는 사용자가 Studio **프로필 → Git 계정**에서 연결할 Git 호스트를 선언합니다(Studio v0.242.0 이상).
 Forge와 Runway는 이 연결로 사용자의 저장소를 씁니다. 두 서비스에는 Git 호스트 설정이나 credential이 없습니다.
 계약은 agent-platform `docs/GIT_CONNECTIONS.md`를 따릅니다.
 
