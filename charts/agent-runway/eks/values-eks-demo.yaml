@@ -162,9 +162,9 @@ raw:
           syncOptions:
             - CreateNamespace=true
 
-    # One Application per projects/<slug>/<env> directory of an allowed environment. Project, environment, namespace
-    # and host come from the directory path and the environment profile of this cluster, not from the files, and the
-    # charts/app guard checks them. A values file could still turn the guard off: the boundary is that only the
+    # One Application per projects/<slug>/<env> directory. Agent Runway owns the environments and writes a directory
+    # only for one of them, so no list of environments lives here. Project, environment and namespace come from the
+    # directory path, not from the files, and the charts/app guard checks them. A values file could still turn the guard off: the boundary is that only the
     # app-deploy step writes app.yaml, through the fixed render.jq mapping, with a deploy key that only the delivery-git
     # steps hold. The Application syncs the app chart with app.yaml (tenant objects only until the first deployment)
     # and the kro instances in resources.yaml.
@@ -185,8 +185,7 @@ raw:
               revision: HEAD
               requeueAfterSeconds: 30
               directories:
-                - path: "projects/*/dev"
-                - path: "projects/*/prod"
+                - path: "projects/*/*"
         template:
           metadata:
             name: 'app-{{ index .path.segments 1 }}-{{ .path.basename }}'
@@ -209,16 +208,14 @@ raw:
                     - '../../{{ .path.path }}/app.yaml'
                   # resources.yaml may come before the first deployment writes app.yaml.
                   ignoreMissingValueFiles: true
-                  # charts/app wraps the opspresso app chart; its guard refuses any other environment or namespace, and a
-                  # host that is not <slug>.<domain> or <slug>-<environment>.<domain>. Agent Runway chooses the host; the
+                  # charts/app wraps the opspresso app chart; its guard refuses any other namespace, an environment
+                  # name of another form, and a host that is not <slug>.<domain> or <slug>-<environment>.<domain>. Agent Runway chooses the host; the
                   # deploy step writes it to app.yaml.
                   parameters:
                     - name: app.tenant.project
                       value: '{{ index .path.segments 1 }}'
                     - name: app.tenant.environment
                       value: '{{ .path.basename }}'
-                    - name: app.tenant.environments
-                      value: "dev prod"
                     - name: app.tenant.domain
                       value: "apps.rovr.dev"
                     - name: app.tenant.cluster
@@ -268,8 +265,7 @@ raw:
               revision: HEAD
               requeueAfterSeconds: 30
               files:
-                - path: "projects/*/dev/resources/*.yaml"
-                - path: "projects/*/prod/resources/*.yaml"
+                - path: "projects/*/*/resources/*.yaml"
         template:
           metadata:
             name: 'app-{{ index .path.segments 1 }}-{{ index .path.segments 2 }}-{{ trimPrefix (printf "%s-" (index .path.segments 1)) .resourceName }}-{{ trunc 8 .resourceId }}'

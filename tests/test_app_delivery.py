@@ -35,20 +35,22 @@ class AppDeliveryProfileTests(unittest.TestCase):
                     self.assertEqual(item["metadata"]["namespace"], "argocd")
                     self.assertEqual(item["metadata"]["annotations"]["argocd.argoproj.io/sync-options"], "Delete=false,Prune=false")
 
-    def test_one_application_per_allowed_environment_directory(self):
+    def test_one_application_per_environment_directory(self):
         for context in self.contexts():
             profile = context["app_delivery"]
             values = rendered_values(context["cluster"])
             appset = resource(values, "ApplicationSet", "projects")
             with self.subTest(cluster=context["cluster"]):
                 directories = [d["path"] for g in appset["spec"]["generators"] for d in g["git"]["directories"]]
-                self.assertEqual(directories, [f"projects/*/{name}" for name in profile["environments"]])
+                # Agent Runway owns the environments: every directory it writes gets an Application.
+                self.assertEqual(directories, ["projects/*/*"])
                 spec = appset["spec"]["template"]["spec"]
                 self.assertEqual(spec["destination"]["namespace"], "app-{{ index .path.segments 1 }}-{{ .path.basename }}")
                 chart, resources = spec["sources"]
                 parameters = {p["name"]: p["value"] for p in chart["helm"]["parameters"]}
-                # The chart guard checks the environment against these parameters, which a values file cannot override.
-                self.assertEqual(parameters["app.tenant.environments"], " ".join(profile["environments"]))
+                # The chart guard checks the Project and environment of the path, which a values file cannot override.
+                self.assertEqual(parameters["app.tenant.environment"], "{{ .path.basename }}")
+                self.assertNotIn("app.tenant.environments", parameters)
                 self.assertEqual(parameters["app.tenant.tenantSecretsRoleArn"],
                                  f"arn:aws:iam::{context['aws_account_id']}:role/agent-runway-tenant-secrets")
                 # Agent Runway chooses the host and app.yaml carries it; a parameter here would override it.
@@ -65,7 +67,7 @@ class AppDeliveryProfileTests(unittest.TestCase):
             appset = resource(values, "ApplicationSet", "project-resources")
             with self.subTest(cluster=context["cluster"]):
                 paths = [item["path"] for item in appset["spec"]["generators"][0]["git"]["files"]]
-                self.assertEqual(paths, [f"projects/*/{name}/resources/*.yaml" for name in context["app_delivery"]["environments"]])
+                self.assertEqual(paths, ["projects/*/*/resources/*.yaml"])
                 template = appset["spec"]["template"]
                 self.assertEqual(template["metadata"]["finalizers"], ["resources-finalizer.argocd.argoproj.io"])
                 chart, repository = template["spec"]["sources"]
