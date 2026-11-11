@@ -38,6 +38,8 @@ app:
       RUNWAY_WORKFLOW_NAMESPACE: {{agent_runway.delivery.namespace}}
       RUNWAY_APP_DOMAIN: {{agent_runway.delivery.domain}}
       RUNWAY_ARGOCD_URL: https://argocd.{{agent_runway.delivery.argocd_domain}}
+      # The Argo Workflows console that the pipeline's workflow links open.
+      RUNWAY_WORKFLOWS_URL: https://workflows.{{agent_runway.delivery.argocd_domain}}
       # Sandbox Pods may reach the sandbox environment's postgres and valkey servers.
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
       RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
