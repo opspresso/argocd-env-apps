@@ -49,7 +49,7 @@ ExternalSecret은 참조 경로가 하나라도 없으면 Secret을 만들지 �
 
 ## 첫 배포 순서
 
-1. `terraform-env-apps`의 `demo/8-agent-studio`(ECR·릴리스 역할)와 `terraform-env-demo`의 `demo/6-eks-node`(NodePool), `demo/3-alb`(`rovr.dev`)를 apply한다.
+1. `terraform-env-opsp`의 `demo/8-agent-studio`(ECR·릴리스 역할)와 `demo/7-eks-shared`(rovr sandbox NodePool), `terraform-env-demo`의 `demo/3-alb`(`rovr.dev`)를 apply한다.
 2. rovr GitHub App을 만들고 위 SSM 파라미터를 준비한다. bootstrap을 `--apply`로 실행한다.
 3. `env/eks-demo.yaml`의 `rovr.github_app_slug`를 App slug로 맞추고 `charts/rovr`를 `main`에 병합한다.
    GitOps dispatch는 `main`의 chart를 갱신하므로 태그보다 먼저 병합한다.
