@@ -77,7 +77,7 @@ def test_workflow_submission_policy_binds_the_runway_identity_and_namespace():
     # target type's deploys are denied at submission.
     reference = next(item["expression"] for item in policy["validations"] if "workflowTemplateRef.name in" in item["expression"])
     admitted = set(re.search(r"workflowTemplateRef\.name in \[([^\]]*)\]", reference).group(1).replace("'", "").replace(" ", "").split(","))
-    assert admitted == {"app-build", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "resource-sync"}
+    assert admitted == {"app-build", "app-build-v2", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "resource-sync"}
 
 
 def test_prometheus_scrapes_runway_metrics_with_the_app_bearer_token():
