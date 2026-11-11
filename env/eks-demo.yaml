@@ -70,6 +70,16 @@ agent_studio:
     # for SSO into every other client. Without groups here, a Studio sign-in
     # erases the LLDAP groups that Argo CD, Grafana and GitLab receive.
     scopes: openid email profile groups
+    # Dex passes only name, email and groups from LLDAP, so the company profile
+    # comes from LLDAP group names: company:<name>, department:<name>,
+    # title:<name> and role:<name>. Other groups except LLDAP's own lldap_*
+    # are teams. One company, department and title per person.
+    profile_claims:
+      company: {claim: /groups, match: '^company:(.+)$'}
+      department: {claim: /groups, match: '^department:(.+)$'}
+      jobTitle: {claim: /groups, match: '^title:(.+)$'}
+      roles: {claim: /groups, match: '^role:(.+)$'}
+      teams: {claim: /groups, match: '^(?!lldap_)[^:]+$'}
     # LLDAP sign-in links to the Studio account with the same email. Safe only
     # because users cannot change their own LLDAP email: the LLDAP UI admits
     # only sso.admin_groups (argocd-env-addons charts/lldap).
