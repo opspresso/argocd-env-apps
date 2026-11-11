@@ -66,8 +66,24 @@ app:
     - studio.agrt.dev
     httpRoute:
       enabled: true
-  # Every eks-demo node is Spot. Spread the replicas over AZs and nodes so one reclaim leaves a replica serving.
-  # ScheduleAnyway: a replica still starts when one AZ has no Spot capacity.
+  # core_tier: the base replicas prefer the on-demand core nodes (terraform-env-demo 51-core-node-pool.tf), one per AZ.
+  # HPA growth and rollout surge spill over to Spot instead of waiting for core room.
+  tolerations:
+    - key: opspresso.com/tier
+      operator: Equal
+      value: core
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: opspresso.com/tier
+                operator: In
+                values: [core]
+  # Spread the replicas over AZs and nodes so one lost node leaves a replica serving.
+  # ScheduleAnyway: a replica still starts when one AZ has no capacity.
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
@@ -150,3 +166,17 @@ app:
     scheduleTicker:
       enabled: true
       replicas: 1
+      tolerations:
+        - key: opspresso.com/tier
+          operator: Equal
+          value: core
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: opspresso.com/tier
+                    operator: In
+                    values: [core]

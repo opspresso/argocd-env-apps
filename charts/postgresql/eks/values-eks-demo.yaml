@@ -4,16 +4,22 @@ global:
 postgresql:
   primary:
 
-    # Every Agent service shares this database, so it runs on its own on-demand NodePool
-    # (terraform-env-demo demo/6-eks-node/65-agent-database.tf), never on Spot.
-    nodeSelector:
-      karpenter.sh/nodepool: agent-database
+    # Every Agent service shares this database. It runs only on the on-demand core nodes
+    # (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
     tolerations:
-      - key: opspresso.com/agent-database
+      - key: opspresso.com/tier
         operator: Equal
-        value: "true"
+        value: core
         effect: NoSchedule
-    # Blocks voluntary disruption (drift, consolidation); only node expiry drains the database.
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Blocks voluntary disruption such as consolidation; drift waits for the core maintenance window.
     podAnnotations:
       karpenter.sh/do-not-disrupt: "true"
 

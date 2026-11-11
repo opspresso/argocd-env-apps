@@ -2,20 +2,26 @@
   enabled: false
 {% else %}global:
   ssmPrefix: /k8s/{{cluster}}
-{% endif %}{% if (postgresql is defined and (postgresql.storage is defined or postgresql.node_pool is defined)) or not resources %}
+{% endif %}{% if (postgresql is defined and postgresql.storage is defined) or core_tier | default(false) or not resources %}
 postgresql:
   primary:
-{% if postgresql is defined and postgresql.node_pool is defined %}
-    # Every Agent service shares this database, so it runs on its own on-demand NodePool
-    # (terraform-env-demo demo/6-eks-node/65-agent-database.tf), never on Spot.
-    nodeSelector:
-      karpenter.sh/nodepool: {{postgresql.node_pool}}
+{% if core_tier | default(false) %}
+    # Every Agent service shares this database. It runs only on the on-demand core nodes
+    # (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
     tolerations:
-      - key: opspresso.com/agent-database
+      - key: opspresso.com/tier
         operator: Equal
-        value: "true"
+        value: core
         effect: NoSchedule
-    # Blocks voluntary disruption (drift, consolidation); only node expiry drains the database.
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Blocks voluntary disruption such as consolidation; drift waits for the core maintenance window.
     podAnnotations:
       karpenter.sh/do-not-disrupt: "true"
 {% endif %}

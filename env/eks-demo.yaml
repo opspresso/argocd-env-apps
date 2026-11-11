@@ -22,6 +22,9 @@ trusted_proxy_cidrs:
 replicas: 1
 autoscaling: true
 resources: true
+# Critical services run on the on-demand core NodePools (terraform-env-demo demo/6-eks-node/51-core-node-pool.tf):
+# PostgreSQL requires them, the Agent services and rovr prefer them.
+core_tier: true
 
 # Observability
 metrics:
@@ -39,8 +42,6 @@ rovr_maintenance: false
 
 # Data stores
 postgresql:
-  # On-demand NodePool from terraform-env-demo demo/6-eks-node/65-agent-database.tf.
-  node_pool: agent-database
   max_connections: 550
   storage: 20Gi
   storageClass: gp3
