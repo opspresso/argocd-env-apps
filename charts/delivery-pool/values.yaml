@@ -72,10 +72,11 @@ postgresql:
       volumeName: data
       enabled: true
       size: 10Gi
+    # Working set p95 58Mi, peak 63Mi (7 days to 2026-11-11).
     resources:
       requests:
-        cpu: 25m
-        memory: 128Mi
+        cpu: 15m
+        memory: 80Mi
       limits:
         memory: 512Mi
 
