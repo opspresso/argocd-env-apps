@@ -32,6 +32,10 @@ app:
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
       FORGE_KUBE_NODE_POOL: 'workspaces'
+      # Workspace retention (agent-forge docs/CONTRACT.md): close a workspace suspended for 14 days,
+      # then delete its checkpoint 14 days after it closed. Closing cannot be undone.
+      FORGE_SUSPENDED_WORKSPACE_RETENTION_DAYS: '14'
+      FORGE_CLOSED_CHECKPOINT_RETENTION_DAYS: '14'
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
