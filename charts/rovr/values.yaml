@@ -6,10 +6,11 @@ app:
   # Two replicas serve the web app and API; one of them leads the orchestrator
   # (PostgreSQL advisory lock), so the count is fixed and there is no HPA.
   replicaCount: 2
+  # Working set p99 18Mi, 10-day peak 53Mi (7 days to 2026-11-13).
   resources:
     requests:
       cpu: 10m
-      memory: 128Mi
+      memory: 64Mi
     limits:
       memory: 512Mi
   # 8080 is the public listener (web app, API, sign-in, webhooks). 8081 is the
