@@ -283,10 +283,11 @@ app:
         value: 'true'
       - name: AUDIO_WORKER_ENABLED
         value: 'true'
+      # Working set p99 129Mi, 10-day peak 200Mi (7 days to 2026-11-13).
       resources:
         requests:
           cpu: 25m
-          memory: 256Mi
+          memory: 160Mi
         limits:
           memory: 2Gi
       overrides: |
