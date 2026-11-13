@@ -58,6 +58,8 @@ agent_studio:
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
+  # Sign-in is LLDAP (Dex) and Google only; email and password sign-in is off.
+  password_sign_in: false
   # Platform sign-in: the Dex client agent-studio (argocd-env-addons charts/dex).
   # One Dex session serves the addons and Studio; the Agent services sign in
   # through Studio. argocd-env-addons install/eks/secrets.sh creates
