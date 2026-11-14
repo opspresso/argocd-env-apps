@@ -48,8 +48,9 @@ def test_replicated_services_prefer_core_and_spill_over(chart):
         assert node["preferredDuringSchedulingIgnoredDuringExecution"] == [{"weight": 100, "preference": {"matchExpressions": [CORE]}}]
 
 
-def test_shared_postgresql_requires_core_and_blocks_voluntary_disruption():
-    template = pod_spec(render("postgresql"), "StatefulSet", "postgres")
+@pytest.mark.parametrize("chart", ["postgresql", "delivery-pool"])
+def test_shared_postgresql_requires_core_and_blocks_voluntary_disruption(chart):
+    template = pod_spec(render(chart), "StatefulSet", "postgres")
     spec = template["spec"]
     assert TOLERATION in spec["tolerations"]
     terms = spec["affinity"]["nodeAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]["nodeSelectorTerms"]

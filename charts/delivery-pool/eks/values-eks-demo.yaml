@@ -3,8 +3,30 @@ global:
 
 postgresql:
   primary:
+
+    # Every deployed app with a `pool-postgres` resource shares this database, so a restart stops all of them.
+    # It runs only on the on-demand core nodes (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
+    tolerations:
+      - key: opspresso.com/tier
+        operator: Equal
+        value: core
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Delays voluntary disruption only: drift (03:00-05:00 KST window) and expiry still drain it after at most the NodeClaim terminationGracePeriod, restarting it once.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+
+
     persistence:
       size: 10Gi
 
       storageClass: gp3
+
 

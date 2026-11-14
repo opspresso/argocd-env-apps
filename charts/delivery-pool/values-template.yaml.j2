@@ -1,11 +1,33 @@
 global:
   ssmPrefix: /k8s/{{cluster}}
-{% if delivery_pool is defined and delivery_pool.storage is defined %}
+{% if (delivery_pool is defined and delivery_pool.storage is defined) or core_tier | default(false) %}
 postgresql:
   primary:
+{% if core_tier | default(false) %}
+    # Every deployed app with a `pool-postgres` resource shares this database, so a restart stops all of them.
+    # It runs only on the on-demand core nodes (terraform-env-demo 51-core-node-pool.tf); its EBS volume picks the AZ.
+    tolerations:
+      - key: opspresso.com/tier
+        operator: Equal
+        value: core
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: opspresso.com/tier
+                  operator: In
+                  values: [core]
+    # Delays voluntary disruption only: drift (03:00-05:00 KST window) and expiry still drain it after at most the NodeClaim terminationGracePeriod, restarting it once.
+    podAnnotations:
+      karpenter.sh/do-not-disrupt: "true"
+{% endif %}
+{% if delivery_pool is defined and delivery_pool.storage is defined %}
     persistence:
       size: {{delivery_pool.storage}}
 {% if delivery_pool.storageClass is defined %}
       storageClass: {{delivery_pool.storageClass}}
+{% endif %}
 {% endif %}
 {% endif %}
