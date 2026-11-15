@@ -151,13 +151,37 @@ app:
   registry:
     region: ap-northeast-2
   ssmPrefix: ""
-  ingressPeers:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: istio-system
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: addon-prometheus
+  networkPolicy:
+    enabled: false
+    appPort:
+      sameNamespace: true
+      from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-system
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+    ingress:
+    # Sandbox Pods (namespace sandbox.namespace) reach the internal listener for run callbacks and the model proxy.
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: rovr-sandboxes
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: rovr-sandbox
+      ports:
+      - protocol: TCP
+        port: 8081
+    # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+      ports:
+      - protocol: TCP
+        port: 15090
 
   raw:
     enabled: false
@@ -393,44 +417,6 @@ app:
         ROVR_SANDBOX_STORAGE_CLASS: {{ .Values.sandbox.storageClass | quote }}
         ROVR_SANDBOX_DEADLINE: {{ .Values.sandbox.deadline | quote }}
         ROVR_SANDBOX_NODE_POOL: {{ .Values.sandbox.nodePool | quote }}
-    - |
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: {{ include "app.fullname" . }}
-        namespace: {{ include "app.namespace" . }}
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/instance: {{ .Release.Name }}
-        policyTypes: [Ingress]
-        ingress:
-          - from:
-              - podSelector: {}
-      {{- with .Values.ingressPeers }}
-      {{ toYaml . | indent 8 }}
-      {{- end }}
-            ports:
-              - protocol: TCP
-                port: 8080
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: {{ .Values.sandbox.namespace | quote }}
-                podSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: rovr-sandbox
-            ports:
-              - protocol: TCP
-                port: 8081
-          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: addon-prometheus
-            ports:
-              - protocol: TCP
-                port: 15090
     - |
       {{- $db := .Values.database }}
       # rovr's own database and role on the shared PostgreSQL. The Job runs in

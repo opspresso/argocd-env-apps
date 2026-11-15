@@ -1,7 +1,15 @@
 app:
   fullnameOverride: agent-models
-  raw:
+  ecrPullSecret:
     enabled: True
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: True
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
 
   replicaCount: 1
   autoscaling:
@@ -78,9 +86,3 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://models.agrt.dev
-  ingressPeers:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: istio-system
-  registry:
-    region: ap-northeast-2

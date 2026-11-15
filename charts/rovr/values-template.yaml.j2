@@ -3,6 +3,8 @@ app:
   fullnameOverride: rovr
   raw:
     enabled: {{rovr is defined}}
+  networkPolicy:
+    enabled: {{rovr is defined}}
 {% if rovr is defined %}
 {% set sandbox = rovr.sandbox | default({}) %}
   replicaCount: {{0 if maintenance else 2}}

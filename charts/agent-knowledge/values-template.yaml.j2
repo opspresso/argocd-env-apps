@@ -3,6 +3,19 @@ app:
   fullnameOverride: agent-knowledge
   raw:
     enabled: {{agent_knowledge is defined}}
+  ecrPullSecret:
+    enabled: {{agent_knowledge is defined}}
+    region: {{aws_region}}
+  networkPolicy:
+    enabled: {{agent_knowledge is defined}}
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
 {% if agent_knowledge is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -12,15 +25,6 @@ app:
 {% if not resources %}
   resources: null
 {% endif %}
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  registry:
-    region: {{aws_region}}
   configmap:
     enabled: true
     data:

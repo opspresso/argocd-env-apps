@@ -178,14 +178,16 @@ app:
     - key: /k8s/{{cluster}}/agent-{{service}}/oidc-client-id
       name: {{service | upper}}_OIDC_CLIENT_ID
 {% endfor %}
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  registry:
+  networkPolicy:
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
+  ecrPullSecret:
     region: {{aws_region}}
   workloads:
     scheduleTicker:

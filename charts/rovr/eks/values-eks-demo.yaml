@@ -2,6 +2,8 @@ app:
   fullnameOverride: rovr
   raw:
     enabled: True
+  networkPolicy:
+    enabled: True
 
 
   replicaCount: 2
