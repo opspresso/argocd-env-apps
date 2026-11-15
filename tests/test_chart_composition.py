@@ -64,7 +64,7 @@ def test_config_changes_restart_studio_web():
 
 def test_argocd_network_policy_can_be_disabled():
     assert any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd"))
-    assert not any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd", "eks", "networkPolicy.enabled=false"))
+    assert not any(doc["kind"] == "NetworkPolicy" for doc in render("mcp-argocd", "eks", "app.networkPolicy.enabled=false"))
 
 
 def test_external_secret_entries_restart_knowledge_web_and_worker():

@@ -1,16 +1,19 @@
 app:
   fullnameOverride: rovr
-  raw:
+  ecrPullSecret:
     enabled: True
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: True
+  jobs:
+    db-bootstrap:
+      enabled: True
 
 
   replicaCount: 2
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/rovr
 
-  ssmPrefix: /k8s/eks-demo
-  registry:
-    region: ap-northeast-2
   configmap:
     enabled: true
     data:
@@ -25,21 +28,188 @@ app:
       # Its owner's admins see and update the coding tool versions in Settings.
       ROVR_TOOLS_REPO: "opspresso/rovr"
 
-  sandbox:
-    maxRuns: 6
-    maxWorkspaces: 24
-    disk: "10Gi"
-    storageClass: "gp3-ephemeral"
-    nodePool: "rovr-sandboxes"
-    dnsCidrs:
-      - 172.20.0.10/32
-    allowPublic: True
-
-    cache:
-      fileSystemId: "fs-0eb3767a177294715"
-      accessPointId: "fsap-02ca3faf77d338014"
-      size: "50Gi"
-
+      ROVR_SANDBOX_NAMESPACE: rovr-sandboxes
+      ROVR_SANDBOX_SERVER_URL: http://rovr.rovr.svc.cluster.local:8081
+      ROVR_SANDBOX_SERVICE_ACCOUNT: sandbox
+      ROVR_SANDBOX_IMAGE_PULL_SECRET: ecr-registry
+      ROVR_SANDBOX_CPU: "2"
+      ROVR_SANDBOX_MEMORY: 4Gi
+      ROVR_SANDBOX_EPHEMERAL_STORAGE: 8Gi
+      ROVR_SANDBOX_DISK: 10Gi
+      ROVR_SANDBOX_STORAGE_CLASS: "gp3-ephemeral"
+      ROVR_SANDBOX_DEADLINE: 90m
+      ROVR_SANDBOX_NODE_POOL: "rovr-sandboxes"
+  extraExternalSecrets:
+    rovr-postgresql:
+      namespace: agent-studio
+      annotations:
+        argocd.argoproj.io/sync-wave: "-2"
+      data:
+        - key: /k8s/eks-demo/rovr/postgres-password
+          name: password
+  # The sandbox namespace. Argo CD keeps it, and the task disks in it, when the Application is removed.
+  raw:
+    enabled: true
+    resources:
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: rovr-sandboxes
+          annotations:
+            argocd.argoproj.io/sync-wave: "-3"
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            sidecar.istio.io/inject: "false"
+      # Sandbox Pods run as this account. It has no RBAC bindings and its token is never mounted.
+      - apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: sandbox
+          namespace: rovr-sandboxes
+        automountServiceAccountToken: false
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: rovr-sandbox
+          namespace: rovr-sandboxes
+        rules:
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, create, delete]
+          - apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+          # A person's terminal reaches agentd through exec. A WebSocket exec
+          # authorizes as get on older Kubernetes versions and as create on newer ones.
+          - apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [get, create]
+          # One Secret per run holds its token; the Job owns it.
+          - apiGroups: [""]
+            resources: [secrets]
+            verbs: [create]
+          # list: the leader sweeps workspaces of finished tasks.
+          - apiGroups: [""]
+            resources: [persistentvolumeclaims]
+            verbs: [list, create, delete]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: rovr-sandbox
+          namespace: rovr-sandboxes
+        subjects:
+          - kind: ServiceAccount
+            name: rovr
+            namespace: rovr
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: rovr-sandbox
+      # Every run at its limits fits, and every task disk plus the cache.
+      - apiVersion: v1
+        kind: ResourceQuota
+        metadata:
+          name: rovr-sandbox
+          namespace: rovr-sandboxes
+        spec:
+          hard:
+            pods: "6"
+            count/jobs.batch: "6"
+            persistentvolumeclaims: "25"
+            requests.storage: "290Gi"
+            requests.cpu: "12"
+            limits.cpu: "12"
+            requests.memory: "24Gi"
+            limits.memory: "24Gi"
+            requests.ephemeral-storage: "48Gi"
+            limits.ephemeral-storage: "48Gi"
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-isolation
+          namespace: rovr-sandboxes
+        spec:
+          podSelector: {}
+          policyTypes: [Ingress, Egress]
+          ingress: []
+          egress: []
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-egress
+          namespace: rovr-sandboxes
+        spec:
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rovr-sandbox
+          policyTypes: [Egress]
+          egress:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+                  podSelector:
+                    matchLabels:
+                      k8s-app: kube-dns
+                - ipBlock:
+                    cidr: "172.20.0.10/32"
+              ports:
+                - {protocol: UDP, port: 53}
+                - {protocol: TCP, port: 53}
+            # GitHub, model providers and package registries. Private, link-local and
+            # metadata ranges stay closed, so no cluster or VPC service is reachable.
+            - to:
+                - ipBlock:
+                    cidr: 0.0.0.0/0
+                    except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
+              ports:
+                - {protocol: TCP, port: 80}
+                - {protocol: TCP, port: 443}
+            # The rovr internal listener: run callbacks and the model proxy.
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: rovr
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: rovr
+                      app.kubernetes.io/instance: rovr-eks-demo
+              ports:
+                - {protocol: TCP, port: 8081}
+      # A static volume needs no AWS permissions on the CSI controller. Retain
+      # keeps Argo CD from removing the data with the PV; the file system
+      # belongs to Terraform.
+      - apiVersion: v1
+        kind: PersistentVolume
+        metadata:
+          name: rovr-sandbox-cache
+        spec:
+          capacity:
+            storage: 50Gi
+          accessModes: [ReadWriteMany]
+          persistentVolumeReclaimPolicy: Retain
+          storageClassName: ""
+          mountOptions: [tls]
+          claimRef:
+            namespace: rovr-sandboxes
+            name: rovr-sandbox-cache
+          csi:
+            driver: efs.csi.aws.com
+            volumeHandle: "fs-0eb3767a177294715::fsap-02ca3faf77d338014"
+      # No rovr labels: the leader's workspace sweep leaves this claim alone.
+      - apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: rovr-sandbox-cache
+          namespace: rovr-sandboxes
+        spec:
+          accessModes: [ReadWriteMany]
+          storageClassName: ""
+          volumeName: rovr-sandbox-cache
+          resources:
+            requests:
+              storage: 50Gi
   routing:
     hosts:
     - rovr.dev

@@ -1,12 +1,36 @@
 {% set maintenance = agent_forge_maintenance | default(false) -%}
 app:
   fullnameOverride: agent-forge
-  raw:
-    enabled: {{agent_forge is defined}}
   ecrPullSecret:
     enabled: {{agent_forge is defined}}
     region: {{aws_region}}
+  networkPolicy:
+    enabled: {{agent_forge is defined}}
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
 {% if agent_forge is defined %}
+{#- Sandboxes: one Job per workspace in their own namespace. The model proxy port equals service.extraPorts[sandbox]. #}
+{%- set sandbox_namespace = 'agent-forge-workspaces' %}
+{%- set sandbox_port = 3104 %}
+{%- set max_pods = workspace_max_pods | default(2) %}
+{%- set memory_mb = workspace_memory_mb | default(1024) %}
+{%- set disk_mb = workspace_disk_mb | default(2048) %}
+{%- set cpus = workspace_cpus | default(1) %}
+{%- set dns_cidrs = ['172.20.0.10/32'] %}
+{%- set allow_public = workspace_allow_public | default(true) %}
+{%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
+{#- Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
+    environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches. #}
+{%- set extra_egress = (workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}, {"to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-tenant": "true", "opspresso.com/delivery-env": "dev"}}}], "ports": [{"protocol": "TCP", "port": 5432}, {"protocol": "TCP", "port": 6379}]}] %}
+{%- else %}
+{%- set extra_egress = workspace_extra_egress | default([]) %}
+{%- endif %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -17,14 +41,6 @@ app:
 {% if not resources %}
   resources: null
 {% endif %}
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  ssmPrefix: /k8s/{{cluster}}
   configmap:
     enabled: true
     data:
@@ -52,22 +68,145 @@ app:
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
       RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
 {%- endif %}
-  sandbox:
-    namespace: agent-forge-workspaces
-    maxPods: {{workspace_max_pods | default(2)}}
-    memoryMb: {{workspace_memory_mb | default(1024)}}
-    diskMb: {{workspace_disk_mb | default(2048)}}
-    cpus: {{workspace_cpus | default(1)}}
-    dnsCidrs:
-      - 172.20.0.10/32
-    allowPublic: {{workspace_allow_public | default(true)}}
-{%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
-    # Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
-    # environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches.
-    extraEgress: {{ ((workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}, {"to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-tenant": "true", "opspresso.com/delivery-env": "dev"}}}], "ports": [{"protocol": "TCP", "port": 5432}, {"protocol": "TCP", "port": 6379}]}]) | tojson }}
-{%- else %}
-    extraEgress: {{workspace_extra_egress | default([]) | tojson}}
+      FORGE_SANDBOX_PORT: '{{sandbox_port}}'
+      FORGE_SANDBOX_API_URL: http://agent-forge.agent-forge.svc.cluster.local:{{sandbox_port}}
+      FORGE_SANDBOX_MEMORY_MB: '{{memory_mb}}'
+      FORGE_SANDBOX_DISK_MB: '{{disk_mb}}'
+      FORGE_SANDBOX_CPUS: '{{cpus}}'
+      FORGE_KUBE_NAMESPACE: {{sandbox_namespace}}
+      FORGE_INSTANCE: agent-forge-{{cluster}}
+      FORGE_KUBE_RESOURCES_ENABLED: '{{resources | lower}}'
+  # Prometheus reads this scrape token; the app reads the same value as METRICS_BEARER_TOKEN.
+  extraExternalSecrets:
+    agent-forge-metrics:
+      data:
+        - key: /k8s/{{cluster}}/agent-forge/metrics-bearer-token
+          name: token
+  # The sandbox namespace. Argo CD keeps it, and the workspaces in it, when the Application is removed.
+  raw:
+    enabled: true
+    resources:
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: {{sandbox_namespace}}
+          annotations:
+            argocd.argoproj.io/sync-wave: "-3"
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          labels:
+            pod-security.kubernetes.io/enforce: baseline
+            sidecar.istio.io/inject: "false"
+      - apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: sandbox
+          namespace: {{sandbox_namespace}}
+        automountServiceAccountToken: false
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: agent-forge-sandbox
+          namespace: {{sandbox_namespace}}
+        rules:
+          - apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, create, delete]
+          - apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [get, create]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: agent-forge-sandbox
+          namespace: {{sandbox_namespace}}
+        subjects:
+          - kind: ServiceAccount
+            name: agent-forge
+            namespace: agent-forge
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: agent-forge-sandbox
+      # Every workspace at its limits fits: maxPods sandboxes of cpus, memoryMb and twice diskMb plus 512Mi.
+      - apiVersion: v1
+        kind: ResourceQuota
+        metadata:
+          name: agent-forge-sandbox
+          namespace: {{sandbox_namespace}}
+        spec:
+          hard:
+            pods: "{{max_pods}}"
+            count/jobs.batch: "{{max_pods}}"
+{%- if resources %}
+            requests.cpu: "{{'%g' % (cpus * max_pods)}}"
+            limits.cpu: "{{'%g' % (cpus * max_pods)}}"
+            requests.memory: "{{memory_mb * max_pods}}Mi"
+            limits.memory: "{{memory_mb * max_pods}}Mi"
+            requests.ephemeral-storage: "{{(disk_mb * 2 + 512) * max_pods}}Mi"
+            limits.ephemeral-storage: "{{(disk_mb * 2 + 512) * max_pods}}Mi"
 {%- endif %}
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-isolation
+          namespace: {{sandbox_namespace}}
+        spec:
+          podSelector: {}
+          policyTypes: [Ingress, Egress]
+          ingress: []
+          egress: []
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-egress
+          namespace: {{sandbox_namespace}}
+        spec:
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agent-forge-sandbox
+          policyTypes: [Egress]
+          egress:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+                  podSelector:
+                    matchLabels:
+                      k8s-app: kube-dns
+{%- for cidr in dns_cidrs %}
+                - ipBlock:
+                    cidr: "{{cidr}}"
+{%- endfor %}
+              ports:
+                - {protocol: UDP, port: 53}
+                - {protocol: TCP, port: 53}
+{%- if allow_public %}
+            # The declared clusters use IPv4; policy CIDRs must match the cluster IP family.
+            - to:
+                - ipBlock:
+                    cidr: 0.0.0.0/0
+                    except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
+              ports:
+                - {protocol: TCP, port: 80}
+                - {protocol: TCP, port: 443}
+{%- endif %}
+            # Native CLIs reach only this installation's model proxy on the sandbox port.
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: agent-forge
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: agent-forge
+                      app.kubernetes.io/instance: agent-forge-{{cluster}}
+              ports:
+                - {protocol: TCP, port: {{sandbox_port}}}
+{%- for rule in extra_egress %}
+            - {{rule | tojson}}
+{%- endfor %}
   routing:
     hosts:
     - {{agent_forge.hostname}}

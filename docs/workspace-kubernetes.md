@@ -36,8 +36,9 @@ Kubernetes API 접근은 Sandbox egress와 구분합니다.
 
 `app.image.tag`가 controller와 Sandbox의 유일한 버전 원천입니다.
 controller `<repository>:v0.1.0`이면 Sandbox는 `<repository>:sandbox-v0.1.0`입니다.
-ECR imagePullSecret은 실행 namespace의 generator가 갱신합니다.
-`agent-forge-sandbox` ConfigMap과 설정 checksum으로 새 controller가 바뀐 실행 설정을 읽습니다.
+ECR imagePullSecret은 실행 namespace의 generator가 갱신합니다(`app.ecrPullSecret.namespaces`).
+실행 설정은 `agent-forge` ConfigMap의 `FORGE_SANDBOX_*`·`FORGE_KUBE_*` 값입니다. 설정이 바뀌면
+`checksum/config`가 바뀌어 새 controller가 바뀐 설정을 읽습니다.
 
 EKS의 기본 Pod는 1 CPU·2Gi memory·4608Mi ephemeral storage를 예약합니다.
 `workspace_disk_mb=2048`에서 `/workspace`, `/control`, `/tmp`를 포함한 저장 예약이며,

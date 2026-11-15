@@ -14,7 +14,7 @@ app:
     name: http
     port: 3103
     targetPort: 3103
-    # Sandboxes call the model proxy only on this port (sandbox.port); 3103 answers /model/ with 404.
+    # Sandboxes call the model proxy only on this port; 3103 answers /model/ with 404.
     extraPorts:
     - name: sandbox
       port: 3104
@@ -113,276 +113,50 @@ app:
     secretStoreRef:
       kind: ClusterSecretStore
       name: parameter-store
-  raw:
-    enabled: true
-    parentTemplates:
-    - |
-      apiVersion: generators.external-secrets.io/v1alpha1
-      kind: ECRAuthorizationToken
-      metadata:
-        name: agent-forge-sandbox-ecr
-        namespace: {{ .Values.sandbox.namespace }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-2"
-      spec:
-        region: {{ .Values.ecrPullSecret.region }}
-      ---
-      apiVersion: external-secrets.io/v1
-      kind: ExternalSecret
-      metadata:
-        name: ecr-registry
-        namespace: {{ .Values.sandbox.namespace }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-1"
-      spec:
-        refreshInterval: 1h
-        target:
-          name: ecr-registry
-          template:
-            type: kubernetes.io/dockerconfigjson
-            data:
-              .dockerconfigjson: |
-                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
-        dataFrom:
-          - sourceRef:
-              generatorRef:
-                apiVersion: generators.external-secrets.io/v1alpha1
-                kind: ECRAuthorizationToken
-                name: agent-forge-sandbox-ecr
-    - |
-      {{- $ns := .Values.sandbox.namespace }}
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: {{ $ns }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-3"
-          argocd.argoproj.io/sync-options: Prune=false,Delete=false
-        labels:
-          pod-security.kubernetes.io/enforce: baseline
-          sidecar.istio.io/inject: "false"
-      ---
-      apiVersion: v1
-      kind: ServiceAccount
-      metadata:
-        name: sandbox
-        namespace: {{ $ns }}
-      automountServiceAccountToken: false
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: Role
-      metadata:
-        name: agent-forge-sandbox
-        namespace: {{ $ns }}
-      rules:
-        - apiGroups: [""]
-          resources: [pods]
-          verbs: [get, list]
-        - apiGroups: [batch]
-          resources: [jobs]
-          verbs: [get, list, create, delete]
-        - apiGroups: [""]
-          resources: [pods/exec]
-          verbs: [get, create]
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: RoleBinding
-      metadata:
-        name: agent-forge-sandbox
-        namespace: {{ $ns }}
-      subjects:
-        - kind: ServiceAccount
-          name: agent-forge
-          namespace: {{ .Release.Namespace }}
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: Role
-        name: agent-forge-sandbox
-      ---
-      apiVersion: v1
-      kind: ResourceQuota
-      metadata:
-        name: agent-forge-sandbox
-        namespace: {{ $ns }}
-      spec:
-        hard:
-          pods: {{ .Values.sandbox.maxPods | quote }}
-          count/jobs.batch: {{ .Values.sandbox.maxPods | quote }}
-      {{- if .Values.resources }}
-          requests.cpu: {{ mulf .Values.sandbox.cpus .Values.sandbox.maxPods | quote }}
-          limits.cpu: {{ mulf .Values.sandbox.cpus .Values.sandbox.maxPods | quote }}
-          requests.memory: {{ printf "%dMi" (mul .Values.sandbox.memoryMb .Values.sandbox.maxPods) | quote }}
-          limits.memory: {{ printf "%dMi" (mul .Values.sandbox.memoryMb .Values.sandbox.maxPods) | quote }}
-          requests.ephemeral-storage: {{ printf "%dMi" (mul (add (mul .Values.sandbox.diskMb 2) 512) .Values.sandbox.maxPods) | quote }}
-          limits.ephemeral-storage: {{ printf "%dMi" (mul (add (mul .Values.sandbox.diskMb 2) 512) .Values.sandbox.maxPods) | quote }}
-      {{- end }}
-      ---
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: sandbox-isolation
-        namespace: {{ $ns }}
-      spec:
-        podSelector: {}
-        policyTypes: [Ingress, Egress]
-        ingress: []
-        egress: []
-      ---
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: sandbox-egress
-        namespace: {{ $ns }}
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/name: agent-forge-sandbox
-        policyTypes: [Egress]
-        egress:
-          - to:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: kube-system
-                podSelector:
-                  matchLabels:
-                    k8s-app: kube-dns
-      {{- range .Values.sandbox.dnsCidrs }}
-              - ipBlock:
-                  cidr: {{ . | quote }}
-      {{- end }}
-            ports:
-              - {protocol: UDP, port: 53}
-              - {protocol: TCP, port: 53}
-      {{- if .Values.sandbox.allowPublic }}
-          # The declared clusters use IPv4; policy CIDRs must match the cluster IP family.
-          - to:
-              - ipBlock:
-                  cidr: 0.0.0.0/0
-                  except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
-            ports:
-              - {protocol: TCP, port: 80}
-              - {protocol: TCP, port: 443}
-      {{- end }}
-          # Native CLIs reach only this installation's model proxy on the sandbox port.
-          - to:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: {{ include "app.namespace" . | quote }}
-                podSelector:
-                  matchLabels:
-      {{- include "app.selectorLabels" . | nindent 14 }}
-            ports:
-              - {protocol: TCP, port: {{ .Values.sandbox.port }}}
-      {{- with .Values.sandbox.extraEgress }}
-      {{ toYaml . | indent 4 }}
-      {{- end }}
-    - |
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: agent-forge-sandbox
-      data:
-        FORGE_SANDBOX_IMAGE: {{ printf "%s:sandbox-%s" .Values.image.repository .Values.image.tag | quote }}
-        FORGE_SANDBOX_PORT: {{ .Values.sandbox.port | quote }}
-        FORGE_SANDBOX_API_URL: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "app.fullname" .) (include "app.namespace" .) .Values.sandbox.port | quote }}
-        FORGE_SANDBOX_MEMORY_MB: {{ .Values.sandbox.memoryMb | quote }}
-        FORGE_SANDBOX_DISK_MB: {{ .Values.sandbox.diskMb | quote }}
-        FORGE_SANDBOX_CPUS: {{ .Values.sandbox.cpus | quote }}
-        FORGE_KUBE_NAMESPACE: {{ .Values.sandbox.namespace | quote }}
-        FORGE_INSTANCE: {{ .Release.Name | quote }}
-        FORGE_KUBE_RESOURCES_ENABLED: {{ not (empty .Values.resources) | quote }}
-    - |
-      apiVersion: external-secrets.io/v1
-      kind: ExternalSecret
-      metadata:
-        name: agent-forge-metrics
-      spec:
-        refreshInterval: 1h
-        secretStoreRef:
-          kind: ClusterSecretStore
-          name: parameter-store
-        target:
-          name: agent-forge-metrics
-          creationPolicy: Owner
-        data:
-          - secretKey: token
-            remoteRef:
-              key: {{ .Values.ssmPrefix }}/agent-forge/metrics-bearer-token
-    - |
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: {{ include "app.fullname" . }}
-        namespace: {{ include "app.namespace" . }}
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/instance: {{ .Release.Name }}
-        policyTypes: [Ingress]
-        ingress:
-          - from:
-              - podSelector: {}
-      {{- with .Values.ingressPeers }}
-      {{ toYaml . | indent 8 }}
-      {{- end }}
-      {{- range .Values.servicePeers }}
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: {{ . | quote }}
-      {{- end }}
-            ports:
-              - protocol: TCP
-                port: {{ .Values.service.targetPort }}
-          # Sandbox Pods reach only the model proxy port.
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: {{ .Values.sandbox.namespace | quote }}
-                podSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: agent-forge-sandbox
-            ports:
-              - protocol: TCP
-                port: {{ .Values.sandbox.port }}
-          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: addon-prometheus
-            ports:
-              - protocol: TCP
-                port: 15090
   ecrPullSecret:
     enabled: true
     region: ap-northeast-2
-  automountServiceAccountToken: true
-  sandbox:
-    namespace: agent-forge-workspaces
-    # The model proxy port; equals service.extraPorts[sandbox].port and extraPorts[sandbox].containerPort.
-    port: 3104
-    maxPods: 2
-    memoryMb: 1024
-    diskMb: 2048
-    cpus: 1
-    dnsCidrs: []
-    allowPublic: true
-    extraEgress: []
-  additionalConfigmap:
+    # Sandbox Pods pull the sandbox image with the same Secret.
+    namespaces: [agent-forge-workspaces]
+  # The sandbox image is released with the server image as sandbox-<tag>. The other FORGE_SANDBOX_* and FORGE_KUBE_*
+  # settings are cluster values in values-template.yaml.j2.
+  configmap:
+    tpl: true
+    data:
+      FORGE_SANDBOX_IMAGE: '{{ printf "%s:sandbox-%s" .Values.image.repository .Values.image.tag }}'
+  networkPolicy:
     enabled: true
-    names:
-    - agent-forge-sandbox
-  podAnnotations:
-    checksum/sandbox: '{{ dict "sandbox" .Values.sandbox "resources" .Values.resources "image" .Values.image | toYaml
-      | sha256sum }}'
-  ingressPeers:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: istio-system
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: addon-prometheus
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: addon-alloy
-  servicePeers:
-  - agent-studio
+    appPort:
+      sameNamespace: true
+      from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-system
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-alloy
+      namespaces: [agent-studio]
+    ingress:
+      # Sandbox Pods reach only the model proxy port (service.extraPorts[sandbox]); 3103 answers /model/ with 404.
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: agent-forge-workspaces
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: agent-forge-sandbox
+        ports:
+          - protocol: TCP
+            port: 3104
+      # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: addon-prometheus
+        ports:
+          - protocol: TCP
+            port: 15090
+  automountServiceAccountToken: true

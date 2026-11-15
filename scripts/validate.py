@@ -115,6 +115,32 @@ def load_targets(dirs):
     return targets
 
 
+def string_template_keys(chart):
+    """raw `templates` and app `raw.parentTemplates` entries: YAML in strings that an editor cannot check."""
+    definition = yaml.safe_load((chart / "Chart.yaml").read_text()) or {}
+    raw_keys, app_keys = [], []
+    for dependency in definition.get("dependencies") or []:
+        key = dependency.get("alias") or dependency["name"]
+        if dependency["name"] == "raw":
+            raw_keys.append([key, "templates"])
+        elif dependency["name"] == "app" and "opspresso" in str(dependency.get("repository", "")):
+            app_keys += [[key, "raw", "templates"], [key, "raw", "parentTemplates"]]
+    found = []
+    files = [chart / "values.yaml", *sorted(chart.glob("values-*.yaml")),
+             *sorted(path for platform in ("eks", "local") for path in (chart / platform).glob("values-*.yaml"))]
+    for path in files:
+        if not path.is_file():
+            continue
+        values = yaml.safe_load(path.read_text()) or {}
+        for keys in raw_keys + app_keys:
+            node = values
+            for key in keys:
+                node = node.get(key) if isinstance(node, dict) else None
+            if node:
+                found.append((str(path), ".".join(keys)))
+    return found
+
+
 def check_templates(only=None):
     """Every <platform>/values-<cluster>.yaml has to be a render, never hand-written.
 
@@ -134,6 +160,9 @@ def check_templates(only=None):
         local_templates = [path for path in (Path(chart) / "templates").rglob("*") if path.is_file()]
         if local_templates:
             failures.append((chart, "wrapper templates are not allowed; use app, cronjob, vendor charts or raw dependencies"))
+        if os.path.exists(os.path.join(chart, "Chart.yaml")):
+            for path, key in string_template_keys(Path(chart)):
+                failures.append((path, f"{key} is not allowed; declare the objects in raw resources or an app chart setting"))
         if os.path.exists(os.path.join(chart, TEMPLATE)):
             continue
 

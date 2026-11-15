@@ -1,19 +1,42 @@
 {% set maintenance = rovr_maintenance | default(false) -%}
 app:
   fullnameOverride: rovr
-  raw:
+  ecrPullSecret:
     enabled: {{rovr is defined}}
+    region: {{aws_region}}
+  networkPolicy:
+    enabled: {{rovr is defined}}
+  jobs:
+    db-bootstrap:
+      enabled: {{rovr is defined}}
+{%- if not resources %}
+      resources: null
+{%- endif %}
 {% if rovr is defined %}
 {% set sandbox = rovr.sandbox | default({}) %}
+{#- Sandboxes: one Job per run in their own namespace. Unset settings keep these defaults. #}
+{%- set sandbox_namespace = 'rovr-sandboxes' %}
+{#- Running sandbox Jobs at once, across all accounts, and task disks kept between runs (one per open task). #}
+{%- set max_runs = sandbox.max_runs | default(2) %}
+{%- set max_workspaces = sandbox.max_workspaces | default(8) %}
+{%- set sandbox_cpu = '2' %}
+{%- set sandbox_memory = '4Gi' %}
+{%- set sandbox_ephemeral_storage = '8Gi' %}
+{%- set sandbox_disk = sandbox.disk | default('10Gi') %}
+{%- set dns_cidrs = ['172.20.0.10/32'] %}
+{%- set allow_public = sandbox.allow_public | default(true) %}
+{#- Shared package and runtime cache on EFS (terraform-env-opsp demo/8-rovr). Off until both IDs are set. size only
+    feeds the PV and the quota: EFS does not enforce it, so leave it alone once bound, because a claim cannot shrink.
+    Whole Gi only, like disk. #}
+{%- set cache = sandbox.cache | default({}) %}
+{%- set cache_enabled = (cache.file_system_id | default('')) != '' and (cache.access_point_id | default('')) != '' %}
+{%- set cache_size = cache.size | default('50Gi') %}
   replicaCount: {{0 if maintenance else 2}}
   image:
     repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/rovr
 {% if not resources %}
   resources: null
 {% endif %}
-  ssmPrefix: /k8s/{{cluster}}
-  registry:
-    region: {{aws_region}}
   configmap:
     enabled: true
     data:
@@ -31,21 +54,196 @@ app:
       # Its owner's admins see and update the coding tool versions in Settings.
       ROVR_TOOLS_REPO: {{rovr.tools_repo | tojson}}
 {% endif %}
-  sandbox:
-    maxRuns: {{sandbox.max_runs | default(2)}}
-    maxWorkspaces: {{sandbox.max_workspaces | default(8)}}
-    disk: {{sandbox.disk | default('10Gi') | tojson}}
-    storageClass: {{sandbox.storage_class | default('') | tojson}}
-    nodePool: {{sandbox.node_pool | default('') | tojson}}
-    dnsCidrs:
-      - 172.20.0.10/32
-    allowPublic: {{sandbox.allow_public | default(true)}}
-{% if sandbox.cache is defined %}
-    cache:
-      fileSystemId: {{sandbox.cache.file_system_id | tojson}}
-      accessPointId: {{sandbox.cache.access_point_id | tojson}}
-      size: {{sandbox.cache.size | default('50Gi') | tojson}}
-{% endif %}
+      ROVR_SANDBOX_NAMESPACE: {{sandbox_namespace}}
+      ROVR_SANDBOX_SERVER_URL: http://rovr.rovr.svc.cluster.local:8081
+      ROVR_SANDBOX_SERVICE_ACCOUNT: sandbox
+      ROVR_SANDBOX_IMAGE_PULL_SECRET: ecr-registry
+      ROVR_SANDBOX_CPU: {{sandbox_cpu | tojson}}
+      ROVR_SANDBOX_MEMORY: {{sandbox_memory}}
+      ROVR_SANDBOX_EPHEMERAL_STORAGE: {{sandbox_ephemeral_storage}}
+      ROVR_SANDBOX_DISK: {{sandbox_disk}}
+      ROVR_SANDBOX_STORAGE_CLASS: {{sandbox.storage_class | default('') | tojson}}
+      ROVR_SANDBOX_DEADLINE: 90m
+      ROVR_SANDBOX_NODE_POOL: {{sandbox.node_pool | default('') | tojson}}
+  extraExternalSecrets:
+    rovr-postgresql:
+      namespace: agent-studio
+      annotations:
+        argocd.argoproj.io/sync-wave: "-2"
+      data:
+        - key: /k8s/{{cluster}}/rovr/postgres-password
+          name: password
+  # The sandbox namespace. Argo CD keeps it, and the task disks in it, when the Application is removed.
+  raw:
+    enabled: true
+    resources:
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: {{sandbox_namespace}}
+          annotations:
+            argocd.argoproj.io/sync-wave: "-3"
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            sidecar.istio.io/inject: "false"
+      # Sandbox Pods run as this account. It has no RBAC bindings and its token is never mounted.
+      - apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: sandbox
+          namespace: {{sandbox_namespace}}
+        automountServiceAccountToken: false
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: rovr-sandbox
+          namespace: {{sandbox_namespace}}
+        rules:
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, create, delete]
+          - apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+          # A person's terminal reaches agentd through exec. A WebSocket exec
+          # authorizes as get on older Kubernetes versions and as create on newer ones.
+          - apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [get, create]
+          # One Secret per run holds its token; the Job owns it.
+          - apiGroups: [""]
+            resources: [secrets]
+            verbs: [create]
+          # list: the leader sweeps workspaces of finished tasks.
+          - apiGroups: [""]
+            resources: [persistentvolumeclaims]
+            verbs: [list, create, delete]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: rovr-sandbox
+          namespace: {{sandbox_namespace}}
+        subjects:
+          - kind: ServiceAccount
+            name: rovr
+            namespace: rovr
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: rovr-sandbox
+      # Every run at its limits fits, and every task disk plus the cache.
+      - apiVersion: v1
+        kind: ResourceQuota
+        metadata:
+          name: rovr-sandbox
+          namespace: {{sandbox_namespace}}
+        spec:
+          hard:
+            pods: "{{max_runs}}"
+            count/jobs.batch: "{{max_runs}}"
+            persistentvolumeclaims: "{{max_workspaces + (1 if cache_enabled else 0)}}"
+            requests.storage: "{{(sandbox_disk | replace('Gi', '') | int) * max_workspaces + ((cache_size | replace('Gi', '') | int) if cache_enabled else 0)}}Gi"
+{%- if resources %}
+            requests.cpu: "{{'%g' % ((sandbox_cpu | float) * max_runs)}}"
+            limits.cpu: "{{'%g' % ((sandbox_cpu | float) * max_runs)}}"
+            requests.memory: "{{(sandbox_memory | replace('Gi', '') | int) * max_runs}}Gi"
+            limits.memory: "{{(sandbox_memory | replace('Gi', '') | int) * max_runs}}Gi"
+            requests.ephemeral-storage: "{{(sandbox_ephemeral_storage | replace('Gi', '') | int) * max_runs}}Gi"
+            limits.ephemeral-storage: "{{(sandbox_ephemeral_storage | replace('Gi', '') | int) * max_runs}}Gi"
+{%- endif %}
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-isolation
+          namespace: {{sandbox_namespace}}
+        spec:
+          podSelector: {}
+          policyTypes: [Ingress, Egress]
+          ingress: []
+          egress: []
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-egress
+          namespace: {{sandbox_namespace}}
+        spec:
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rovr-sandbox
+          policyTypes: [Egress]
+          egress:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+                  podSelector:
+                    matchLabels:
+                      k8s-app: kube-dns
+{%- for cidr in dns_cidrs %}
+                - ipBlock:
+                    cidr: "{{cidr}}"
+{%- endfor %}
+              ports:
+                - {protocol: UDP, port: 53}
+                - {protocol: TCP, port: 53}
+{%- if allow_public %}
+            # GitHub, model providers and package registries. Private, link-local and
+            # metadata ranges stay closed, so no cluster or VPC service is reachable.
+            - to:
+                - ipBlock:
+                    cidr: 0.0.0.0/0
+                    except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
+              ports:
+                - {protocol: TCP, port: 80}
+                - {protocol: TCP, port: 443}
+{%- endif %}
+            # The rovr internal listener: run callbacks and the model proxy.
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: rovr
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: rovr
+                      app.kubernetes.io/instance: rovr-{{cluster}}
+              ports:
+                - {protocol: TCP, port: 8081}
+{%- if cache_enabled %}
+      # A static volume needs no AWS permissions on the CSI controller. Retain
+      # keeps Argo CD from removing the data with the PV; the file system
+      # belongs to Terraform.
+      - apiVersion: v1
+        kind: PersistentVolume
+        metadata:
+          name: rovr-sandbox-cache
+        spec:
+          capacity:
+            storage: {{cache_size}}
+          accessModes: [ReadWriteMany]
+          persistentVolumeReclaimPolicy: Retain
+          storageClassName: ""
+          mountOptions: [tls]
+          claimRef:
+            namespace: {{sandbox_namespace}}
+            name: rovr-sandbox-cache
+          csi:
+            driver: efs.csi.aws.com
+            volumeHandle: "{{cache.file_system_id}}::{{cache.access_point_id}}"
+      # No rovr labels: the leader's workspace sweep leaves this claim alone.
+      - apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: rovr-sandbox-cache
+          namespace: {{sandbox_namespace}}
+        spec:
+          accessModes: [ReadWriteMany]
+          storageClassName: ""
+          volumeName: rovr-sandbox-cache
+          resources:
+            requests:
+              storage: {{cache_size}}
+{%- endif %}
   routing:
     hosts:
     - {{rovr.hostname}}

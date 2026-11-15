@@ -10,13 +10,13 @@ from running_environment import running_values
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def render(platform, *overrides):
+def render(platform, *overrides, **changes):
     chart = ROOT / "charts/agent-forge"
     phase = "prod" if platform == "eks" else "alpha"
-    result = subprocess.run(["helm", "template", "agent-forge", str(chart), "--namespace", "agent-forge",
+    result = subprocess.run(["helm", "template", "agent-forge-eks-demo", str(chart), "--namespace", "agent-forge",
                              "-f", str(chart / "values.yaml"), "-f", str(chart / f"values-{phase}.yaml"),
                              "-f", "-", *overrides],
-                            input=running_values("agent-forge", platform), capture_output=True, text=True, check=True)
+                            input=running_values("agent-forge", platform, **changes), capture_output=True, text=True, check=True)
     return [item for item in yaml.safe_load_all(result.stdout) if item]
 
 
@@ -53,20 +53,22 @@ def test_forge_isolation_permissions_and_total_capacity(platform, max_pods):
 
 @pytest.mark.parametrize("platform", ["eks"])
 def test_sandboxes_reach_forge_only_on_the_sandbox_port(platform):
-    docs = render(platform, "--set", "app.fullnameOverride=forge-gateway-fixture")
-    service = next(item for item in docs if item["kind"] == "Service" and item["metadata"]["name"] == "forge-gateway-fixture")
+    # values-template.yaml.j2 writes the sandbox settings as literals; they must match the Service the chart renders.
+    docs = render(platform)
+    service = next(item for item in docs if item["kind"] == "Service" and item["metadata"]["name"] == "agent-forge")
     ports = {port["name"]: port for port in service["spec"]["ports"]}
     container = next(item for item in docs if item["kind"] == "Deployment")["spec"]["template"]["spec"]["containers"][0]
     container_port = next(port["containerPort"] for port in container["ports"] if port["name"] == ports["sandbox"]["targetPort"])
     assert ports["sandbox"]["port"] == container_port != ports["http"]["port"]
-    config = next(item for item in docs if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "agent-forge-sandbox")
+    config = next(item for item in docs if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "agent-forge")
     assert config["data"]["FORGE_SANDBOX_PORT"] == str(container_port)
-    assert config["data"]["FORGE_SANDBOX_API_URL"] == f"http://forge-gateway-fixture.agent-forge.svc.cluster.local:{ports['sandbox']['port']}"
+    assert config["data"]["FORGE_SANDBOX_API_URL"] == f"http://agent-forge.agent-forge.svc.cluster.local:{ports['sandbox']['port']}"
+    assert config["data"]["FORGE_INSTANCE"] == service["spec"]["selector"]["app.kubernetes.io/instance"]
     egress = next(item for item in docs if item["kind"] == "NetworkPolicy" and item["metadata"]["name"] == "sandbox-egress")
     expected = {"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "agent-forge"}}, "podSelector": {"matchLabels": service["spec"]["selector"]}}], "ports": [{"protocol": "TCP", "port": container_port}]}
     assert expected in egress["spec"]["egress"]
     # Forge admits the sandboxes on the sandbox port only.
-    ingress = next(item for item in docs if item["kind"] == "NetworkPolicy" and item["metadata"]["name"] == "forge-gateway-fixture")["spec"]["ingress"]
+    ingress = next(item for item in docs if item["kind"] == "NetworkPolicy" and item["metadata"]["name"] == "agent-forge")["spec"]["ingress"]
     sandbox = {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "agent-forge-workspaces"}},
                "podSelector": {"matchLabels": {"app.kubernetes.io/name": "agent-forge-sandbox"}}}
     for rule in ingress:
@@ -75,12 +77,16 @@ def test_sandboxes_reach_forge_only_on_the_sandbox_port(platform):
     assert any(sandbox in rule["from"] for rule in ingress)
 
 
-@pytest.mark.parametrize("setting", ["sandbox.memoryMb=4096", "sandbox.cpus=2", "resources=null", "image.tag=v0.9.0"])
-def test_sandbox_configuration_restarts_controller(setting):
+@pytest.mark.parametrize("overrides,changes", [
+    ((), {"workspace_memory_mb": 4096}), ((), {"workspace_cpus": 2}), ((), {"resources": False}),
+    (("--set", "app.image.tag=v0.9.0"), {}),
+])
+def test_sandbox_configuration_restarts_controller(overrides, changes):
+    # The sandbox settings and image are ConfigMap values, so checksum/config restarts the controller on a change.
     def checksum(docs):
         pod = next(item for item in docs if item["kind"] == "Deployment")["spec"]["template"]
-        return pod["metadata"]["annotations"]["checksum/sandbox"]
-    assert checksum(render("eks")) != checksum(render("eks", "--set", "app." + setting))
+        return pod["metadata"]["annotations"]["checksum/config"]
+    assert checksum(render("eks")) != checksum(render("eks", *overrides, **changes))
 
 
 @pytest.mark.parametrize("platform", ["eks"])

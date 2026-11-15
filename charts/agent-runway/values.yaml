@@ -103,28 +103,6 @@ app:
     secretStoreRef:
       kind: ClusterSecretStore
       name: parameter-store
-  raw:
-    enabled: true
-    parentTemplates:
-    - |
-      # Prometheus reads the bearer token that the app reads as METRICS_BEARER_TOKEN.
-      apiVersion: external-secrets.io/v1
-      kind: ExternalSecret
-      metadata:
-        name: agent-runway-metrics
-        namespace: {{ include "app.namespace" . }}
-      spec:
-        refreshInterval: 1h
-        secretStoreRef:
-          kind: ClusterSecretStore
-          name: parameter-store
-        target:
-          name: agent-runway-metrics
-          creationPolicy: Owner
-        data:
-          - secretKey: token
-            remoteRef:
-              key: {{ required "ssmPrefix is required" .Values.ssmPrefix }}/agent-runway/metrics-bearer-token
   ecrPullSecret:
     enabled: true
     region: ap-northeast-2

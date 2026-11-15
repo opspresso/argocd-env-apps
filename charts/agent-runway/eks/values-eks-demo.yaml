@@ -1,7 +1,5 @@
 app:
   fullnameOverride: agent-runway
-  raw:
-    enabled: True
   ecrPullSecret:
     enabled: True
     region: ap-northeast-2
@@ -112,7 +110,12 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://runway.agrt.dev
-  ssmPrefix: /k8s/eks-demo
+  # Prometheus reads the bearer token that the app reads as METRICS_BEARER_TOKEN.
+  extraExternalSecrets:
+    agent-runway-metrics:
+      data:
+        - key: /k8s/eks-demo/agent-runway/metrics-bearer-token
+          name: token
   serviceMonitor:
     enabled: true
     labels:

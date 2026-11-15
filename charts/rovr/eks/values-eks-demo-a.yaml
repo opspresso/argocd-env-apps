@@ -1,7 +1,13 @@
 app:
   fullnameOverride: rovr
-  raw:
+  ecrPullSecret:
     enabled: False
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: False
+  jobs:
+    db-bootstrap:
+      enabled: False
 
   # rovr is not declared for this cluster.
   replicaCount: 0

@@ -1,7 +1,8 @@
 app:
   fullnameOverride: agent-knowledge
-  raw:
-    enabled: True
+  jobs:
+    schema-check:
+      enabled: True
   ecrPullSecret:
     enabled: True
     region: ap-northeast-2
@@ -133,3 +134,25 @@ app:
                   - key: opspresso.com/tier
                     operator: In
                     values: [core]
+  raw:
+    enabled: true
+    resources:
+      # The web ServiceMonitor selects this Service by the web name and instance labels, so the worker shares its
+      # scrape and credentials. The selector picks only the worker Pods.
+      - apiVersion: v1
+        kind: Service
+        metadata:
+          name: agent-knowledge-worker
+          labels:
+            app: agent-knowledge
+            app.kubernetes.io/name: agent-knowledge
+            app.kubernetes.io/instance: agent-knowledge-eks-demo
+            app.kubernetes.io/component: worker
+        spec:
+          ports:
+            - name: http
+              port: 3000
+              targetPort: 3000
+          selector:
+            app.kubernetes.io/name: agent-knowledge-worker
+            app.kubernetes.io/instance: agent-knowledge-eks-demo

@@ -107,7 +107,9 @@ MCP_PORTS = {"mcp-argocd": 3000, "mcp-cloudwatch": 8000, "mcp-grafana": 8000, "m
 @pytest.mark.parametrize("platform", ["eks"])
 def test_mcp_accepts_only_trusted_agent_execution_processes(chart, platform):
     policy = resource(chart, platform, "NetworkPolicy", chart)["spec"]
-    assert policy["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": chart}
+    pod_labels = resource(chart, platform, "Deployment", chart)["spec"]["template"]["metadata"]["labels"]
+    assert policy["podSelector"]["matchLabels"] == {"app.kubernetes.io/instance": f"{chart}-{platform}-demo"}
+    assert policy["podSelector"]["matchLabels"].items() <= pod_labels.items()
     assert policy["ingress"][0]["ports"] == [{"protocol": "TCP", "port": MCP_PORTS[chart]}]
     source = policy["ingress"][0]["from"][0]
     assert source["namespaceSelector"]["matchLabels"] == {"kubernetes.io/metadata.name": "agent-studio"}
@@ -170,7 +172,7 @@ def test_studio_has_no_execution_or_cluster_authority(platform):
 @pytest.mark.parametrize("tag", ["v0.1.0", "v0.2.3"])
 def test_forge_and_sandbox_use_exactly_the_same_release(platform, tag):
     documents = manifests("agent-forge", platform, tag)
-    config = next(doc["data"] for doc in documents if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "agent-forge-sandbox")
+    config = next(doc["data"] for doc in documents if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "agent-forge")
     deployment = next(doc for doc in documents if doc["kind"] == "Deployment")
     repository, image_tag = deployment["spec"]["template"]["spec"]["containers"][0]["image"].rsplit(":", 1)
     assert image_tag == tag
