@@ -80,117 +80,61 @@ postgresql:
       limits:
         memory: 512Mi
 
-raw:
-  templates:
-    - |
-        {{- $ssmPrefix := required "ssmPrefix is required; include <platform>/values-<cluster>.yaml" .Values.global.ssmPrefix -}}
-        apiVersion: external-secrets.io/v1
-        kind: ExternalSecret
-        metadata:
-          name: delivery-pool-credentials
-          annotations:
-            argocd.argoproj.io/sync-wave: "-1"
-        spec:
-          refreshInterval: 1h
-          secretStoreRef:
-            kind: ClusterSecretStore
-            name: parameter-store
-          target:
-            name: delivery-pool-credentials
-            creationPolicy: Owner
-          data:
-            - secretKey: postgres-password
-              remoteRef:
-                key: {{ $ssmPrefix }}/delivery-pool/postgres-password
-            - secretKey: delivery-admin-password
-              remoteRef:
-                key: {{ $ssmPrefix }}/agent-runway/pool-admin-password
-    - |
-        # Delivery manages databases; Forge Sandboxes and Delivery tenant namespaces use them.
-        apiVersion: networking.k8s.io/v1
-        kind: NetworkPolicy
-        metadata:
-          name: postgres
-        spec:
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: postgresql
-          policyTypes: [Ingress]
-          ingress:
-            - from:
-                - podSelector: {}
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: agent-runway
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: agent-forge-workspaces
-                - namespaceSelector:
-                    matchLabels:
-                      opspresso.com/delivery-tenant: "true"
-              ports:
-                - protocol: TCP
-                  port: 5432
+# raw renders the ExternalSecret and the database NetworkPolicy as raw.resources in
+# values-template.yaml.j2: the ExternalSecret carries the cluster's SSM path, and Helm replaces a values
+# list instead of merging it.
 
 # Idempotent server setup: the non-superuser Delivery administrator and pgvector in template1,
 # so every database Delivery creates already has the extension.
 bootstrap:
   enabled: true
-  image:
-    repository: pgvector/pgvector
-    tag: 0.8.6-pg18-trixie
-  jobResources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      memory: 256Mi
-  templates:
-    - |
-        apiVersion: batch/v1
-        kind: Job
-        metadata:
-          name: delivery-pool-bootstrap
-          annotations:
-            argocd.argoproj.io/hook: Sync
-            argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-            argocd.argoproj.io/sync-wave: "1"
-        spec:
-          backoffLimit: 12
-          template:
-            spec:
-              restartPolicy: OnFailure
-              automountServiceAccountToken: false
-              containers:
-                - name: bootstrap
-                  image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        {{- with .Values.jobResources }}
-                  resources:
-        {{ toYaml . | nindent 12 }}
-        {{- end }}
-                  env:
-                    - name: PGPASSWORD
-                      valueFrom:
-                        secretKeyRef:
-                          name: delivery-pool-credentials
-                          key: postgres-password
-                    - name: RUNWAY_ADMIN_PASSWORD
-                      valueFrom:
-                        secretKeyRef:
-                          name: delivery-pool-credentials
-                          key: delivery-admin-password
-                  command:
-                    - sh
-                    - -ec
-                    - |
-                      until pg_isready -h postgres -U pool_owner -d postgres; do sleep 2; done
-                      psql -h postgres -U pool_owner -d postgres -v ON_ERROR_STOP=1 -v admin_password="$RUNWAY_ADMIN_PASSWORD" <<'SQL'
-                      SELECT 'CREATE ROLE delivery_admin LOGIN CREATEDB CREATEROLE'
-                      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'delivery_admin')\gexec
-                      ALTER ROLE delivery_admin WITH LOGIN CREATEDB CREATEROLE NOSUPERUSER PASSWORD :'admin_password';
-                      REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
-                      REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
-                      GRANT CONNECT ON DATABASE postgres TO delivery_admin;
-                      SQL
-                      psql -h postgres -U pool_owner -d template1 -v ON_ERROR_STOP=1 \
-                        -c "CREATE EXTENSION IF NOT EXISTS vector;"
+  resources:
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: delivery-pool-bootstrap
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        backoffLimit: 12
+        template:
+          spec:
+            restartPolicy: OnFailure
+            automountServiceAccountToken: false
+            containers:
+              - name: bootstrap
+                image: pgvector/pgvector:0.8.6-pg18-trixie
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    memory: 256Mi
+                env:
+                  - name: PGPASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: delivery-pool-credentials
+                        key: postgres-password
+                  - name: RUNWAY_ADMIN_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: delivery-pool-credentials
+                        key: delivery-admin-password
+                command:
+                  - sh
+                  - -ec
+                  - |
+                    until pg_isready -h postgres -U pool_owner -d postgres; do sleep 2; done
+                    psql -h postgres -U pool_owner -d postgres -v ON_ERROR_STOP=1 -v admin_password="$RUNWAY_ADMIN_PASSWORD" <<'SQL'
+                    SELECT 'CREATE ROLE delivery_admin LOGIN CREATEDB CREATEROLE'
+                    WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'delivery_admin')\gexec
+                    ALTER ROLE delivery_admin WITH LOGIN CREATEDB CREATEROLE NOSUPERUSER PASSWORD :'admin_password';
+                    REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
+                    REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
+                    GRANT CONNECT ON DATABASE postgres TO delivery_admin;
+                    SQL
+                    psql -h postgres -U pool_owner -d template1 -v ON_ERROR_STOP=1 \
+                      -c "CREATE EXTENSION IF NOT EXISTS vector;"

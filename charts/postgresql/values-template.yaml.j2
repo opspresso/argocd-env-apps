@@ -1,7 +1,28 @@
 {% if env == 'local' %}externalSecrets:
   enabled: false
-{% else %}global:
-  ssmPrefix: /k8s/{{cluster}}
+{% else %}raw:
+  resources:
+    - apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: postgresql-credentials
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        refreshInterval: 1h
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: parameter-store
+        target:
+          name: postgresql-credentials
+          creationPolicy: Owner
+        data:
+          - secretKey: postgres-password
+            remoteRef:
+              key: /k8s/{{cluster}}/agent-studio/postgres-password
+          - secretKey: password
+            remoteRef:
+              key: /k8s/{{cluster}}/agent-studio/postgres-password
 {% endif %}{% if (postgresql is defined and postgresql.storage is defined) or core_tier | default(false) or not resources %}
 postgresql:
   primary:
@@ -41,7 +62,50 @@ postgresql:
 {%- endif %}
 {%- endif %}
 
-{%- if not resources %}
+
+# A pinned PostgreSQL client runs the idempotent server-side extension setup as the user and Secret
+# of global.postgresql.auth in values.yaml.
 bootstrap:
-  jobResources: null
+  resources:
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: postgres-bootstrap
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        backoffLimit: 12
+        template:
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: bootstrap
+                image: pgvector/pgvector:0.8.6-pg18-trixie
+{%- if resources %}
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 256Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 1Gi
 {%- endif %}
+                env:
+                  - name: PGPASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: postgresql-credentials
+                        key: postgres-password
+                command:
+                  - sh
+                  - -ec
+                  - |
+                    until pg_isready -h postgres -U agent_studio -d postgres; do sleep 2; done
+                    psql -h postgres -U agent_studio -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+                    SELECT 'CREATE DATABASE agent_platform OWNER agent_studio'
+                    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'agent_platform')\gexec
+                    SQL
+                    psql -h postgres -U agent_studio -d agent_platform -v ON_ERROR_STOP=1 \
+                      -c "CREATE EXTENSION IF NOT EXISTS vector;"

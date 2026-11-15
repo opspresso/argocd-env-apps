@@ -1,5 +1,51 @@
-global:
-  ssmPrefix: /k8s/{{cluster}}
+raw:
+  resources:
+    - apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: delivery-pool-credentials
+        annotations:
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        refreshInterval: 1h
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: parameter-store
+        target:
+          name: delivery-pool-credentials
+          creationPolicy: Owner
+        data:
+          - secretKey: postgres-password
+            remoteRef:
+              key: /k8s/{{cluster}}/delivery-pool/postgres-password
+          - secretKey: delivery-admin-password
+            remoteRef:
+              key: /k8s/{{cluster}}/agent-runway/pool-admin-password
+    # Delivery manages databases; Forge Sandboxes and Delivery tenant namespaces use them.
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: postgres
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: postgresql
+        policyTypes: [Ingress]
+        ingress:
+          - from:
+              - podSelector: {}
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: agent-runway
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: agent-forge-workspaces
+              - namespaceSelector:
+                  matchLabels:
+                    opspresso.com/delivery-tenant: "true"
+            ports:
+              - protocol: TCP
+                port: 5432
 {% if (delivery_pool is defined and delivery_pool.storage is defined) or core_tier | default(false) %}
 postgresql:
   primary:

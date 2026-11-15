@@ -250,14 +250,16 @@ def render(target, env_file):
             value_clusters.add(resolved.stem.removeprefix("values-"))
         args += ["-f", path]
 
+    cluster = env.get("cluster") or expand(target.get("cluster") or "", env)
+    # A cluster values file carries that cluster's SSM paths and settings, with or without ssmPrefix.
+    if cluster and value_clusters - {cluster}:
+        return f"cluster values must match the target cluster: {cluster}"
+
     if prefix_present:
-        cluster = env.get("cluster") or expand(target.get("cluster") or "", env)
         if not cluster and len(value_clusters) == 1:
             cluster = next(iter(value_clusters))
         if not cluster or len(value_clusters) > 1:
             return "ssmPrefix requires exactly one cluster context"
-        if value_clusters and cluster not in value_clusters:
-            return f"cluster values must match the target cluster: {cluster}"
         if prefix != f"/k8s/{cluster}":
             return f"ssmPrefix must match the target cluster: /k8s/{cluster}"
 
