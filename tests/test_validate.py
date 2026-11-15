@@ -29,8 +29,9 @@ def test_string_templates_are_rejected_in_raw_and_app_values(tmp_path, monkeypat
     (chart / "values.yaml").write_text("app:\n  raw:\n    resources: [{kind: ConfigMap}]\nbootstrap:\n  resources: []\n")
     assert validate.check_templates() == []
     (chart / "values.yaml").write_text("app:\n  raw:\n    parentTemplates: ['kind: ConfigMap']\n")
-    (chart / "eks/values-eks-demo.yaml").write_text("bootstrap:\n  templates: ['kind: Job']\n")
-    assert sorted(why.split(" ")[0] for _, why in validate.check_templates()) == ["app.raw.parentTemplates", "bootstrap.templates"]
+    (chart / "eks/values-eks-demo.yaml").write_text("bootstrap:\n  templates: ['kind: Job']\n  parentTemplates: ['kind: Job']\n")
+    assert sorted(why.split(" ")[0] for _, why in validate.check_templates()) == [
+        "app.raw.parentTemplates", "bootstrap.parentTemplates", "bootstrap.templates"]
 
 
 def test_all_charts_includes_undeployed_phases_and_unused_cluster_values(tmp_path, monkeypatch):

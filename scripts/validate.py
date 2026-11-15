@@ -116,13 +116,16 @@ def load_targets(dirs):
 
 
 def string_template_keys(chart):
-    """raw `templates` and app `raw.parentTemplates` entries: YAML in strings that an editor cannot check."""
+    """raw `templates` and app `raw.parentTemplates` entries: YAML in strings that an editor cannot check.
+
+    A standalone raw chart has no `parentTemplates` and ignores the key, so it is rejected there too.
+    """
     definition = yaml.safe_load((chart / "Chart.yaml").read_text()) or {}
     raw_keys, app_keys = [], []
     for dependency in definition.get("dependencies") or []:
         key = dependency.get("alias") or dependency["name"]
         if dependency["name"] == "raw":
-            raw_keys.append([key, "templates"])
+            raw_keys += [[key, "templates"], [key, "parentTemplates"]]
         elif dependency["name"] == "app" and "opspresso" in str(dependency.get("repository", "")):
             app_keys += [[key, "raw", "templates"], [key, "raw", "parentTemplates"]]
     found = []
