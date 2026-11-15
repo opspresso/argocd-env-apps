@@ -308,6 +308,50 @@ app:
           - secretKey: token
             remoteRef:
               key: {{ .Values.ssmPrefix }}/agent-forge/metrics-bearer-token
+    - |
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: {{ include "app.fullname" . }}
+        namespace: {{ include "app.namespace" . }}
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        policyTypes: [Ingress]
+        ingress:
+          - from:
+              - podSelector: {}
+      {{- with .Values.ingressPeers }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- range .Values.servicePeers }}
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ . | quote }}
+      {{- end }}
+            ports:
+              - protocol: TCP
+                port: {{ .Values.service.targetPort }}
+          # Sandbox Pods reach only the model proxy port.
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: {{ .Values.sandbox.namespace | quote }}
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: agent-forge-sandbox
+            ports:
+              - protocol: TCP
+                port: {{ .Values.sandbox.port }}
+          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: addon-prometheus
+            ports:
+              - protocol: TCP
+                port: 15090
   ecrPullSecret:
     enabled: true
     region: ap-northeast-2
@@ -330,39 +374,15 @@ app:
   podAnnotations:
     checksum/sandbox: '{{ dict "sandbox" .Values.sandbox "resources" .Values.resources "image" .Values.image | toYaml
       | sha256sum }}'
-  networkPolicy:
-    enabled: true
-    appPort:
-      sameNamespace: true
-      from:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: istio-system
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: addon-prometheus
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: addon-alloy
-      namespaces:
-      - agent-studio
-    ingress:
-    # Sandbox Pods reach only the model proxy port. The namespace and port equal sandbox.namespace and sandbox.port.
-    - from:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: agent-forge-workspaces
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/name: agent-forge-sandbox
-      ports:
-      - protocol: TCP
-        port: 3104
-    # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-    - from:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: addon-prometheus
-      ports:
-      - protocol: TCP
-        port: 15090
+  ingressPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: istio-system
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-prometheus
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: addon-alloy
+  servicePeers:
+  - agent-studio

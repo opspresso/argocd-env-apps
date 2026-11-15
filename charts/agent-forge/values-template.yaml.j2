@@ -6,16 +6,6 @@ app:
   ecrPullSecret:
     enabled: {{agent_forge is defined}}
     region: {{aws_region}}
-  networkPolicy:
-    enabled: {{agent_forge is defined}}
-    appPort:
-      from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: istio-system
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: addon-prometheus
 {% if agent_forge is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -27,6 +17,13 @@ app:
 {% if not resources %}
   resources: null
 {% endif %}
+  ingressPeers:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: addon-prometheus
   ssmPrefix: /k8s/{{cluster}}
   configmap:
     enabled: true

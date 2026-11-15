@@ -99,7 +99,8 @@ main app 의 ExternalSecret 을 읽는 worker 는 `overrides` 에 같은 annotat
 - wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → `raw` 순서로 선택하며,
   필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL은 공식 또는 주요
   배포처의 전용 차트를 사용한다. Studio ticker·Knowledge worker는 `app.workloads`, ECR pull Secret은 `app.ecrPullSecret`, 앱 NetworkPolicy는
-  `app.networkPolicy`(`appPort`·`ingress`), 그 밖의 리소스는 `app.raw`로 관리한다.
+  `app.networkPolicy`(`appPort`·`ingress`), 그 밖의 리소스는 `app.raw`로 관리한다. Forge·rovr의 앱 NetworkPolicy는
+  `sandbox.namespace`·`sandbox.port`를 읽는 sandbox 규칙이 있어 `app.raw.parentTemplates`에 둔다.
 - 한 chart 를 두 번 쓰거나 이름을 바꿔 붙일 때는 `alias` 로 values 키를 정한다
   (예: postgresql 의 `raw` → `bootstrap`).
 - `raw` chart(alias 포함)에는 `resources`만 쓰고 `templates`는 쓰지 않는다. 클러스터별 값이 든 리소스는
