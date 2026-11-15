@@ -246,3 +246,5 @@ PR은 CI를 자동 시작하지 않는다. `.github/workflows/validate.yml`을 P
 pip install -r requirements/runtime.txt -r requirements/dev.txt
 pytest
 ```
+
+App Delivery workflow의 순차 전환에는 `app_delivery.revision`으로 `argocd-env-projects` commit을 고정할 수 있습니다. 생략하면 `HEAD`를 추적합니다. 서비스·설정과 호환되는 workflow를 검증한 뒤 revision을 갱신합니다.
