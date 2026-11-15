@@ -126,3 +126,14 @@ def test_validator_rejects_a_cluster_file_for_another_target(tmp_path):
     with patch.object(validate.subprocess, "run") as run:
         assert validate.render(target, None) == "cluster values must match the target cluster: eks-demo"
     run.assert_not_called()
+
+
+@pytest.mark.parametrize("chart", DATA_CHARTS)
+def test_validator_rejects_another_clusters_values_without_ssm_prefix(chart):
+    # The generated file has no ssmPrefix; its ExternalSecret still reads /k8s/eks-demo-a/.
+    path = ROOT / "charts" / chart
+    target = {"name": chart, "namespace": chart, "cluster": "eks-demo", "chart": str(path),
+              "appset": f"apps/eks/{chart}.yaml", "value_files": ["values.yaml", "eks/values-eks-demo-a.yaml"]}
+    with patch.object(validate.subprocess, "run") as run:
+        assert validate.render(target, None) == "cluster values must match the target cluster: eks-demo"
+    run.assert_not_called()
