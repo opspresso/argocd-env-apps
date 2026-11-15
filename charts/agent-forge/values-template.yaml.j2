@@ -3,6 +3,9 @@ app:
   fullnameOverride: agent-forge
   raw:
     enabled: {{agent_forge is defined}}
+  ecrPullSecret:
+    enabled: {{agent_forge is defined}}
+    region: {{aws_region}}
 {% if agent_forge is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -21,8 +24,6 @@ app:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: addon-prometheus
-  registry:
-    region: {{aws_region}}
   ssmPrefix: /k8s/{{cluster}}
   configmap:
     enabled: true

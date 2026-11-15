@@ -2,3 +2,16 @@ app:
   fullnameOverride: agent-knowledge
   raw:
     enabled: False
+  ecrPullSecret:
+    enabled: False
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: False
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus

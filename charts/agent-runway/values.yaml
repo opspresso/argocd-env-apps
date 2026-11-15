@@ -107,39 +107,6 @@ app:
     enabled: true
     parentTemplates:
     - |
-      apiVersion: generators.external-secrets.io/v1alpha1
-      kind: ECRAuthorizationToken
-      metadata:
-        name: agent-runway-ecr
-        namespace: {{ include "app.namespace" . }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-2"
-      spec:
-        region: {{ .Values.registry.region }}
-      ---
-      apiVersion: external-secrets.io/v1
-      kind: ExternalSecret
-      metadata:
-        name: ecr-registry
-        namespace: {{ include "app.namespace" . }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-1"
-      spec:
-        refreshInterval: 1h
-        target:
-          name: ecr-registry
-          template:
-            type: kubernetes.io/dockerconfigjson
-            data:
-              .dockerconfigjson: |
-                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
-        dataFrom:
-          - sourceRef:
-              generatorRef:
-                apiVersion: generators.external-secrets.io/v1alpha1
-                kind: ECRAuthorizationToken
-                name: agent-runway-ecr
-    - |
       # Prometheus reads the bearer token that the app reads as METRICS_BEARER_TOKEN.
       apiVersion: external-secrets.io/v1
       kind: ExternalSecret
@@ -158,45 +125,26 @@ app:
           - secretKey: token
             remoteRef:
               key: {{ required "ssmPrefix is required" .Values.ssmPrefix }}/agent-runway/metrics-bearer-token
-    - |
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: {{ include "app.fullname" . }}
-        namespace: {{ include "app.namespace" . }}
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/instance: {{ .Release.Name }}
-        policyTypes: [Ingress]
-        ingress:
-          - from:
-              - podSelector: {}
-      {{- with .Values.ingressPeers }}
-      {{ toYaml . | indent 8 }}
-      {{- end }}
-      {{- range .Values.servicePeers }}
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: {{ . | quote }}
-      {{- end }}
-            ports:
-              - protocol: TCP
-                port: {{ .Values.service.targetPort }}
-          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: addon-prometheus
-            ports:
-              - protocol: TCP
-                port: 15090
-  registry:
+  ecrPullSecret:
+    enabled: true
     region: ap-northeast-2
   # Delivery submits app Deliveries to Argo Workflows through the Kubernetes API (argocd-env-projects
   # charts/delivery grants its ServiceAccount a Role in namespace app-delivery).
   automountServiceAccountToken: true
-  # Studio calls the MCP endpoint; Forge materializes dev variables at Run start.
-  servicePeers:
-  - agent-studio
-  - agent-forge
+  networkPolicy:
+    enabled: true
+    appPort:
+      sameNamespace: true
+      # Studio calls the MCP endpoint; Forge materializes dev variables at Run start.
+      namespaces:
+      - agent-studio
+      - agent-forge
+    ingress:
+    # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+      ports:
+      - protocol: TCP
+        port: 15090

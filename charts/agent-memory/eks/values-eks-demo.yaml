@@ -97,12 +97,14 @@ app:
     enabled: true
     labels:
       release: prometheus-eks-demo
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  registry:
+  networkPolicy:
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
+  ecrPullSecret:
     region: ap-northeast-2

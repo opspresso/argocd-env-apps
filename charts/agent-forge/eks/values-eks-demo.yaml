@@ -2,6 +2,9 @@ app:
   fullnameOverride: agent-forge
   raw:
     enabled: True
+  ecrPullSecret:
+    enabled: True
+    region: ap-northeast-2
 
   replicaCount: 1
   autoscaling:
@@ -18,8 +21,6 @@ app:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: addon-prometheus
-  registry:
-    region: ap-northeast-2
   ssmPrefix: /k8s/eks-demo
   configmap:
     enabled: true

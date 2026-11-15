@@ -3,6 +3,19 @@ app:
   fullnameOverride: agent-runway
   raw:
     enabled: {{agent_runway is defined}}
+  ecrPullSecret:
+    enabled: {{agent_runway is defined}}
+    region: {{aws_region}}
+  networkPolicy:
+    enabled: {{agent_runway is defined}}
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
 {% if agent_runway is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -104,20 +117,11 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_runway.hostname}}
-  ingressPeers:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: istio-system
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: addon-prometheus
   ssmPrefix: /k8s/{{cluster}}
   serviceMonitor:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
     labels:
       release: prometheus-{{cluster}}
-  registry:
-    region: {{aws_region}}
 {% endif %}
 {% if app_delivery is defined and app_delivery.enabled %}
 

@@ -2,3 +2,6 @@ app:
   fullnameOverride: agent-forge
   raw:
     enabled: False
+  ecrPullSecret:
+    enabled: False
+    region: ap-northeast-2

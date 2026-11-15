@@ -120,45 +120,12 @@ app:
       apiVersion: generators.external-secrets.io/v1alpha1
       kind: ECRAuthorizationToken
       metadata:
-        name: agent-forge-ecr
-        namespace: {{ include "app.namespace" . }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-2"
-      spec:
-        region: {{ .Values.registry.region }}
-      ---
-      apiVersion: external-secrets.io/v1
-      kind: ExternalSecret
-      metadata:
-        name: ecr-registry
-        namespace: {{ include "app.namespace" . }}
-        annotations:
-          argocd.argoproj.io/sync-wave: "-1"
-      spec:
-        refreshInterval: 1h
-        target:
-          name: ecr-registry
-          template:
-            type: kubernetes.io/dockerconfigjson
-            data:
-              .dockerconfigjson: |
-                {"auths":{"{{`{{ .proxy_endpoint }}`}}":{"username":"{{`{{ .username }}`}}","password":"{{`{{ .password }}`}}","auth":"{{`{{ printf "%s:%s" .username .password | b64enc }}`}}"}}}
-        dataFrom:
-          - sourceRef:
-              generatorRef:
-                apiVersion: generators.external-secrets.io/v1alpha1
-                kind: ECRAuthorizationToken
-                name: agent-forge-ecr
-    - |
-      apiVersion: generators.external-secrets.io/v1alpha1
-      kind: ECRAuthorizationToken
-      metadata:
         name: agent-forge-sandbox-ecr
         namespace: {{ .Values.sandbox.namespace }}
         annotations:
           argocd.argoproj.io/sync-wave: "-2"
       spec:
-        region: {{ .Values.registry.region }}
+        region: {{ .Values.ecrPullSecret.region }}
       ---
       apiVersion: external-secrets.io/v1
       kind: ExternalSecret
@@ -385,7 +352,8 @@ app:
             ports:
               - protocol: TCP
                 port: 15090
-  registry:
+  ecrPullSecret:
+    enabled: true
     region: ap-northeast-2
   automountServiceAccountToken: true
   sandbox:

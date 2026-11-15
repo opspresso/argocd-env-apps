@@ -1,8 +1,16 @@
 {% set maintenance = agent_models_maintenance | default(false) -%}
 app:
   fullnameOverride: agent-models
-  raw:
+  ecrPullSecret:
     enabled: {{agent_models is defined}}
+    region: {{aws_region}}
+  networkPolicy:
+    enabled: {{agent_models is defined}}
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
 {% if agent_models is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -83,10 +91,4 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_models.hostname}}
-  ingressPeers:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: istio-system
-  registry:
-    region: {{aws_region}}
 {% endif %}

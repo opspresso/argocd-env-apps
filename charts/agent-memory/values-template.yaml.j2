@@ -107,13 +107,15 @@ app:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
     labels:
       release: prometheus-{{cluster}}
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  registry:
+  networkPolicy:
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
+  ecrPullSecret:
     region: {{aws_region}}
 {% endif %}

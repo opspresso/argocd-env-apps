@@ -2,6 +2,19 @@ app:
   fullnameOverride: agent-knowledge
   raw:
     enabled: True
+  ecrPullSecret:
+    enabled: True
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: True
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
 
   replicaCount: 1
   autoscaling:
@@ -9,15 +22,6 @@ app:
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-knowledge
 
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  registry:
-    region: ap-northeast-2
   configmap:
     enabled: true
     data:
