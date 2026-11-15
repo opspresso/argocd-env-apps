@@ -56,6 +56,9 @@ MCP 인증 설정과 PostgreSQL 초기화 동작을 검증한다. 이 fixture는
 차트 구성은 `opspresso/helm-charts`의 `app` → `cronjob` → `raw` 순서로
 선택한다. PostgreSQL 등 데이터 서비스는 공식 또는 주요 배포처의 전용 차트를
 사용한다. 공통 차트에 필요한 기능이 없으면 공통 차트를 확장하며, wrapper에는 `templates/`를 두지 않는다.
+`raw` chart에는 `resources`만 쓰고 `templates`는 쓰지 않는다. 클러스터별 값이 든 리소스는
+`values-template.yaml.j2`가 채운다. Helm은 values 목록을 병합하지 않고 뒤 파일의 목록으로 바꾸므로,
+그런 리소스가 하나라도 있는 목록은 템플릿에서 통째로 만든다.
 
 Studio의 scan·plugin sync·reindex ticker와 Knowledge의 queue worker는
 `app.workloads`를 사용한다. Forge가 별도 실행 namespace의 Sandbox를 소유하며 RBAC·네트워크
@@ -97,9 +100,10 @@ ApplicationSet 은 `env/*.yaml` 의 `phase` 필드로 어떤 `values-<phase>.yam
 앱과 MCP의 두 phase values를 별도로 관리한다.
 
 클러스터별 SSM 경로는 `values-template.yaml.j2`가 `env/<cluster>.yaml`의 `cluster`에서
-생성한다. 공통 `values.yaml`에는 특정 클러스터의 `global.ssmPrefix`를 두지 않는다.
-PostgreSQL은 클러스터 values가 없으면 렌더링에 실패하며, `scripts/validate.py`는
-최종 `global.ssmPrefix`가 대상 클러스터와 다르면 실패한다. EKS 공통 기본값과 클러스터의
+생성한다. 공통 `values.yaml`에는 특정 클러스터의 SSM 경로나 `global.ssmPrefix`를 두지 않는다.
+`postgresql`·`delivery-pool`의 ExternalSecret은 클러스터 values의 `raw.resources`에만 있으므로
+공통 values만으로는 자격 증명을 읽지 않는다. `scripts/validate.py`는 values 파일의 `global.ssmPrefix`나
+최상위 `ssmPrefix`가 대상 클러스터와 다르면 실패한다. EKS 공통 기본값과 클러스터의
 자격 증명 경로는 별개다.
 
 ## gitops

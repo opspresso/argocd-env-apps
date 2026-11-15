@@ -14,7 +14,8 @@ from workload_policy import policy_errors
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_CHARTS = ("postgresql",)
+# Charts whose ExternalSecret exists only in the generated cluster values, with the env key of their settings.
+DATA_CHARTS = {"postgresql": "postgresql", "delivery-pool": "delivery_pool"}
 ENV_FILES = sorted((ROOT / "env").glob("*.yaml"))
 
 
@@ -40,21 +41,28 @@ def test_shared_values_do_not_contain_cluster_specific_ssm_defaults():
         assert all(f"/k8s/{cluster}" not in parsed for cluster in clusters), path
 
 
+def external_secret_keys(manifest):
+    return [entry["remoteRef"]["key"]
+            for doc in yaml.safe_load_all(manifest) if doc and doc["kind"] == "ExternalSecret"
+            for entry in doc["spec"].get("data", [])]
+
+
 @pytest.mark.parametrize("chart", DATA_CHARTS)
-def test_missing_cluster_values_fail_instead_of_using_a_default(chart):
+def test_missing_cluster_values_read_no_credentials_instead_of_a_default(chart):
     result = helm(chart)
-    assert result.returncode != 0
-    assert "ssmPrefix is required" in result.stderr
+    assert result.returncode == 0, result.stderr
+    assert external_secret_keys(result.stdout) == []
 
 
 @pytest.mark.parametrize("chart", DATA_CHARTS)
 def test_empty_eks_service_settings_preserve_common_defaults(chart):
     context = yaml.safe_load((ROOT / "env/eks-demo.yaml").read_text())
-    context[chart] = {}
+    context[DATA_CHARTS[chart]] = {}
     # core_tier is a cluster placement, not a service setting; tests/test_core_tier.py covers it.
     context["core_tier"] = False
     template = Environment(loader=FileSystemLoader(ROOT / "charts" / chart)).get_template("values-template.yaml.j2")
-    assert yaml.safe_load(template.render(context)) == {"global": {"ssmPrefix": "/k8s/eks-demo"}}
+    # The cluster file owns only the raw resource lists; it overrides no common value.
+    assert set(yaml.safe_load(template.render(context))) <= {"raw", "bootstrap"}
 
 
 @pytest.mark.parametrize("chart", DATA_CHARTS)
@@ -62,28 +70,13 @@ def test_empty_eks_service_settings_preserve_common_defaults(chart):
 def test_data_charts_render_only_the_selected_clusters_secrets(chart, env_file, tmp_path):
     context = yaml.safe_load(env_file.read_text())
     template = Environment(loader=FileSystemLoader(ROOT / "charts" / chart)).get_template("values-template.yaml.j2")
-    generated = template.render(context)
-    prefix = f"/k8s/{context['cluster']}"
-    overrides = yaml.safe_load(generated)
-    if context["env"] == "local":
-        assert overrides["externalSecrets"]["enabled"] is False
-        assert "ssmPrefix" not in overrides
-    else:
-        assert overrides["global"]["ssmPrefix"] == prefix
-    if chart not in context and context["resources"] and context["autoscaling"]:
-        assert overrides == {"global": {"ssmPrefix": prefix}}
     values_file = tmp_path / "cluster.yaml"
-    values_file.write_text(generated)
+    values_file.write_text(template.render(context))
     result = helm(chart, values_file)
     assert result.returncode == 0, result.stderr
-    refs = [entry["remoteRef"]["key"]
-            for doc in yaml.safe_load_all(result.stdout) if doc and doc["kind"] == "ExternalSecret"
-            for entry in doc["spec"].get("data", [])]
-    if context["env"] == "local":
-        assert not refs
-    else:
-        assert refs
-        assert all(key.startswith(prefix + "/") for key in refs)
+    refs = external_secret_keys(result.stdout)
+    assert refs
+    assert all(key.startswith(f"/k8s/{context['cluster']}/") for key in refs)
     assert policy_errors(result.stdout, context["env"]) == []
 
 
