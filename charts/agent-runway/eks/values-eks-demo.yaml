@@ -37,8 +37,13 @@ app:
       RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: eks-demo
-      # The image registry app-build-v2 pushes to (charts/delivery registry); a deleted Project's repository there is removed.
-      RUNWAY_IMAGE_REGISTRY: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/projects
+
+      RUNWAY_NEXUS_URL: https://nexus.demo.opsp.dev
+      RUNWAY_NEXUS_USERNAME: runway-cleaner
+      RUNWAY_NEXUS_IMAGE_REPOSITORY: runway-images
+      RUNWAY_NEXUS_FILE_REPOSITORY: runway-artifacts
+      RUNWAY_PIPELINE_STAGES: '[{"step":"publish","tool":"Nexus"}]'
+
 
       # App Delivery uses the app-build-v2 and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
       # The retired RUNWAY_WORKFLOW_TEMPLATE setting is rejected at startup.
@@ -56,6 +61,10 @@ app:
   externalSecrets:
     enabled: true
     data:
+
+    - key: /k8s/common/nexus/runway-cleaner-password
+      name: RUNWAY_NEXUS_PASSWORD
+
     - key: /k8s/eks-demo/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-runway/auth-secret
@@ -144,12 +153,14 @@ raw:
           namespace: app-delivery
         source:
           repoURL: https://github.com/opspresso/argocd-env-projects.git
-          targetRevision: "b51ed271d796da4e10d5c82a6ef7d22ce34dbac2"
+          targetRevision: "d96e47fbbe9b2f83f10a7bdee713e4926f8a5f52"
           path: charts/delivery
           helm:
             valuesObject:
-              registry: "396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/projects"
-              pushRoleArn: "arn:aws:iam::396608815058:role/app-delivery-push"
+
+              registry: "nexus.demo.opsp.dev/runway-images"
+              artifactRepository: "https://nexus.demo.opsp.dev/repository/runway-artifacts"
+
               region: "ap-northeast-2"
               apiServer:
                 cidrs: ["172.20.0.1/32", "10.10.114.40/32", "10.10.149.55/32"]
