@@ -40,8 +40,15 @@ app:
       RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: {{cluster}}
-      # The image registry app-build-v2 pushes to (charts/delivery registry); a deleted Project's repository there is removed.
+{% if app_delivery is defined and app_delivery.nexus is defined %}
+      RUNWAY_NEXUS_URL: https://{{app_delivery.nexus.host}}
+      RUNWAY_NEXUS_USERNAME: runway-cleaner
+      RUNWAY_NEXUS_IMAGE_REPOSITORY: {{app_delivery.nexus.image_repository}}
+      RUNWAY_NEXUS_FILE_REPOSITORY: {{app_delivery.nexus.file_repository}}
+      RUNWAY_PIPELINE_STAGES: '[{"step":"publish","tool":"Nexus"}]'
+{% else %}
       RUNWAY_IMAGE_REGISTRY: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/projects
+{% endif %}
 {% if agent_runway.delivery is defined %}
       # App Delivery uses the app-build-v2 and app-deploy WorkflowTemplates (agent-platform docs/APP_DELIVERY.md).
       # The retired RUNWAY_WORKFLOW_TEMPLATE setting is rejected at startup.
@@ -59,6 +66,10 @@ app:
   externalSecrets:
     enabled: true
     data:
+{% if app_delivery is defined and app_delivery.nexus is defined %}
+    - key: /k8s/common/nexus/runway-cleaner-password
+      name: RUNWAY_NEXUS_PASSWORD
+{% endif %}
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/{{cluster}}/agent-runway/auth-secret
@@ -153,8 +164,13 @@ raw:
           path: charts/delivery
           helm:
             valuesObject:
+{% if app_delivery.nexus is defined %}
+              registry: "{{app_delivery.nexus.host}}/{{app_delivery.nexus.image_repository}}"
+              artifactRepository: "https://{{app_delivery.nexus.host}}/repository/{{app_delivery.nexus.file_repository}}"
+{% else %}
               registry: "{{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/projects"
               pushRoleArn: "arn:aws:iam::{{aws_account_id}}:role/app-delivery-push"
+{% endif %}
               region: "{{aws_region}}"
               apiServer:
                 cidrs: {{ app_delivery.api_server_cidrs | tojson }}

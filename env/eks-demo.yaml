@@ -220,7 +220,11 @@ rovr:
 app_delivery:
   enabled: true
   # Pin workflows while the service and Nexus configuration are upgraded together.
-  revision: b51ed271d796da4e10d5c82a6ef7d22ce34dbac2
+  revision: d96e47fbbe9b2f83f10a7bdee713e4926f8a5f52
+  nexus:
+    host: nexus.demo.opsp.dev
+    image_repository: runway-images
+    file_repository: runway-artifacts
   domain: apps.rovr.dev
   # No list of environments lives here: Agent Runway owns them (its console), and every projects/<slug>/<env>
   # directory it writes in argocd-env-projects gets an Application.
