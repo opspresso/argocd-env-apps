@@ -17,6 +17,23 @@ def test_wrapper_templates_are_rejected_but_dependency_templates_are_allowed(tmp
     assert "wrapper templates are not allowed" in validate.check_templates()[0][1]
 
 
+def test_string_templates_are_rejected_in_raw_and_app_values(tmp_path, monkeypatch):
+    monkeypatch.setattr(validate, "CHARTS_DIR", str(tmp_path))
+    chart = tmp_path / "demo"
+    (chart / "eks").mkdir(parents=True)
+    (chart / "Chart.yaml").write_text(
+        "name: demo\ndependencies:\n"
+        "  - {name: app, repository: https://opspresso.github.io/helm-charts}\n"
+        "  - {name: raw, alias: bootstrap, repository: https://opspresso.github.io/helm-charts/}\n")
+    (chart / "values-template.yaml.j2").write_text("{}\n")
+    (chart / "values.yaml").write_text("app:\n  raw:\n    resources: [{kind: ConfigMap}]\nbootstrap:\n  resources: []\n")
+    assert validate.check_templates() == []
+    (chart / "values.yaml").write_text("app:\n  raw:\n    parentTemplates: ['kind: ConfigMap']\n")
+    (chart / "eks/values-eks-demo.yaml").write_text("bootstrap:\n  templates: ['kind: Job']\n  parentTemplates: ['kind: Job']\n")
+    assert sorted(why.split(" ")[0] for _, why in validate.check_templates()) == [
+        "app.raw.parentTemplates", "bootstrap.parentTemplates", "bootstrap.templates"]
+
+
 def test_all_charts_includes_undeployed_phases_and_unused_cluster_values(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "env").mkdir()

@@ -1,8 +1,12 @@
 {% set maintenance = agent_knowledge_maintenance | default(false) -%}
 app:
   fullnameOverride: agent-knowledge
-  raw:
-    enabled: {{agent_knowledge is defined}}
+  jobs:
+    schema-check:
+      enabled: {{agent_knowledge is defined}}
+{%- if not resources %}
+      resources: null
+{%- endif %}
   ecrPullSecret:
     enabled: {{agent_knowledge is defined}}
     region: {{aws_region}}
@@ -145,4 +149,26 @@ app:
                     operator: In
                     values: [core]
 {%- endif %}
+  raw:
+    enabled: true
+    resources:
+      # The web ServiceMonitor selects this Service by the web name and instance labels, so the worker shares its
+      # scrape and credentials. The selector picks only the worker Pods.
+      - apiVersion: v1
+        kind: Service
+        metadata:
+          name: agent-knowledge-worker
+          labels:
+            app: agent-knowledge
+            app.kubernetes.io/name: agent-knowledge
+            app.kubernetes.io/instance: agent-knowledge-{{cluster}}
+            app.kubernetes.io/component: worker
+        spec:
+          ports:
+            - name: http
+              port: 3000
+              targetPort: 3000
+          selector:
+            app.kubernetes.io/name: agent-knowledge-worker
+            app.kubernetes.io/instance: agent-knowledge-{{cluster}}
 {% endif %}

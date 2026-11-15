@@ -142,41 +142,26 @@ app:
         resources: ["*"]
         verbs: ["get", "list", "watch"]
 
-networkPolicy:
-  enabled: true
-
-# Only Agent Studio processes that run Agents may call this server. The MCP has
-# no authentication, so this ingress rule is its access boundary.
-raw:
-  resources:
-    - apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: mcp-kubernetes
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/name: mcp-kubernetes
-        policyTypes:
-          - Ingress
-        ingress:
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: agent-studio
-                podSelector:
-                  matchExpressions:
-                    - key: app.kubernetes.io/name
-                      operator: In
-                      values: [agent-studio]
-            ports:
-              - protocol: TCP
-                port: 8080
-          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: addon-prometheus
-            ports:
-              - protocol: TCP
-                port: 15090
+  # Only Agent Studio processes that run Agents may call this server. The MCP has
+  # no authentication, so this ingress rule is its access boundary.
+  networkPolicy:
+    enabled: true
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agent-studio
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [agent-studio]
+    ingress:
+      # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: addon-prometheus
+        ports:
+          - protocol: TCP
+            port: 15090

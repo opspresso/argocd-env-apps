@@ -2,14 +2,10 @@ apiVersion: v2
 name: mcp-kubernetes
 description: Kubernetes MCP server Agent Studio calls — cluster-internal, read-only
 type: application
-version: v1.7.0
+version: v1.8.0
 appVersion: v1.0.0
 
 dependencies:
   - repository: https://opspresso.github.io/helm-charts
     name: app
-    version: "v2.4.0"
-  - repository: https://opspresso.github.io/helm-charts/
-    name: raw
-    version: "0.2.5"
-    condition: networkPolicy.enabled
+    version: "v2.5.0"

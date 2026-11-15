@@ -1,7 +1,5 @@
 app:
   fullnameOverride: agent-runway
-  raw:
-    enabled: False
   ecrPullSecret:
     enabled: False
     region: ap-northeast-2

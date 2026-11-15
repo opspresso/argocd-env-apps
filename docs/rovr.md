@@ -24,7 +24,7 @@ rovr(<https://rovr.dev>)는 목표를 받아 Leader 에이전트가 작업을 �
 | DB bootstrap | `agent-studio` | Sync hook Job이 공유 PostgreSQL에 `rovr` 역할(비 superuser)과 `rovr` DB를 만든다. 관리자 비밀번호는 `agent-studio` 밖으로 나가지 않는다 |
 
 Sandbox 이미지 버전의 원천은 `app.image.tag` 하나다. 서버가 `<repository>:vX`이면 Sandbox는 `<repository>:sandbox-vX`이다.
-Sandbox 설정이나 이미지가 바뀌면 `checksum/sandbox`로 서버가 재시작한다.
+Sandbox 설정은 ConfigMap `rovr`의 `ROVR_SANDBOX_*` 값이다. 설정이나 이미지가 바뀌면 `checksum/config`로 서버가 재시작한다.
 
 rovr의 DB 연결은 replica당 `ROVR_DATABASE_MAX_CONNS`(10)이고, 용량 테스트는 2 replica × 10 = 20을 넣고, rollout 중 두 세대가 겹치는 것을 반영해 2배(40)를 공유 PostgreSQL 예산에 포함한다.
 

@@ -98,16 +98,25 @@ main app 의 ExternalSecret 을 읽는 worker 는 `overrides` 에 같은 annotat
   `app` chart 버전을 올릴 때 wrapper `version` 도 함께 올린다.
 - wrapper에는 `templates/`를 두지 않는다. `app` → `cronjob` → `raw` 순서로 선택하며,
   필요한 공통 기능은 `helm-charts`에서 확장한다. PostgreSQL은 공식 또는 주요
-  배포처의 전용 차트를 사용한다. Studio ticker·Knowledge worker는 `app.workloads`, ECR pull Secret은 `app.ecrPullSecret`, 앱 NetworkPolicy는
-  `app.networkPolicy`(`appPort`·`ingress`), 그 밖의 리소스는 `app.raw`로 관리한다. Forge·rovr의 앱 NetworkPolicy는
-  `sandbox.namespace`·`sandbox.port`를 읽는 sandbox 규칙이 있어 `app.raw.parentTemplates`에 둔다.
+  배포처의 전용 차트를 사용한다. 자주 쓰는 리소스는 `app` chart 기능으로 만든다.
+  - Studio ticker·Knowledge worker와 그 Service: `app.workloads`
+  - ECR pull Secret: `app.ecrPullSecret`. Forge·rovr sandbox namespace의 Secret은 `namespaces`로 만든다.
+  - 앱 NetworkPolicy: `app.networkPolicy`(`appPort`·`ingress`). mcp chart도 같다.
+  - 앱이 `envFrom`으로 읽지 않는 ExternalSecret(scrape token, 다른 namespace의 비밀번호): `app.extraExternalSecrets`
+  - Job·Argo CD hook Job(Knowledge schema check, rovr DB bootstrap): `app.jobs`
+  - 다른 values에서 만드는 ConfigMap 값(서버 이미지 tag를 따르는 sandbox 이미지): `app.configmap.tpl`
+  - 그 밖의 리소스: `app.raw.resources`
 - 한 chart 를 두 번 쓰거나 이름을 바꿔 붙일 때는 `alias` 로 values 키를 정한다
   (예: postgresql 의 `raw` → `bootstrap`).
-- `raw` chart(alias 포함)에는 `resources`만 쓰고 `templates`는 쓰지 않는다. 클러스터별 값이 든 리소스는
-  `values-template.yaml.j2`에서 Jinja2로 채운다. Helm은 values 목록을 병합하지 않고 뒤 파일의 목록으로
-  바꾸므로, 그런 리소스가 하나라도 있는 목록은 템플릿에서 통째로 만든다(postgresql·delivery-pool의 `raw`,
-  postgresql의 `bootstrap`, delivery-tenants). `app.raw`에서는 값을 읽지 않는
-  객체를 `resources`에, app values나 `app` chart helper를 읽는 객체만 `parentTemplates`에 둔다.
+- `raw` chart(alias 포함)와 `app.raw`에는 `resources`만 쓰고 `templates`·`parentTemplates`는 쓰지 않는다.
+  문자열 템플릿은 편집기에서 YAML로 보이지 않고 검사되지 않는다. `scripts/validate.py`가 이 규칙을 검사한다.
+  클러스터별 값이 든 리소스는 `values-template.yaml.j2`에서 Jinja2로 채운다. Helm은 values 목록을 병합하지 않고
+  뒤 파일의 목록으로 바꾸므로, 그런 리소스가 하나라도 있는 목록은 템플릿에서 통째로 만든다(postgresql·delivery-pool의
+  `raw`, postgresql의 `bootstrap`, delivery-tenants, Forge·rovr의 `app.raw`).
+- Forge·rovr의 sandbox namespace 객체(Namespace·RBAC·ResourceQuota·NetworkPolicy·EFS cache)와 sandbox 설정
+  ConfigMap 값은 `values-template.yaml.j2`가 env의 `workspace_*`·`rovr.sandbox`로 계산한다. 서비스 이름과 release
+  이름(`<chart>-<cluster>`)을 literal로 쓰므로 `tests/test_workspace_kubernetes.py`·`tests/test_rovr.py`가 chart의
+  Service·selector와 일치하는지 검사한다.
 
 ### values 병합 순서
 

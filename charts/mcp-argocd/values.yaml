@@ -1,9 +1,9 @@
 # Argo CD MCP server Agent Studio calls.
 #
 # Cluster-internal by design: no `routing` block anywhere in this chart, so no
-# HTTPRoute is ever rendered and the only way in is the ClusterIP. The parent
-# chart's NetworkPolicy further admits only Agent Studio and this chart's test
-# pod. Agent Studio reaches it at mcp-argocd.agent-mcps.svc.cluster.local.
+# HTTPRoute is ever rendered and the only way in is the ClusterIP. The
+# NetworkPolicy (app.networkPolicy) admits only Agent Studio and this chart's
+# test pod. Agent Studio reaches it at mcp-argocd.agent-mcps.svc.cluster.local.
 #
 # Deliberately absent, and not an oversight: the HPA, PDB and long
 # terminationGracePeriod that agent-studio carries. Those exist for ten-minute
@@ -79,46 +79,28 @@ app:
   serviceAccount:
     create: true
 
-networkPolicy:
-  enabled: true
-
-raw:
-  resources:
-    - apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: mcp-argocd
-      spec:
-        podSelector:
-          matchLabels:
-            app.kubernetes.io/name: mcp-argocd
-        policyTypes:
-          - Ingress
-        ingress:
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: agent-studio
-                podSelector:
-                  matchExpressions:
-                    - key: app.kubernetes.io/name
-                      operator: In
-                      values: [agent-studio]
-            ports:
-              - protocol: TCP
-                port: 3000
-          - from:
-              - podSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: mcp-argocd
-            ports:
-              - protocol: TCP
-                port: 3000
-          # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
-          - from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: addon-prometheus
-            ports:
-              - protocol: TCP
-                port: 15090
+  networkPolicy:
+    enabled: true
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agent-studio
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [agent-studio]
+        # This chart's connection test Pod.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-argocd
+    ingress:
+      # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: addon-prometheus
+        ports:
+          - protocol: TCP
+            port: 15090

@@ -11,7 +11,7 @@ app:
     enabled: {{autoscaling | lower}}
 {% endif %}
 {%- if env == 'local' %}
-networkPolicy:
-  # Mac clients use local port forwards or direct Service connectivity.
-  enabled: false
+  networkPolicy:
+    # Mac clients use local port forwards or direct Service connectivity.
+    enabled: false
 {% endif %}

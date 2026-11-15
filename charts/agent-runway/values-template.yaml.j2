@@ -1,8 +1,6 @@
 {% set maintenance = agent_runway_maintenance | default(false) -%}
 app:
   fullnameOverride: agent-runway
-  raw:
-    enabled: {{agent_runway is defined}}
   ecrPullSecret:
     enabled: {{agent_runway is defined}}
     region: {{aws_region}}
@@ -117,7 +115,12 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agent_runway.hostname}}
-  ssmPrefix: /k8s/{{cluster}}
+  # Prometheus reads the bearer token that the app reads as METRICS_BEARER_TOKEN.
+  extraExternalSecrets:
+    agent-runway-metrics:
+      data:
+        - key: /k8s/{{cluster}}/agent-runway/metrics-bearer-token
+          name: token
   serviceMonitor:
     enabled: {{ (metrics is defined and metrics.backend == 'prometheus') | lower }}
     labels:

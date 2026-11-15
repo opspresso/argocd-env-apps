@@ -14,16 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 CHART = ROOT / "charts/rovr"
 
 
-def render(*overrides, cluster="eks-demo"):
+def render(*overrides, cluster="eks-demo", **changes):
     if not list((CHART / "charts").glob("*.tgz")):
         pytest.skip(f"Run helm dependency update {CHART}")
     if cluster == "eks-demo":
-        values = running_values("rovr", "eks")
+        values = running_values("rovr", "eks", **changes)
     else:
         env = yaml.safe_load((ROOT / "env" / f"{cluster}.yaml").read_text())
         jinja = Environment(loader=FileSystemLoader(CHART), undefined=StrictUndefined)
         values = jinja.get_template("values-template.yaml.j2").render(env)
-    result = subprocess.run(["helm", "template", "rovr", str(CHART), "--namespace", "rovr",
+    # The release name is the Application name; values-template.yaml.j2 writes it into the sandbox egress rule.
+    result = subprocess.run(["helm", "template", f"rovr-{cluster}", str(CHART), "--namespace", "rovr",
                              "--api-versions", "monitoring.coreos.com/v1",
                              "-f", str(CHART / "values.yaml"), "-f", str(CHART / "values-prod.yaml"), "-f", "-", *overrides],
                             input=values, capture_output=True, text=True, check=True)
@@ -108,7 +109,7 @@ def test_public_route_targets_only_the_public_listener():
 
 
 def test_sandbox_settings_follow_the_server_image():
-    config = find(render("--set", "app.image.tag=v1.2.3"), "ConfigMap", "rovr-sandbox")["data"]
+    config = find(render("--set", "app.image.tag=v1.2.3"), "ConfigMap", "rovr")["data"]
     assert config["ROVR_SANDBOX_IMAGE"] == "396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/rovr:sandbox-v1.2.3"
     assert config["ROVR_SANDBOX_SERVER_URL"] == "http://rovr.rovr.svc.cluster.local:8081"
     assert config["ROVR_SANDBOX_NODE_POOL"] == "rovr-sandboxes"
@@ -116,11 +117,20 @@ def test_sandbox_settings_follow_the_server_image():
     assert find(render(), "ExternalSecret", "ecr-registry", "rovr-sandboxes")["spec"]["target"]["name"] == "ecr-registry"
 
 
-@pytest.mark.parametrize("setting", ["sandbox.maxRuns=3", "sandbox.memory=8Gi", "image.tag=v9.9.9"])
-def test_sandbox_changes_restart_the_server(setting):
+def rovr_with_sandbox(**settings):
+    env = yaml.safe_load((ROOT / "env/eks-demo.yaml").read_text())
+    return {**env["rovr"], "sandbox": {**env["rovr"].get("sandbox", {}), **settings}}
+
+
+@pytest.mark.parametrize("overrides,settings", [
+    ((), {"disk": "20Gi"}), ((), {"storage_class": "gp3"}), ((), {"node_pool": "other"}), (("--set", "app.image.tag=v9.9.9"), None),
+])
+def test_sandbox_changes_restart_the_server(overrides, settings):
+    # The sandbox settings and image are ConfigMap values, so checksum/config restarts the server on a change.
     def checksum(docs):
-        return find(docs, "Deployment", "rovr")["spec"]["template"]["metadata"]["annotations"]["checksum/sandbox"]
-    assert checksum(render()) != checksum(render("--set", "app." + setting))
+        return find(docs, "Deployment", "rovr")["spec"]["template"]["metadata"]["annotations"]["checksum/config"]
+    changed = render(*overrides, **({"rovr": rovr_with_sandbox(**settings)} if settings else {}))
+    assert checksum(render()) != checksum(changed)
 
 
 def test_server_runs_hardened_with_fixed_replicas_and_its_secrets():

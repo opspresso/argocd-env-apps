@@ -1,10 +1,18 @@
 app:
   fullnameOverride: agent-forge
-  raw:
-    enabled: True
   ecrPullSecret:
     enabled: True
     region: ap-northeast-2
+  networkPolicy:
+    enabled: True
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: addon-prometheus
 
   replicaCount: 1
   autoscaling:
@@ -14,14 +22,6 @@ app:
   imagePullSecrets:
     - name: ecr-registry
 
-  ingressPeers:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: addon-prometheus
-  ssmPrefix: /k8s/eks-demo
   configmap:
     enabled: true
     data:
@@ -47,18 +47,138 @@ app:
       FORGE_MODEL_CHANNELS: "[{\"id\": \"openrouter/minimax-m3.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/minimax-m3.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/deepseek-v4.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/deepseek-v4.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/glm-5.3\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/glm-5.3\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-luna\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-luna\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6.1-sol\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-astra\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-astra\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-opus-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-opus-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-sonnet-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-sonnet-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}]"
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
       RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
-  sandbox:
-    namespace: agent-forge-workspaces
-    maxPods: 32
-    memoryMb: 2048
-    diskMb: 2048
-    cpus: 1
-    dnsCidrs:
-      - 172.20.0.10/32
-    allowPublic: True
-    # Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
-    # environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches.
-    extraEgress: [{"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}]}, {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}]
+      FORGE_SANDBOX_PORT: '3104'
+      FORGE_SANDBOX_API_URL: http://agent-forge.agent-forge.svc.cluster.local:3104
+      FORGE_SANDBOX_MEMORY_MB: '2048'
+      FORGE_SANDBOX_DISK_MB: '2048'
+      FORGE_SANDBOX_CPUS: '1'
+      FORGE_KUBE_NAMESPACE: agent-forge-workspaces
+      FORGE_INSTANCE: agent-forge-eks-demo
+      FORGE_KUBE_RESOURCES_ENABLED: 'true'
+  # Prometheus reads this scrape token; the app reads the same value as METRICS_BEARER_TOKEN.
+  extraExternalSecrets:
+    agent-forge-metrics:
+      data:
+        - key: /k8s/eks-demo/agent-forge/metrics-bearer-token
+          name: token
+  # The sandbox namespace. Argo CD keeps it, and the workspaces in it, when the Application is removed.
+  raw:
+    enabled: true
+    resources:
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: agent-forge-workspaces
+          annotations:
+            argocd.argoproj.io/sync-wave: "-3"
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          labels:
+            pod-security.kubernetes.io/enforce: baseline
+            sidecar.istio.io/inject: "false"
+      - apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: sandbox
+          namespace: agent-forge-workspaces
+        automountServiceAccountToken: false
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: agent-forge-sandbox
+          namespace: agent-forge-workspaces
+        rules:
+          - apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, create, delete]
+          - apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [get, create]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: agent-forge-sandbox
+          namespace: agent-forge-workspaces
+        subjects:
+          - kind: ServiceAccount
+            name: agent-forge
+            namespace: agent-forge
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: agent-forge-sandbox
+      # Every workspace at its limits fits: maxPods sandboxes of cpus, memoryMb and twice diskMb plus 512Mi.
+      - apiVersion: v1
+        kind: ResourceQuota
+        metadata:
+          name: agent-forge-sandbox
+          namespace: agent-forge-workspaces
+        spec:
+          hard:
+            pods: "32"
+            count/jobs.batch: "32"
+            requests.cpu: "32"
+            limits.cpu: "32"
+            requests.memory: "65536Mi"
+            limits.memory: "65536Mi"
+            requests.ephemeral-storage: "147456Mi"
+            limits.ephemeral-storage: "147456Mi"
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-isolation
+          namespace: agent-forge-workspaces
+        spec:
+          podSelector: {}
+          policyTypes: [Ingress, Egress]
+          ingress: []
+          egress: []
+      - apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sandbox-egress
+          namespace: agent-forge-workspaces
+        spec:
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agent-forge-sandbox
+          policyTypes: [Egress]
+          egress:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+                  podSelector:
+                    matchLabels:
+                      k8s-app: kube-dns
+                - ipBlock:
+                    cidr: "172.20.0.10/32"
+              ports:
+                - {protocol: UDP, port: 53}
+                - {protocol: TCP, port: 53}
+            # The declared clusters use IPv4; policy CIDRs must match the cluster IP family.
+            - to:
+                - ipBlock:
+                    cidr: 0.0.0.0/0
+                    except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4]
+              ports:
+                - {protocol: TCP, port: 80}
+                - {protocol: TCP, port: 443}
+            # Native CLIs reach only this installation's model proxy on the sandbox port.
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: agent-forge
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: agent-forge
+                      app.kubernetes.io/instance: agent-forge-eks-demo
+              ports:
+                - {protocol: TCP, port: 3104}
+            - {"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}]}
+            - {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}
   routing:
     hosts:
     - forge.agrt.dev

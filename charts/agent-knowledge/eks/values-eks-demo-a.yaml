@@ -1,7 +1,8 @@
 app:
   fullnameOverride: agent-knowledge
-  raw:
-    enabled: False
+  jobs:
+    schema-check:
+      enabled: False
   ecrPullSecret:
     enabled: False
     region: ap-northeast-2

@@ -6,7 +6,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def running_values(chart, platform):
+def running_values(chart, platform, **changes):
+    """The generated cluster values of the demo cluster; changes replace keys of its env file."""
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
     env["agent_studio_maintenance"] = False
     env["agent_memory_maintenance"] = False
@@ -15,5 +16,6 @@ def running_values(chart, platform):
     env["agent_models_maintenance"] = False
     env["agent_runway_maintenance"] = False
     env["rovr_maintenance"] = False
+    env.update(changes)
     jinja = Environment(loader=FileSystemLoader(ROOT / "charts" / chart), undefined=StrictUndefined)
     return jinja.get_template("values-template.yaml.j2").render(env)
