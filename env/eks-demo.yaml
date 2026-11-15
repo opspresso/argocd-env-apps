@@ -220,7 +220,7 @@ rovr:
 app_delivery:
   enabled: true
   # Pin workflows while the service and Nexus configuration are upgraded together.
-  revision: e2ec0cb5951736d7d0b5e3fcb9f8dee7e5b5ce7d
+  revision: 9dd249bbc133cf272bd6167edef483f288d0f416
   nexus:
     host: nexus.demo.opsp.dev
     image_repository: runway-images
