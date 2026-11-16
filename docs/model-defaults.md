@@ -20,12 +20,11 @@ Models에서 모델을 수집한 것만으로 실행할 수 없습니다. 먼저
 
 | 서비스·역할 | Models 선택 ID | 선정 이유 |
 | --- | --- | --- |
-| Studio 기본·일반, Helper·보고서 | `openrouter/deepseek-v4.1-flash` | 긴 문맥, 도구 호출과 일반 분석을 낮은 입력 비용으로 처리 |
-| Studio 빠른 응답, Memory Dreaming, Knowledge 지식 추출 | `openrouter/gpt-6-luna` | 반복 호출·분류·구조화 추출에 적합한 저비용 모델 |
-| Studio 코딩·이미지 이해, Forge 코딩 프로필 | `openrouter/deepseek-v4.1-flash` | 코드 수정과 다단계 작업, 이미지 이해 지원 |
+| Studio 기본·일반, Helper·보고서, Memory Dreaming | `openrouter/deepseek-v4.1-flash` | 설치에서 선택한 기본 모델. 긴 문맥·도구 호출·구조화 출력 지원 |
+| Studio 빠른 응답, Knowledge 지식 추출 | `openrouter/gpt-6-luna` | 반복 호출·분류·구조화 추출에 적합한 저비용 모델 |
+| Studio 코딩·이미지 이해 | `openrouter/deepseek-v4.1-flash` | 코드 수정과 다단계 작업, 이미지 이해 지원 |
 | Studio 복잡한 추론 | `openrouter/glm-5.3` | 복잡한 추론을 별도 tier에 배정; 단순 요청에는 사용하지 않음 |
 | Studio 코드 리뷰 | `openrouter/gpt-6.1-sol` | 검토 품질을 위한 고정 모델. 일반 호출의 기본값으로 사용하지 않음 |
-| Forge 리뷰 프로필 | `openrouter/deepseek-v4.1-flash` | 코드 분석·도구 호출 지원, 반복 검토 비용 절감 |
 | Knowledge 원문 검증·회의록 | `openrouter/deepseek-v4.1-flash` | 원문 근거 확인과 긴 전사 요약. 지식 추출 모델과 분리 |
 | Studio·Memory 결정 | `openrouter/jev-1.14` | 자유문 대신 구조화된 선택·관련성 판단 |
 | Studio·Memory·Knowledge embedding | `openrouter/text-embedding-3-small` | 이미 저렴하며 기존 벡터와 차원 계약 유지 |
@@ -36,6 +35,7 @@ Models에서 모델을 수집한 것만으로 실행할 수 없습니다. 먼저
 
 GPT-6 Sol·Astra와 Opus·Sonnet의 기존 중앙 선택 및 Forge 채널은 참조 중인 Agent·Workspace를
 끊지 않도록 유지합니다. 활성 목록에 남는 것과 기본 모델로 배정하는 것은 다릅니다.
+Forge의 채널은 실행할 수 있는 선택을 제공하며, 작업 공간 프로필의 모델은 소유자가 저장한 별도 선언을 따릅니다.
 
 ## 가격과 공개 범위
 
@@ -56,7 +56,7 @@ Jev는 입력 100만 토큰당 $0.042, MAI-Transcribe 2는 오디오 분당 $0.0
 이미지 생성은 별도 이미지 토큰 과금이므로 텍스트 출력 단가와 비교하지 않습니다.
 자체 호스팅의 등록 단가 0은 서버·GPU 운영비가 없다는 뜻이 아닙니다.
 
-Dreaming 기본값은 Memory `v0.73.3`의 동일한 합성 평가 4개를 배포 환경에서 Models를 통해
+아래 비교는 Memory `v0.73.3`의 동일한 합성 평가 4개를 배포 환경에서 Models를 통해
 각 1회 실행해 비교했습니다. 실제 기억은 읽거나 변경하지 않았습니다. 두 모델 모두 오래된 사실
 제거·선호 보존·관련 기억 병합·주제 분리 기준을 통과했고, Models가 각 12개 호출의 성공과 비용을 기록했습니다.
 
@@ -65,9 +65,9 @@ Dreaming 기본값은 Memory `v0.73.3`의 동일한 합성 평가 4개를 배포
 | Anthropic 직접 연결 Opus 5.5 | 4/4 | $0.156928 | 54.70초 |
 | OpenRouter GPT-6 Luna | 4/4 | $0.0032272 | 66.99초 |
 
-이 표본에서 비용은 97.94% 낮았고 시간은 22.5% 길었습니다. 반복 측정이나 전체 실제 기억에 대한
-품질 보증은 아닙니다. 기본값은 속도 향상이 아니라, 해당 평가의 품질 기준을 만족하면서 반복 처리 비용을
-낮추는 선택입니다. 평가 원본은 `agent-memory/tests/dream-quality.integration.test.ts`입니다.
+이 표본에서 Luna의 비용은 97.94% 낮았고 시간은 22.5% 길었습니다. 반복 측정이나 전체 실제 기억에 대한
+품질 보증은 아닙니다. 현재 Dreaming 기본값인 DeepSeek는 이 비교에 포함되지 않았습니다.
+평가 원본은 `agent-memory/tests/dream-quality.integration.test.ts`입니다.
 평가한 Memory 소스는 `415d244f126be7399140f78ef720e389d22be52d`입니다. 재현할 때는
 Memory 저장소에서 `MODELS_URL`과 Memory OIDC client를 안전하게 주입한 뒤 다음 명령을 실행합니다.
 두 모델을 같은 fixture·소스·환경에서 비교하고, Models의 service 호출 사용량과 비용을 함께 확인합니다.
@@ -110,6 +110,16 @@ Studio의 배포 기본값은 `MODEL_USAGE_DEFAULTS`를 지원하는 `v0.221.0` 
 `modelRouting`은 전체 정책 객체이며 tier별로 저장값과 병합하지 않습니다. 모든 ID는 Models의
 현재 승인 목록에서 검사합니다. 기본값을 선언해도 Models 등록이나 사용자 권한이 생기지 않습니다.
 
+설정 화면에 저장한 override는 GitOps보다 우선합니다. 운영에서 선택한 값을 기본값으로 옮길 때는
+ConfigMap과 DB의 비시크릿 override를 함께 확인합니다. Studio의 사용자별 동시 실행 제한은
+`agent_studio.max_concurrent_runs_per_actor: 0`이며, `0`은 이 제한을 끕니다. Models의 admission 한도와
+구성원 비용 한도는 별도로 적용됩니다.
+
+등급별 월 비용 한도는 `agent_studio.member_tier_defaults` → `MEMBER_TIER_DEFAULTS`, 기본 비표시 목록은
+`agent_studio.capability_visibility_defaults` → `CAPABILITY_VISIBILITY_DEFAULTS`로 전달합니다. 이 JSON에는
+정의만 넣으며 저장 revision·사용자별 등급 할당·자격 증명은 넣지 않습니다. 두 변수를 읽는 Studio 이미지를
+배포하기 전에는 기존 DB override를 유지합니다. 지원 이미지에서도 저장된 override가 먼저 적용됩니다.
+
 ## 적용 절차
 
 1. Models에서 표의 모델이 활성 상태이고 필요한 작업·기능·가격을 지원하는지 확인합니다.
@@ -122,11 +132,10 @@ Studio의 배포 기본값은 `MODEL_USAGE_DEFAULTS`를 지원하는 `v0.221.0` 
    항목의 override만 해제합니다. 다른 Embedding으로 바뀌는 경우 먼저 검색 모델 변경·재색인을 합니다.
 5. Memory·Knowledge의 해당 모델 override는 **환경 변수 값 사용**으로 해제합니다.
    override 해제는 저장 후 서비스 재시작이 필요하며 Knowledge는 worker도 함께 적용합니다.
-6. 기존 운영 Agent 중 Helper·보고서는 DeepSeek, Code Agent는 MiniMax, Audio Inbox는 Luna를
-   기본 모델로 저장합니다. 자동 라우팅 사용 여부와 자체 호스팅 전용 정책은 유지합니다.
-   Studio Code Review는 GPT-6.1 Sol 고정을 유지합니다.
-7. Forge의 코딩 프로필은 MiniMax, 리뷰 프로필은 DeepSeek로 새 revision을 저장합니다.
-   Knowledge `default` 오디오 프로필은 MAI-Transcribe 2와 DeepSeek로 저장합니다.
+6. 기존 Agent의 모델·자동 라우팅·자체 호스팅 전용 정책은 소유자가 저장한 선언을 백업·복원합니다.
+   배포 기본값을 바꾸는 작업으로 Agent별 선택을 덮어쓰지 않습니다.
+7. Forge 작업 공간 프로필과 Knowledge 오디오 프로필도 백업한 모델 선택을 보존합니다.
+   새 기본 모델을 적용할 대상은 소유자가 선택해 새 revision으로 저장합니다.
    이미 접수한 작업의 모델을 바꾸지 않으며, 기존 Workspace에 새 프로필을 쓰려면 서비스의
    명시적인 프로필 선택 절차를 따릅니다.
 8. 설정을 새로 조회하고 Models 사용량에서 서비스·모델·요청·종료 상태·비용을 확인합니다.

@@ -51,6 +51,18 @@ def test_studio_model_defaults_reach_the_process_without_provider_configuration(
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
 
 
+@pytest.mark.parametrize("key,name", [
+    ("member_tier_defaults", "MEMBER_TIER_DEFAULTS"),
+    ("capability_visibility_defaults", "CAPABILITY_VISIBILITY_DEFAULTS"),
+])
+def test_studio_policy_defaults_are_single_json_values(key, name):
+    env = yaml.safe_load((ROOT / "env" / "eks-demo.yaml").read_text())
+    config = resource("agent-studio", "eks", "ConfigMap", "agent-studio")["data"]
+    assert isinstance(config[name], str)
+    assert json.loads(config[name]) == env["agent_studio"][key]
+    assert "revision" not in config[name]
+
+
 @pytest.mark.parametrize("platform", ["eks"])
 def test_forge_model_roles_have_one_config_source(platform):
     env = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
