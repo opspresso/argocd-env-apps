@@ -51,6 +51,17 @@ delivery_pool:
 
 # Agent Studio
 agent_studio:
+  # 0 disables the per-actor run limit; model admission and member budgets still apply.
+  max_concurrent_runs_per_actor: 0
+  member_tier_defaults:
+    - {id: admin, monthlyCostCapUsd: null}
+    - {id: super, monthlyCostCapUsd: 50}
+    - {id: member, monthlyCostCapUsd: 5}
+    - {id: guest, monthlyCostCapUsd: 0}
+  capability_visibility_defaults:
+    plugins: []
+    skills: []
+    tools: [gmail, google-calendar, google-docs, google-drive, google-sheets, google-slides, slack]
   service:
     name: Agent Studio
     logo: agent-studio
@@ -138,7 +149,7 @@ agent_memory:
     embedding: openrouter/text-embedding-3-small
     reranker: openrouter/rerank-v3.5
     decision: openrouter/jev-1.14
-    dream: openrouter/gpt-6.1-sol
+    dream: openrouter/deepseek-v4.1-flash
 
 agent_knowledge:
   hostname: knowledge.agrt.dev

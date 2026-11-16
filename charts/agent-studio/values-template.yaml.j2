@@ -64,7 +64,13 @@ app:
 {%- endfor %}
       HELPER_EMBED_ORIGINS: '{{ helper_consoles | join(",") }}'
       MAX_RUN_DURATION_MS: '600000'
-      MAX_CONCURRENT_RUNS_PER_ACTOR: '60'
+      MAX_CONCURRENT_RUNS_PER_ACTOR: '{{agent_studio.max_concurrent_runs_per_actor | default(0)}}'
+{%- if agent_studio.member_tier_defaults is defined %}
+      MEMBER_TIER_DEFAULTS: {{agent_studio.member_tier_defaults | tojson | tojson}}
+{%- endif %}
+{%- if agent_studio.capability_visibility_defaults is defined %}
+      CAPABILITY_VISIBILITY_DEFAULTS: {{agent_studio.capability_visibility_defaults | tojson | tojson}}
+{%- endif %}
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-runway.svc.cluster.local' if (agent_runway is defined and agent_runway.connected | default(false)) else ''}}
       FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
