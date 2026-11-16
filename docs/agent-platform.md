@@ -119,15 +119,16 @@ Forge와 Runway는 이 연결로 사용자의 저장소를 씁니다. 두 서비
 agent_studio:
   git_hosts:
     - name: github              # 이름은 GIT_HOST_SECRETS의 key와 같습니다.
-      provider: github          # github 또는 gitlab
+      provider: github          # github, gitlab 또는 gitea
       origin: https://github.com
       client_id: <OAuth application의 client ID>
 ```
 
 1. Git 호스트마다 OAuth application을 등록합니다. redirect URI는 `https://<agent_studio.hostname>/api/git/callback`입니다.
    GitLab application은 scope `api`, `read_repository`, `write_repository`를 허용합니다.
+   Gitea application은 scope를 따로 정하지 않습니다. **비공개 클라이언트**를 끄면 client secret 없이 PKCE로 동작합니다.
 2. client secret을 `/k8s/<cluster>/agent-studio/git-host-secrets` SecureString에 JSON 객체 하나로 저장합니다.
-   key는 호스트 `name`, 값은 그 application의 client secret입니다. 이 parameter가 없으면 Studio Secret 동기화가 실패하므로
+   key는 호스트 `name`, 값은 그 application의 client secret입니다. key가 없는 GitLab·Gitea 호스트는 public client입니다. 이 parameter가 없으면 Studio Secret 동기화가 실패하므로
    `git_hosts`를 추가하기 전에 만듭니다.
 3. `git_hosts`를 추가해 배포한 다음 Studio Pod에서 `node build/upgrade-platform-auth.cjs --apply`를 실행합니다.
    기존 Forge·Runway client가 `platform:git` scope와 토큰 교환 grant를 받습니다.
