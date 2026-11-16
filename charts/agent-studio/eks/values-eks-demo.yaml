@@ -64,7 +64,7 @@ app:
       GITHUB_WEB_URL: https://github.com
       # Git hosts whose accounts users connect in Studio; Forge and Runway get each user's Git token from Studio
       # (agent-platform/docs/GIT_CONNECTIONS.md, Agent Studio v0.242.0 or later).
-      GIT_HOSTS: "[{\"clientId\": \"Ov23liWo0mJ9kFk43v9N\", \"name\": \"github\", \"origin\": \"https://github.com\", \"provider\": \"github\"}, {\"clientId\": \"2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4\", \"name\": \"gitlab\", \"origin\": \"https://gitlab.com\", \"provider\": \"gitlab\"}, {\"clientId\": \"agent-studio-git\", \"name\": \"gitlab-demo\", \"origin\": \"https://gitlab.demo.opsp.dev\", \"provider\": \"gitlab\"}]"
+      GIT_HOSTS: "[{\"clientId\": \"Ov23liWo0mJ9kFk43v9N\", \"name\": \"github\", \"origin\": \"https://github.com\", \"provider\": \"github\"}, {\"clientId\": \"2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4\", \"name\": \"gitlab\", \"origin\": \"https://gitlab.com\", \"provider\": \"gitlab\"}, {\"clientId\": \"agent-studio-git\", \"name\": \"gitlab-demo\", \"origin\": \"https://gitlab.demo.opsp.dev\", \"provider\": \"gitlab\"}, {\"clientId\": \"f7f13c8a-a268-46a2-830a-3b5d820bdbc0\", \"name\": \"gitea-demo\", \"origin\": \"https://gitea.demo.opsp.dev\", \"provider\": \"gitea\"}]"
   routing:
     hosts:
     - studio.agrt.dev

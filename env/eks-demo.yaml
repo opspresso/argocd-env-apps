@@ -115,6 +115,10 @@ agent_studio:
       provider: gitlab
       origin: https://gitlab.demo.opsp.dev
       client_id: agent-studio-git
+    - name: gitea-demo
+      provider: gitea
+      origin: https://gitea.demo.opsp.dev
+      client_id: f7f13c8a-a268-46a2-830a-3b5d820bdbc0
   # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
   model_usage:
     defaultModel: openrouter/deepseek-v4.1-flash
