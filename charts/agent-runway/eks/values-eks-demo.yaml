@@ -172,7 +172,7 @@ raw:
           namespace: app-delivery
         source:
           repoURL: https://github.com/opspresso/argocd-env-projects.git
-          targetRevision: "88e7ee006b3e42feec3e4a105e23bfa8abd6f56a"
+          targetRevision: "77a8a35d9ef333b291305864e670546b227d0e8e"
           path: charts/delivery
           helm:
             valuesObject:
