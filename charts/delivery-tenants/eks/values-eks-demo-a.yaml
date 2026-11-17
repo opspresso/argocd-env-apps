@@ -79,8 +79,8 @@ raw:
           - expression: >-
               has(variables.spec.workflowTemplateRef) &&
               variables.spec.workflowTemplateRef.all(k, k == 'name') &&
-              variables.spec.workflowTemplateRef.name in ['app-build-v2','app-deploy','app-remove','app-deploy-eb','app-remove-eb','resource-sync']
-            message: "Runway Workflows must reference one of the namespaced WorkflowTemplates app-build-v2, app-deploy, app-remove, app-deploy-eb, app-remove-eb, resource-sync by name."
+              variables.spec.workflowTemplateRef.name in ['app-build-v2','app-deploy','app-remove','app-deploy-eb','app-remove-eb','app-deploy-vmss','app-remove-vmss','resource-sync']
+            message: "Runway Workflows must reference one of the namespaced WorkflowTemplates app-build-v2, app-deploy, app-remove, app-deploy-eb, app-remove-eb, app-deploy-vmss, app-remove-vmss, resource-sync by name."
           - expression: "!has(variables.spec.arguments) || variables.spec.arguments.all(k, k == 'parameters')"
             message: Runway Workflow arguments may carry parameters only.
     - apiVersion: admissionregistration.k8s.io/v1

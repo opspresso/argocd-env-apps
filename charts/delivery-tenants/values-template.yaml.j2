@@ -1,11 +1,11 @@
 {#- What the Agent Runway ServiceAccount may submit to the Delivery namespace. argocd-env-projects
     charts/delivery grants it create on Workflows there; the policy below narrows them to the shape Runway
     sends (agent-runway src/infrastructure/workflow/argo.ts). The WorkflowTemplates are those of
-    argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the eks and eb target deploy
+    argocd-env-projects charts/delivery (RUNWAY_*_TEMPLATE defaults): build, the eks, eb and vmss target deploy
     and remove, and the namespace resource sync. #}
 {%- set submission_namespace = "app-delivery" %}
 {%- set submission_user = "system:serviceaccount:agent-runway:agent-runway" %}
-{%- set workflow_templates = ["app-build-v2", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "resource-sync"] -%}
+{%- set workflow_templates = ["app-build-v2", "app-deploy", "app-remove", "app-deploy-eb", "app-remove-eb", "app-deploy-vmss", "app-remove-vmss", "resource-sync"] -%}
 raw:
   resources:
     # The tenant secrets role reads any Project's path that its session tags name, so the cluster,
