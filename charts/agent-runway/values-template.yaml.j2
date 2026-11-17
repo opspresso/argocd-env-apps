@@ -62,6 +62,9 @@ app:
       RUNWAY_SANDBOX_NAMESPACE: agent-forge-workspaces
       RUNWAY_ENVIRONMENTS: '{{ agent_runway.delivery.environments | tojson }}'
       NODE_EXTRA_CA_CERTS: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      # Azure accounts: Entra exchanges this service-account token for Key Vault and ARM tokens (federated credential
+      # of agent-runway-target-secrets, terraform-env-azure dmz/8-runway-target).
+      RUNWAY_AZURE_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
 {% endif %}
   externalSecrets:
     enabled: true
@@ -122,6 +125,22 @@ app:
         matchLabels:
           app.kubernetes.io/name: agent-runway
       matchLabelKeys: [pod-template-hash]
+{% if agent_runway.delivery is defined %}
+  # The token of RUNWAY_AZURE_TOKEN_FILE: audience api://AzureADTokenExchange, which the Entra federated credentials
+  # require. The kubelet renews it before it expires.
+  extraVolumes:
+    - name: azure-identity-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: api://AzureADTokenExchange
+              expirationSeconds: 3600
+              path: azure-identity-token
+  extraVolumeMounts:
+    - name: azure-identity-token
+      mountPath: /var/run/secrets/azure/tokens
+      readOnly: true
+{% endif %}
   podLabels:
     sidecar.istio.io/inject: "true"
   podAnnotations:
