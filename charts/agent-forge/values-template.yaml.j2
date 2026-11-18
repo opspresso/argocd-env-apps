@@ -49,7 +49,6 @@ app:
       AUTH_BASE_URL: https://{{agent_forge.hostname}}
       # Forge has no screens of its own; its old pages and every link it emits point here (AgentOps phase 5).
       CONSOLE_BASE_URL: https://{{agentops.hostname}}
-      ALLOWED_ORIGINS: https://{{agent_forge.hostname}}
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
