@@ -42,8 +42,6 @@ app:
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
-      AUTH_ALLOWED_HOSTS: '{{agent_knowledge.allowed_hosts | default([agent_knowledge.hostname]) | join(",")}}'
-      TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
       S3_REGION: {{aws_region}}
       S3_BUCKET_NAME: agent-knowledge-static
       S3_FORCE_PATH_STYLE: 'false'

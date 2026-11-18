@@ -161,8 +161,6 @@ agent_memory:
 
 agent_knowledge:
   hostname: knowledge.agrt.dev
-  allowed_hosts:
-  - knowledge.agrt.dev
   models:
     embedding: openrouter/text-embedding-3-small
     reranker: openrouter/rerank-v3.5

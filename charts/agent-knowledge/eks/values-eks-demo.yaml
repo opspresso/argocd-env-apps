@@ -36,8 +36,6 @@ app:
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
-      AUTH_ALLOWED_HOSTS: 'knowledge.agrt.dev'
-      TRUSTED_PROXY_CIDRS: '10.10.0.0/16'
       S3_REGION: ap-northeast-2
       S3_BUCKET_NAME: agent-knowledge-static
       S3_FORCE_PATH_STYLE: 'false'
