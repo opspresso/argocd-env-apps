@@ -1,0 +1,126 @@
+app:
+  fullnameOverride: agentops
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agentops
+    tag: latest
+  # A BFF that streams service responses; it holds no data in memory beyond 60-second grants and viewers.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 160Mi
+    limits:
+      memory: 768Mi
+  service:
+    name: http
+    port: 3600
+    targetPort: 3600
+  controller:
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 0
+  # /api/ready checks the configuration, the database and Studio discovery; a service outage never makes it unready.
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /api/ready
+      port: 3600
+    initialDelaySeconds: 5
+    timeoutSeconds: 6
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3600
+    timeoutSeconds: 2
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: 3600
+    timeoutSeconds: 2
+    periodSeconds: 5
+    failureThreshold: 60
+  # preStop lets the ingress drop the endpoint before Node stops accepting connections.
+  terminationGracePeriodSeconds: 30
+  lifecycle:
+    preStop:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - sleep 10
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 2
+    metrics:
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: app
+        target:
+          type: Utilization
+          averageUtilization: 70
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 900
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+  serviceMonitor:
+    enabled: false
+  routing:
+    httpRoute:
+      parentRefs:
+      - name: istio-ingressgateway
+        namespace: istio-system
+  serviceAccount:
+    create: true
+  podAntiAffinity:
+    topologyKey: kubernetes.io/hostname
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  externalSecrets:
+    enabled: true
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: parameter-store
+  ecrPullSecret:
+    enabled: true
+    region: ap-northeast-2
+  automountServiceAccountToken: false
+  # Only the ingress gateway and the collectors reach AgentOps; no service calls it.
+  networkPolicy:
+    enabled: true
+    appPort:
+      sameNamespace: true
+      from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-system
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-alloy
+    ingress:
+    # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: addon-prometheus
+      ports:
+      - protocol: TCP
+        port: 15090

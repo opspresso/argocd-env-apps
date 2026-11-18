@@ -1,0 +1,94 @@
+app:
+  fullnameOverride: agentops
+  ecrPullSecret:
+    enabled: True
+    region: ap-northeast-2
+  networkPolicy:
+    enabled: True
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+
+  replicaCount: 1
+  autoscaling:
+    enabled: True
+  image:
+    repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agentops
+
+  configmap:
+    enabled: true
+    data:
+      STAGE: prod
+      # One session read per request and an occasional preference write, each a few milliseconds; service calls never
+      # hold a connection. Four per process keeps the shared PostgreSQL budget (tests/test_production_capacity.py).
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://agentops.agrt.dev
+      OIDC_ISSUER: https://studio.agrt.dev/api/auth
+      # Service addresses. AgentOps calls each service at its public host for now: Studio, Memory and Knowledge accept
+      # only their public host (AUTH_ALLOWED_HOSTS). A service moves to its in-cluster address in its own AgentOps phase,
+      # together with its allowed hosts and NetworkPolicy. A service left out here is not offered in the console.
+      STUDIO_API_URL: https://studio.agrt.dev
+      MEMORY_API_URL: https://memory.agrt.dev
+      KNOWLEDGE_API_URL: https://knowledge.agrt.dev
+      FORGE_API_URL: https://forge.agrt.dev
+      MODELS_API_URL: https://models.agrt.dev
+
+      RUNWAY_API_URL: https://runway.agrt.dev
+
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/eks-demo/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/eks-demo/agentops/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/eks-demo/agentops/aes-encryption-key
+      name: AES_ENCRYPTION_KEY
+    - key: /k8s/eks-demo/agentops/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/eks-demo/agentops/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+  routing:
+    hosts:
+    - agentops.agrt.dev
+    httpRoute:
+      enabled: true
+  # core_tier: the base replicas prefer the on-demand core nodes (terraform-env-demo 51-core-node-pool.tf), one per AZ.
+  # HPA growth and rollout surge spill over to Spot instead of waiting for core room.
+  tolerations:
+    - key: opspresso.com/tier
+      operator: Equal
+      value: core
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: opspresso.com/tier
+                operator: In
+                values: [core]
+  # Spread the replicas over AZs and nodes so one lost node leaves a replica serving.
+  # ScheduleAnyway: a replica still starts when one AZ has no capacity.
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agentops
+      matchLabelKeys: [pod-template-hash]
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agentops
+      matchLabelKeys: [pod-template-hash]
+  podLabels:
+    sidecar.istio.io/inject: "true"
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://agentops.agrt.dev

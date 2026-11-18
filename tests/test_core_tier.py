@@ -14,6 +14,7 @@ PREFERRED = {
     "agent-memory": ["agent-memory"],
     "agent-models": ["agent-models"],
     "agent-runway": ["agent-runway"],
+    "agentops": ["agentops"],
     "agent-forge": ["agent-forge"],
     "agent-knowledge": ["agent-knowledge", "agent-knowledge-worker"],
     "rovr": ["rovr"],

@@ -19,6 +19,7 @@
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
 | Runway | `runway.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Runway](#agent-runway) |
+| AgentOps | `agentops.agrt.dev` | 모든 서비스 화면의 통합 콘솔. 서비스 데이터를 저장하지 않고, 사용자의 콘솔 grant로 각 서비스 API를 부른다 |
 
 공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
 → 각 앱의 HTTPRoute 순서로 전달됩니다.
@@ -226,6 +227,8 @@ Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으
 | `agent-runway/pool-admin-password`, `pool-database-url` | Runway, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
 | `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
 | `agent-runway/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
+| `agentops/auth-secret`, `aes-encryption-key` | AgentOps | bootstrap |
+| `agentops/oidc-client-id`, `oidc-client-secret` | AgentOps | Studio에 콘솔 client로 등록 후([AgentOps 연결](#agentops-연결)) |
 
 Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 공개 MCP `installation_get`으로 확인합니다.
 요청 header와 확인 주기는 [Studio 서비스 연결 계약](https://github.com/opspresso/agent-studio/blob/main/docs/design/agent-services.md#연결-설정)을 따릅니다.
@@ -280,6 +283,41 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
 6. Argo CD `Synced/Healthy`, 정확한 image tag, DB readiness와 metrics를 확인합니다.
    로그인, Memory recall/remember, Knowledge 원본 upload→전사/회의록→검색, Forge 실행→로그→취소/복원을 확인합니다.
 7. 정상 동작을 확인한 뒤 앱 release의 자동 GitOps gate를 원래 설정으로 복원합니다.
+
+## AgentOps 연결
+
+AgentOps는 Studio의 콘솔 client로 로그인합니다. 콘솔 grant를 지원하는 Studio(v0.257.0 이상)를 먼저 배포합니다.
+`run_once`는 해당 namespace의 Secret을 읽는 일회성 Pod를 실행하고, 끝나면 Pod를 지웁니다.
+
+```bash
+run_once() { ns=$1; image=$2; shift 2
+  kubectl -n "$ns" run "$ns-once" --rm -i --quiet --restart=Never --image="$image" --overrides="$(jq -nc \
+    --arg i "$image" --arg s "$ns-external" '{spec:{imagePullSecrets:[{name:"ecr-registry"}],
+    containers:[{name:"run",image:$i,command:$ARGS.positional,envFrom:[{secretRef:{name:$s}}]}]}}' --args -- "$@")"; }
+```
+
+1. **Studio 인증 구조 갱신**: 콘솔 resource를 추가합니다. 여러 번 실행해도 결과가 같습니다.
+   ```bash
+   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply
+   ```
+2. **콘솔 client 등록**: 설치마다 하나만 있습니다. 이미 있으면 `existing`을 출력하고 secret을 다시 발급하지 않습니다.
+   출력의 client ID와 secret을 SSM `agentops/oidc-client-id`·`oidc-client-secret`에 저장합니다. 값을 화면이나 로그에 남기지 않습니다.
+   stdout은 JSON 한 줄(`{"clientId":…,"clientSecret":…}`)입니다. 아래 명령은 값을 출력하지 않고 저장합니다.
+   ```bash
+   out=$(run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/register-platform-client.cjs \
+     --service agentops --base-url https://agentops.agrt.dev)
+   for k in id secret; do key=$([ $k = id ] && echo clientId || echo clientSecret)
+     aws ssm put-parameter --name "/k8s/eks-demo/agentops/oidc-client-$k" --type SecureString \
+       --value "$(jq -r ".$key" <<<"$out")" --no-overwrite >/dev/null; done; unset out
+   ```
+   종료 코드 3(이미 등록)은 secret을 출력하지 않습니다. secret을 잃었으면 `--rotate`로 다시 발급하고 `--overwrite`로 저장합니다.
+3. **Secret 준비**: `bootstrap_agent_platform.py --cluster eks-demo --apply`로 `agentops/auth-secret`·`aes-encryption-key`를 만듭니다.
+4. **배포**: AgentOps release image를 게시하고 `agentops-eks-demo`가 `Synced/Healthy`인지 확인합니다.
+5. **확인**: `https://agentops.agrt.dev/api/health`가 200이고, 로그인 후 홈이 열리며, 로그아웃하면 `/signed-out`으로 돌아옵니다.
+
+AgentOps는 지금 각 서비스를 공개 host로 부릅니다. Studio·Memory·Knowledge가 공개 host만 허용(`AUTH_ALLOWED_HOSTS`)하기
+때문입니다. 서비스가 AgentOps 전환 단계에 들어가면 그 서비스의 허용 host와 NetworkPolicy에 내부 주소와 `agentops` namespace를
+더하고, AgentOps의 `<SERVICE>_API_URL`을 내부 주소로 바꿉니다.
 
 ## Studio worker 폐기와 독립 서비스 전환
 
