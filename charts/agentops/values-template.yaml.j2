@@ -29,20 +29,16 @@ app:
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://{{agentops.hostname}}
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
-      # In-cluster service addresses. A service left out here is not offered in the console.
-      STUDIO_API_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
-      STUDIO_PUBLIC_URL: https://{{agent_studio.hostname}}
-      MEMORY_API_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
-      MEMORY_PUBLIC_URL: https://{{agent_memory.hostname}}
-      KNOWLEDGE_API_URL: http://agent-knowledge.agent-knowledge.svc.cluster.local:3000
-      KNOWLEDGE_PUBLIC_URL: https://{{agent_knowledge.hostname}}
-      FORGE_API_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
-      FORGE_PUBLIC_URL: https://{{agent_forge.hostname}}
-      MODELS_API_URL: http://agent-models.agent-models.svc.cluster.local:3400
-      MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
+      # Service addresses. AgentOps calls each service at its public host for now: Studio, Memory and Knowledge accept
+      # only their public host (AUTH_ALLOWED_HOSTS). A service moves to its in-cluster address in its own AgentOps phase,
+      # together with its allowed hosts and NetworkPolicy. A service left out here is not offered in the console.
+      STUDIO_API_URL: https://{{agent_studio.hostname}}
+      MEMORY_API_URL: https://{{agent_memory.hostname}}
+      KNOWLEDGE_API_URL: https://{{agent_knowledge.hostname}}
+      FORGE_API_URL: https://{{agent_forge.hostname}}
+      MODELS_API_URL: https://{{agent_models.hostname}}
 {% if agent_runway is defined and agent_runway.connected | default(false) %}
-      RUNWAY_API_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
-      RUNWAY_PUBLIC_URL: https://{{agent_runway.hostname}}
+      RUNWAY_API_URL: https://{{agent_runway.hostname}}
 {% endif %}
   externalSecrets:
     enabled: true

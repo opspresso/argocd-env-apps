@@ -235,7 +235,6 @@ app:
             kubernetes.io/metadata.name: addon-alloy
       namespaces:
       - agent-studio
-      - agentops
     ingress:
     # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
     - from:

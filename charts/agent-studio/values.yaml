@@ -222,7 +222,6 @@ app:
       - agent-studio
       - agent-forge
       - agent-knowledge
-      - agentops
     ingress:
     # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
     - from:
