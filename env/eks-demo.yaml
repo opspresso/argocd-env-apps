@@ -88,6 +88,9 @@ agent_studio:
     # title-<job title> and role-<role>. Other groups except LLDAP's own
     # lldap_* are teams. One company, department and title per person.
     profile_claims:
+      # The directory login Forge assigns developer desktops by (agent-platform docs/DEV_DESKTOP.md). LLDAP stands in for the
+      # customer AD, so a user's LLDAP mail is the Entra userPrincipalName of the desktops' tenant.
+      account: /email
       company: {claim: /groups, match: '^org-(.+)$'}
       department: {claim: /groups, match: '^dept-(.+)$'}
       jobTitle: {claim: /groups, match: '^title-(.+)$'}
