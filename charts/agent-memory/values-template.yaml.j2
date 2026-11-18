@@ -24,7 +24,6 @@ app:
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
-      TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
       # Providers and credentials belong to Agent Models. agent_memory.models names the selection
       # for each role; a Settings override takes precedence after a restart.
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400

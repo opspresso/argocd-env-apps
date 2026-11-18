@@ -65,12 +65,14 @@ def test_authentication_hosts_match_public_routes(chart, platform):
     route = resource(chart, platform, "HTTPRoute", chart)["spec"]
     hostname = chart.removeprefix("agent-") + ".agrt.dev"
     assert route["hostnames"] == [hostname]
+    assert config["AUTH_BASE_URL"] == f"https://{hostname}"
     if chart == "agent-forge":
-        assert config["AUTH_BASE_URL"] == f"https://{hostname}"
         assert config["ALLOWED_ORIGINS"] == f"https://{hostname}"
+    elif chart == "agent-knowledge":
+        # Knowledge has no browser sign-in since v0.57.0, so it reads no host list or proxy ranges.
+        assert "AUTH_ALLOWED_HOSTS" not in config and "TRUSTED_PROXY_CIDRS" not in config
     else:
         assert config["AUTH_ALLOWED_HOSTS"] == hostname
-        assert config["AUTH_BASE_URL"] == f"https://{hostname}"
 
 
 @pytest.mark.parametrize("platform", ["eks"])
