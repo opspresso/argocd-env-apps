@@ -169,6 +169,8 @@ agent_knowledge:
 
 agent_forge:
   hostname: forge.agrt.dev
+  # Developer desktops on Azure Virtual Desktop; the console shows them only with Forge's Azure identity.
+  desktops: true
   # Runtime channels contain only Models selection IDs. Saved profiles choose their own model.
   model_roles:
   - {id: openrouter/minimax-m3.1-flash, runtime: opencode, model: openrouter/minimax-m3.1-flash, protocol: chat/completions, maxOutputTokens: 8192, maxRequestsPerRun: 100}

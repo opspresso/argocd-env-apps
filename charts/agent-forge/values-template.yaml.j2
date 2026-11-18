@@ -64,6 +64,12 @@ app:
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
       # Required: every env declares agent_forge.model_roles ([] when it has no role).
       FORGE_MODEL_CHANNELS: {{agent_forge.model_roles | list | tojson | tojson}}
+{%- if agent_forge.desktops | default(false) %}
+      # Developer desktops (agent-platform docs/DEV_DESKTOP.md): each desktop pool's Entra app trusts this token
+      # through a federated credential for system:serviceaccount:agent-forge:agent-forge (terraform-env-azure
+      # dmz/8-forge-desktop). Pools and their Azure resources are set in the Forge console.
+      FORGE_AZURE_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
+{%- endif %}
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
       RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
@@ -247,6 +253,22 @@ app:
         matchLabels:
           app.kubernetes.io/name: agent-forge
       matchLabelKeys: [pod-template-hash]
+{% if agent_forge.desktops | default(false) %}
+  # The token of FORGE_AZURE_TOKEN_FILE: audience api://AzureADTokenExchange, which the Entra federated credentials
+  # require. The kubelet renews it before it expires.
+  extraVolumes:
+    - name: azure-identity-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: api://AzureADTokenExchange
+              expirationSeconds: 3600
+              path: azure-identity-token
+  extraVolumeMounts:
+    - name: azure-identity-token
+      mountPath: /var/run/secrets/azure/tokens
+      readOnly: true
+{% endif %}
   podLabels:
     sidecar.istio.io/inject: "true"
   podAnnotations:
