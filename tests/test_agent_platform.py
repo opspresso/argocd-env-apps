@@ -67,7 +67,8 @@ def test_authentication_hosts_match_public_routes(chart, platform):
     assert route["hostnames"] == [hostname]
     assert config["AUTH_BASE_URL"] == f"https://{hostname}"
     if chart == "agent-forge":
-        assert config["ALLOWED_ORIGINS"] == f"https://{hostname}"
+        # Forge has no browser sign-in since v0.55.0 and refuses every request with an Origin header.
+        assert "ALLOWED_ORIGINS" not in config
     elif chart == "agent-knowledge":
         # Knowledge has no browser sign-in since v0.57.0, so it reads no host list or proxy ranges.
         assert "AUTH_ALLOWED_HOSTS" not in config and "TRUSTED_PROXY_CIDRS" not in config

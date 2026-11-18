@@ -14,9 +14,9 @@ app:
             matchLabels:
               kubernetes.io/metadata.name: addon-prometheus
 
-  replicaCount: 0
+  replicaCount: 1
   autoscaling:
-    enabled: False
+    enabled: True
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-forge
   imagePullSecrets:
@@ -30,7 +30,6 @@ app:
       AUTH_BASE_URL: https://forge.agrt.dev
       # Forge has no screens of its own; its old pages and every link it emits point here (AgentOps phase 5).
       CONSOLE_BASE_URL: https://agentops.agrt.dev
-      ALLOWED_ORIGINS: https://forge.agrt.dev
       FORGE_WORKER_ENABLED: 'true'
       FORGE_SANDBOX_PROVIDER: kubernetes
       FORGE_KUBE_IMAGE_PULL_SECRET: ecr-registry
