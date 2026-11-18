@@ -31,6 +31,8 @@ app:
       DATABASE_QUEUE_POOL_SIZE: '2'
       DATABASE_ADMISSION_POOL_SIZE: '9'
       AUTH_BASE_URL: https://knowledge.agrt.dev
+      # The service has no screens of its own; its old pages and every link it emits point here (AgentOps phase 4).
+      CONSOLE_BASE_URL: https://agentops.agrt.dev
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
