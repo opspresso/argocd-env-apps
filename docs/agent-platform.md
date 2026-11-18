@@ -234,6 +234,10 @@ Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비�
 요청 header와 확인 주기는 [Studio 서비스 연결 계약](https://github.com/opspresso/agent-studio/blob/main/docs/design/agent-services.md#연결-설정)을 따릅니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
+ClusterSecretStore `parameter-store`는 허용한 namespace(`argocd-env-addons`의 `charts/external-secrets` `namespaceRegexes`)만 씁니다.
+새 서비스 namespace는 chart를 배포하기 전에 이 목록에 추가합니다. 없으면 ExternalSecret이 `denied by spec.condition`으로 실패하고
+Pod가 `secret "<name>-external" not found`로 시작하지 못합니다. 목록을 고친 뒤에도 실패한 ExternalSecret은 재시도 간격 동안 다시 읽지
+않으므로 `kubectl annotate externalsecret <name>-external force-sync=$(date +%s) --overwrite`로 다시 읽게 합니다.
 
 ## 실행과 네트워크
 
@@ -312,6 +316,7 @@ run_once() { ns=$1; image=$2; shift 2
    ```
    종료 코드 3(이미 등록)은 secret을 출력하지 않습니다. secret을 잃었으면 `--rotate`로 다시 발급하고 `--overwrite`로 저장합니다.
 3. **Secret 준비**: `bootstrap_agent_platform.py --cluster eks-demo --apply`로 `agentops/auth-secret`·`aes-encryption-key`를 만듭니다.
+   `agentops` namespace가 `parameter-store` 허용 목록에 있는지 확인합니다([인증과 Secret 준비](#인증과-secret-준비)).
 4. **배포**: AgentOps release image를 게시하고 `agentops-eks-demo`가 `Synced/Healthy`인지 확인합니다.
 5. **확인**: `https://agentops.agrt.dev/api/health`가 200이고, 로그인 후 홈이 열리며, 로그아웃하면 `/signed-out`으로 돌아옵니다.
 
