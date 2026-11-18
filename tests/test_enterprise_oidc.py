@@ -85,7 +85,7 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
     # A service whose screens moved to AgentOps redirects its old pages to the console (agent-platform docs/AGENTOPS.md).
     if "CONSOLE_BASE_URL" in config:
         assert config["CONSOLE_BASE_URL"] == "https://agentops.agrt.dev"
-    if service in {"models", "memory", "knowledge"}:
+    if service in {"models", "memory", "knowledge", "forge"}:
         assert "CONSOLE_BASE_URL" in config
     if service != "models":
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
