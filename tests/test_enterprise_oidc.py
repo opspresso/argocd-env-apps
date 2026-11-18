@@ -81,7 +81,12 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
     names = set(config) | set(refs)
     assert not names & legacy
     assert not any(name.endswith(("_API_KEY", "_DELEGATION_SECRET", "_DELEGATION_ISSUER", "_ISSUER_POLICIES"))
-                   or (name.endswith("_BASE_URL") and name != "AUTH_BASE_URL") for name in names)
+                   or (name.endswith("_BASE_URL") and name not in {"AUTH_BASE_URL", "CONSOLE_BASE_URL"}) for name in names)
+    # A service whose screens moved to AgentOps redirects its old pages to the console (agent-platform docs/AGENTOPS.md).
+    if "CONSOLE_BASE_URL" in config:
+        assert config["CONSOLE_BASE_URL"] == "https://agentops.agrt.dev"
+    if service == "models":
+        assert "CONSOLE_BASE_URL" in config
     if service != "models":
         assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
     # Knowledge and Forge enforce their own policy; they never call back into Studio.
