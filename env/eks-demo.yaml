@@ -37,6 +37,7 @@ agent_memory_maintenance: false
 agent_knowledge_maintenance: false
 agent_forge_maintenance: false
 agent_models_maintenance: false
+agentops_maintenance: false
 agent_runway_maintenance: false
 rovr_maintenance: false
 
@@ -188,6 +189,10 @@ agent_forge:
 
 agent_models:
   hostname: models.agrt.dev
+
+# The unified console. Every service screen moves here; the services keep their API.
+agentops:
+  hostname: agentops.agrt.dev
 
 agent_runway:
   hostname: runway.agrt.dev

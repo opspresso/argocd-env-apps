@@ -1,0 +1,104 @@
+{% set maintenance = agentops_maintenance | default(false) -%}
+app:
+  fullnameOverride: agentops
+  ecrPullSecret:
+    enabled: {{agentops is defined}}
+    region: {{aws_region}}
+  networkPolicy:
+    enabled: {{agentops is defined}}
+    appPort:
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+{% if agentops is defined %}
+  replicaCount: {{0 if maintenance else replicas}}
+  autoscaling:
+    enabled: {{false if maintenance else autoscaling}}
+  image:
+    repository: {{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/agentops
+{% if not resources %}
+  resources: null
+{% endif %}
+  configmap:
+    enabled: true
+    data:
+      STAGE: prod
+      # One session read per request and an occasional preference write, each a few milliseconds; service calls never
+      # hold a connection. Four per process keeps the shared PostgreSQL budget (tests/test_production_capacity.py).
+      DATABASE_POOL_SIZE: '4'
+      AUTH_BASE_URL: https://{{agentops.hostname}}
+      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      # In-cluster service addresses. A service left out here is not offered in the console.
+      STUDIO_API_URL: http://agent-studio.agent-studio.svc.cluster.local:3000
+      STUDIO_PUBLIC_URL: https://{{agent_studio.hostname}}
+      MEMORY_API_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
+      MEMORY_PUBLIC_URL: https://{{agent_memory.hostname}}
+      KNOWLEDGE_API_URL: http://agent-knowledge.agent-knowledge.svc.cluster.local:3000
+      KNOWLEDGE_PUBLIC_URL: https://{{agent_knowledge.hostname}}
+      FORGE_API_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
+      FORGE_PUBLIC_URL: https://{{agent_forge.hostname}}
+      MODELS_API_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
+{% if agent_runway is defined and agent_runway.connected | default(false) %}
+      RUNWAY_API_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
+      RUNWAY_PUBLIC_URL: https://{{agent_runway.hostname}}
+{% endif %}
+  externalSecrets:
+    enabled: true
+    data:
+    - key: /k8s/{{cluster}}/agent-platform/database-url
+      name: DATABASE_URL
+    - key: /k8s/{{cluster}}/agentops/auth-secret
+      name: AUTH_SECRET
+    - key: /k8s/{{cluster}}/agentops/aes-encryption-key
+      name: AES_ENCRYPTION_KEY
+    - key: /k8s/{{cluster}}/agentops/oidc-client-id
+      name: OIDC_CLIENT_ID
+    - key: /k8s/{{cluster}}/agentops/oidc-client-secret
+      name: OIDC_CLIENT_SECRET
+  routing:
+    hosts:
+    - {{agentops.hostname}}
+    httpRoute:
+      enabled: true
+  # core_tier: the base replicas prefer the on-demand core nodes (terraform-env-demo 51-core-node-pool.tf), one per AZ.
+  # HPA growth and rollout surge spill over to Spot instead of waiting for core room.
+{%- if core_tier | default(false) %}
+  tolerations:
+    - key: opspresso.com/tier
+      operator: Equal
+      value: core
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: opspresso.com/tier
+                operator: In
+                values: [core]
+{%- endif %}
+  # Spread the replicas over AZs and nodes so one lost node leaves a replica serving.
+  # ScheduleAnyway: a replica still starts when one AZ has no capacity.
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agentops
+      matchLabelKeys: [pod-template-hash]
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: agentops
+      matchLabelKeys: [pod-template-hash]
+  podLabels:
+    sidecar.istio.io/inject: "true"
+  podAnnotations:
+    link.argocd.argoproj.io/external-link: https://{{agentops.hostname}}
+{% endif %}

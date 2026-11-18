@@ -9,7 +9,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENT_CHARTS = ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "agent-models", "agent-runway")
+AGENT_CHARTS = ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "agent-models", "agent-runway", "agentops")
 OPERATIONS_RESERVE = 20
 
 
@@ -55,6 +55,8 @@ def database_connections(platform):
         "agent-forge": 12,  # main.ts: refresh leases and readiness use the same query pool
         "agent-models": pool("agent-models") + 4 + 1 + 1,  # OIDC locks, readiness, lease renewal
     }
+    if "agentops" in charts:
+        per_process["agentops"] = pool("agentops")  # readiness uses the same pool
     if "agent-runway" in charts:
         per_process["agent-runway"] = pool("agent-runway") + 4 + 1  # OIDC locks and readiness
     connections = {chart: maximum_replicas(chart) * per_process[chart] for chart in charts}

@@ -67,10 +67,11 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         secret(f"{service}/metrics-bearer-token")
     for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
                  "agent-knowledge/auth-secret", "agent-forge/checkpoint-secret",
-                 "agent-forge/model-secret", "agent-forge/auth-secret", "agent-models/auth-secret"):
+                 "agent-forge/model-secret", "agent-forge/auth-secret", "agent-models/auth-secret",
+                 "agentops/auth-secret"):
         secret(path)
-    # Studio and Models require canonical base64 of exactly 32 bytes.
-    for path in ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key"):
+    # Studio, Models and AgentOps require canonical base64 of exactly 32 bytes.
+    for path in ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key", "agentops/aes-encryption-key"):
         secret(path, lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
     # Forge owns issuer-qualified principals; its organization is a configured namespace.
     # Memory/Knowledge organization IDs must instead come from their initialized installations.

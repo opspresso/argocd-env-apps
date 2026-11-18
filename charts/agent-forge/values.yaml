@@ -138,7 +138,7 @@ app:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: addon-alloy
-      namespaces: [agent-studio]
+      namespaces: [agent-studio, agentops]
     ingress:
       # Sandbox Pods reach only the model proxy port (service.extraPorts[sandbox]); 3103 answers /model/ with 404.
       - from:
