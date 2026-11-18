@@ -25,6 +25,8 @@ app:
     data:
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://runway.agrt.dev
+      # Runway has no screens of its own; its old pages and every link it emits point here (AgentOps phase 3).
+      CONSOLE_BASE_URL: https://agentops.agrt.dev
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
       AWS_REGION: ap-northeast-2

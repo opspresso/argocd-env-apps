@@ -12,6 +12,8 @@ def test_runway_chart_uses_its_own_runtime_identity():
     assert config["RUNWAY_KMS_KEY_ID"] == "alias/agent-runway"
     assert config["RUNWAY_BUCKET"] == "agent-runway-objects"
     assert not any(key.startswith("DELIVERY_") for key in config)
+    # Runway's old pages and every link it emits point at the AgentOps console (agent-platform docs/AGENTOPS.md).
+    assert config["CONSOLE_BASE_URL"] == "https://agentops.agrt.dev"
 
     secret = resource("agent-runway", "eks", "ExternalSecret", "agent-runway-external")
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
