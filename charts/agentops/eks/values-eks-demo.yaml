@@ -26,10 +26,13 @@ app:
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://agentops.agrt.dev
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
-      # Service addresses. AgentOps calls each service at its public host for now: Studio, Memory and Knowledge accept
-      # only their public host (AUTH_ALLOWED_HOSTS). A service moves to its in-cluster address in its own AgentOps phase,
-      # together with its allowed hosts and NetworkPolicy. A service left out here is not offered in the console.
+      # Service addresses. AgentOps calls each service at its public host for now. A service may move to its in-cluster
+      # address later, together with its allowed hosts and NetworkPolicy. A service left out here is not offered in the
+      # console.
       STUDIO_API_URL: https://studio.agrt.dev
+      # The Studio address people see: the Agent API base, webhook addresses and the MCP address in the connection guide.
+      # It stays the public host when STUDIO_API_URL moves in-cluster.
+      STUDIO_PUBLIC_URL: https://studio.agrt.dev
       MEMORY_API_URL: https://memory.agrt.dev
       KNOWLEDGE_API_URL: https://knowledge.agrt.dev
       FORGE_API_URL: https://forge.agrt.dev
