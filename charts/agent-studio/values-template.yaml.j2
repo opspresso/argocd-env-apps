@@ -57,12 +57,8 @@ app:
 {%- if agent_studio.model_usage is defined %}
       MODEL_USAGE_DEFAULTS: {{agent_studio.model_usage | tojson | tojson}}
 {%- endif %}
-      # Service consoles that may frame Studio's Helper panel and that open_console may open (agent-platform/docs/HELPER_EMBED.md).
-{%- set helper_consoles = [] %}
-{%- for name, service in [("agent-memory", agent_memory), ("agent-knowledge", agent_knowledge), ("agent-forge", agent_forge), ("agent-runway", agent_runway)] if service is defined and service.hostname is defined %}
-{%- set _ = helper_consoles.append(name ~ "=https://" ~ service.hostname) %}
-{%- endfor %}
-      HELPER_EMBED_ORIGINS: '{{ helper_consoles | join(",") }}'
+      # The AgentOps console that serves Studio's screens; production Studio refuses to boot without it.
+      CONSOLE_BASE_URL: https://{{agentops.hostname}}
       MAX_RUN_DURATION_MS: '600000'
       MAX_CONCURRENT_RUNS_PER_ACTOR: '{{agent_studio.max_concurrent_runs_per_actor | default(0)}}'
 {%- if agent_studio.member_tier_defaults is defined %}
