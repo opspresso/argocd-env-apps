@@ -17,7 +17,7 @@ app:
 {% if agent_forge is defined %}
 {#- Sandboxes: one Job per workspace in their own namespace. The model proxy port equals service.extraPorts[sandbox]. #}
 {%- set sandbox_namespace = 'agent-forge-workspaces' %}
-{%- set sandbox_port = 3104 %}
+{%- set sandbox_port = 3001 %}
 {%- set max_pods = workspace_max_pods | default(2) %}
 {%- set memory_mb = workspace_memory_mb | default(1024) %}
 {%- set disk_mb = workspace_disk_mb | default(2048) %}
@@ -45,7 +45,7 @@ app:
     enabled: true
     data:
       HOSTNAME: 0.0.0.0
-      PORT: '3103'
+      PORT: '3000'
       AUTH_BASE_URL: https://{{agent_forge.hostname}}
       # Forge has no screens of its own; its old pages and every link it emits point here (AgentOps phase 5).
       CONSOLE_BASE_URL: https://{{agentops.hostname}}
@@ -62,7 +62,7 @@ app:
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
       OIDC_PROVIDER_ID: studio
-      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       # Required: every env declares agent_forge.model_roles ([] when it has no role).
       FORGE_MODEL_CHANNELS: {{agent_forge.model_roles | list | tojson | tojson}}
 {%- if agent_forge.desktops | default(false) %}
@@ -73,7 +73,7 @@ app:
 {%- endif %}
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
-      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3000
 {%- endif %}
       FORGE_SANDBOX_PORT: '{{sandbox_port}}'
       FORGE_SANDBOX_API_URL: http://agent-forge.agent-forge.svc.cluster.local:{{sandbox_port}}

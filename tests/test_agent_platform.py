@@ -155,10 +155,10 @@ def test_studio_has_no_execution_or_cluster_authority(platform):
     assert pod["automountServiceAccountToken"] is False
     assert len(pod["containers"]) == 1 and not pod.get("volumes")
     assert not any(name.startswith(("WORKSPACE_", "AUDIO_")) and name.endswith("_CONCURRENCY") for name in config)
-    assert config["FORGE_URL"] == "http://agent-forge.agent-forge.svc.cluster.local:3103"
+    assert config["FORGE_URL"] == "http://agent-forge.agent-forge.svc.cluster.local:3000"
     assert config["MEMORY_URL"] == "http://agent-memory.agent-memory.svc.cluster.local:3000"
     assert config["KNOWLEDGE_URL"] == "http://agent-knowledge.agent-knowledge.svc.cluster.local:3000"
-    assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
+    assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3000"
     assert config["MODELS_PUBLIC_URL"] == "https://models.agrt.dev"
     assert not any(name.startswith("LLM_PROVIDER_") or "_DELEGATION_" in name for name in config)
     refs = {entry["secretKey"]: entry["remoteRef"]["key"]
@@ -235,7 +235,7 @@ def test_knowledge_pool_preserves_provider_slots_and_cleanup_capacity(platform):
 
 
 @pytest.mark.parametrize("platform", ["eks"])
-@pytest.mark.parametrize("chart,port", [("agent-studio", 3000), ("agent-memory", 3000), ("agent-knowledge", 3000), ("agent-forge", 3103)])
+@pytest.mark.parametrize("chart,port", [("agent-studio", 3000), ("agent-memory", 3000), ("agent-knowledge", 3000), ("agent-forge", 3000), ("agent-models", 3000), ("agent-runway", 3000), ("agentops", 3000)])
 def test_agent_service_route_and_pod_share_the_same_port(chart, port, platform):
     service = resource(chart, platform, "Service", chart)["spec"]
     deployment = resource(chart, platform, "Deployment", chart)["spec"]["template"]["spec"]

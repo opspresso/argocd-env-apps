@@ -12,17 +12,17 @@ app:
       memory: 1Gi
   service:
     name: http
-    port: 3103
-    targetPort: 3103
-    # Sandboxes call the model proxy only on this port; 3103 answers /model/ with 404.
+    port: 3000
+    targetPort: 3000
+    # Sandboxes call the model proxy only on this port; 3000 answers /model/ with 404.
     extraPorts:
     - name: sandbox
-      port: 3104
+      port: 3001
       targetPort: sandbox
       protocol: TCP
   extraPorts:
   - name: sandbox
-    containerPort: 3104
+    containerPort: 3001
     protocol: TCP
   controller:
     strategy:
@@ -33,21 +33,21 @@ app:
     failureThreshold: 3
     httpGet:
       path: /ready
-      port: 3103
+      port: 3000
     initialDelaySeconds: 5
     timeoutSeconds: 6
     periodSeconds: 10
   livenessProbe:
     httpGet:
       path: /health
-      port: 3103
+      port: 3000
     timeoutSeconds: 2
     initialDelaySeconds: 10
     periodSeconds: 10
   startupProbe:
     httpGet:
       path: /health
-      port: 3103
+      port: 3000
     timeoutSeconds: 2
     periodSeconds: 5
     failureThreshold: 60
@@ -140,7 +140,7 @@ app:
             kubernetes.io/metadata.name: addon-alloy
       namespaces: [agent-studio]
     ingress:
-      # Sandbox Pods reach only the model proxy port (service.extraPorts[sandbox]); 3103 answers /model/ with 404.
+      # Sandbox Pods reach only the model proxy port (service.extraPorts[sandbox]); 3000 answers /model/ with 404.
       - from:
           - namespaceSelector:
               matchLabels:
@@ -150,7 +150,7 @@ app:
                 app.kubernetes.io/name: agent-forge-sandbox
         ports:
           - protocol: TCP
-            port: 3104
+            port: 3001
       # Prometheus scrapes the Istio sidecar's Envoy stats on 15090 (PodMonitor istio-system/istio-sidecars).
       - from:
           - namespaceSelector:

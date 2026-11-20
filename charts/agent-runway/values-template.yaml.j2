@@ -26,6 +26,7 @@ app:
   configmap:
     enabled: true
     data:
+      PORT: '3000'
       DATABASE_POOL_SIZE: '4'
       AUTH_BASE_URL: https://{{agent_runway.hostname}}
       # Runway has no screens of its own; its old pages and every link it emits point here (AgentOps phase 3).

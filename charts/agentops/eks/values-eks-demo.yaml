@@ -20,6 +20,7 @@ app:
   configmap:
     enabled: true
     data:
+      PORT: '3000'
       STAGE: prod
       # One session read per request and an occasional preference write, each a few milliseconds; service calls never
       # hold a connection. Four per process keeps the shared PostgreSQL budget (tests/test_production_capacity.py).

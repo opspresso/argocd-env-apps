@@ -48,7 +48,7 @@ def test_studio_model_defaults_reach_the_process_without_provider_configuration(
         assert "MODEL_USAGE_DEFAULTS" not in config
     else:
         assert json.loads(config["MODEL_USAGE_DEFAULTS"]) == expected
-        assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
+        assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3000"
 
 
 @pytest.mark.parametrize("key,name", [
