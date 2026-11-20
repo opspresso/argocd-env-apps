@@ -40,6 +40,10 @@ app:
       RUNWAY_SANDBOX_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-sandbox-objects
       RUNWAY_TENANT_OBJECTS_ROLE_ARN: arn:aws:iam::396608815058:role/agent-runway-tenant-objects
       RUNWAY_EKS_CLUSTER: eks-demo
+      # Size tiers every environment shares (agent-runway docs/OPERATIONS.md, "크기"): Pod cpu and memory on eks, the
+      # instance type per cloud and architecture on machine targets, and the replica range. App Pods of 2xlarge and up
+      # need the larger app NodePools of terraform-env-demo demo/6-eks-node.
+      RUNWAY_SIZES: '{"small":{"cpu":"100m","memory":"256Mi","replicas":1,"maxReplicas":1,"instanceTypes":{"aws":{"arm64":"t4g.small","amd64":"t3.small"},"azure":{"arm64":"Standard_D2ps_v7","amd64":"Standard_D2s_v6"}}},"medium":{"cpu":"500m","memory":"1Gi","replicas":1,"maxReplicas":2,"instanceTypes":{"aws":{"arm64":"t4g.medium","amd64":"t3.medium"},"azure":{"arm64":"Standard_D2ps_v7","amd64":"Standard_D2s_v6"}}},"large":{"cpu":"1","memory":"2Gi","replicas":1,"maxReplicas":2,"instanceTypes":{"aws":{"arm64":"m7g.large","amd64":"m7i.large"},"azure":{"arm64":"Standard_D2ps_v7","amd64":"Standard_D2s_v6"}}},"xlarge":{"cpu":"2","memory":"4Gi","replicas":1,"maxReplicas":2,"instanceTypes":{"aws":{"arm64":"m7g.xlarge","amd64":"m7i.xlarge"},"azure":{"arm64":"Standard_D4ps_v7","amd64":"Standard_D4s_v6"}}},"2xlarge":{"cpu":"4","memory":"8Gi","replicas":1,"maxReplicas":2,"instanceTypes":{"aws":{"arm64":"m7g.2xlarge","amd64":"m7i.2xlarge"},"azure":{"arm64":"Standard_D8ps_v7","amd64":"Standard_D8s_v6"}}},"4xlarge":{"cpu":"8","memory":"16Gi","replicas":1,"maxReplicas":1,"instanceTypes":{"aws":{"arm64":"m7g.4xlarge","amd64":"m7i.4xlarge"},"azure":{"arm64":"Standard_D16ps_v7","amd64":"Standard_D16s_v6"}}},"8xlarge":{"cpu":"16","memory":"32Gi","replicas":1,"maxReplicas":1,"instanceTypes":{"aws":{"arm64":"m7g.8xlarge","amd64":"m7i.8xlarge"},"azure":{"arm64":"Standard_D32ps_v7","amd64":"Standard_D32s_v6"}}}}'
 
       RUNWAY_NEXUS_URL: https://nexus.demo.opsp.dev
       RUNWAY_NEXUS_USERNAME: runway-cleaner
@@ -175,7 +179,7 @@ raw:
           namespace: app-delivery
         source:
           repoURL: https://github.com/opspresso/argocd-env-projects.git
-          targetRevision: "77a8a35d9ef333b291305864e670546b227d0e8e"
+          targetRevision: "2f1f185b89df360a8fbc6c41ef306e1c0857a254"
           path: charts/delivery
           helm:
             valuesObject:
