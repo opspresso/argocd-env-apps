@@ -12,8 +12,8 @@ app:
       memory: 1Gi
   service:
     name: http
-    port: 3400
-    targetPort: 3400
+    port: 3000
+    targetPort: 3000
   controller:
     strategy:
       rollingUpdate:
@@ -23,21 +23,21 @@ app:
     failureThreshold: 3
     httpGet:
       path: /api/ready
-      port: 3400
+      port: 3000
     initialDelaySeconds: 5
     timeoutSeconds: 6
     periodSeconds: 10
   livenessProbe:
     httpGet:
       path: /api/health
-      port: 3400
+      port: 3000
     timeoutSeconds: 2
     initialDelaySeconds: 10
     periodSeconds: 10
   startupProbe:
     httpGet:
       path: /api/health
-      port: 3400
+      port: 3000
     timeoutSeconds: 2
     periodSeconds: 5
     failureThreshold: 60

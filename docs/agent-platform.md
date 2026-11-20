@@ -39,7 +39,7 @@ Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌�
 | `OIDC_ISSUER` | `https://<agent_studio.hostname>/api/auth` |
 | `OIDC_PROVIDER_ID` | `studio`. callback은 `https://<서비스 호스트>/api/auth/callback/studio` |
 | `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret` |
-| `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3400` (Models 제외) |
+| `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3000` (Models 제외) |
 
 `gen_values.py`는 이 네 서비스의 `oidc`, `google_sign_in`, `sign_in_domains`를 거부합니다.
 Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `KNOWLEDGE_OIDC_CLIENT_ID`,
@@ -263,7 +263,7 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 Forge에는 Git 호스트 설정이나 credential이 없습니다(Forge v0.40.0 이상). 사용자는 Studio에서 Git 호스트를 연결하고,
 Forge는 사용할 때마다 Studio에서 짧은 수명의 Git token을 받습니다. 호스트는 [Studio Git 호스트](#studio-git-호스트)에서 선언합니다.
 
-내부 Service와 Pod 포트는 Studio·Memory·Knowledge(웹/worker) `3000`, Forge `3103`, Models `3400`으로 같습니다.
+내부 Service와 Pod의 HTTP 포트는 모든 Agent 서비스(AgentOps·Studio·Memory·Knowledge 웹/worker·Forge·Models·Runway)가 `3000`으로 같습니다. Forge는 Sandbox 전용 보조 포트 `3001`을 함께 엽니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
 앱 ingress는 해당 플랫폼 Gateway, 수집기, 같은 namespace와 명시된 서비스 peer만 허용합니다.
 EKS의 Gateway 출발 Pod는 `istio-system` namespace의 `istio-ingressgateway`입니다.

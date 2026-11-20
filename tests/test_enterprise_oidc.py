@@ -88,7 +88,7 @@ def test_consumers_sign_in_only_through_studio_with_their_own_client(service, pl
     if service in {"models", "memory", "knowledge", "forge"}:
         assert "CONSOLE_BASE_URL" in config
     if service != "models":
-        assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3400"
+        assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3000"
     # Knowledge and Forge enforce their own policy; they never call back into Studio.
     assert "STUDIO_URL" not in config
 

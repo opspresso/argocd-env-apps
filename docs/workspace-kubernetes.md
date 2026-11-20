@@ -20,7 +20,7 @@ NetworkPolicy는 ingress/egress를 기본 거부합니다. 실행 Pod에는 다�
 
 - cluster DNS: EKS `172.20.0.10/32`와 CoreDNS Pod
 - public IPv4 HTTP/HTTPS: private·loopback·link-local·metadata·multicast 대역 제외
-- 해당 Forge Service가 선택하는 Pod의 실제 HTTP 포트 `3103`
+- 해당 Forge Service가 선택하는 Pod의 Sandbox 전용 포트 `3001`(`FORGE_SANDBOX_PORT`)
 
 Sandbox가 읽는 `FORGE_SANDBOX_API_URL`은 Service 포트를 사용합니다.
 NetworkPolicy는 DNAT 뒤의 Pod 포트를 사용하므로 두 값을 혼동하지 않습니다.

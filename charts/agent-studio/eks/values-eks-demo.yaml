@@ -43,7 +43,7 @@ app:
       RERANKER_MIN_SCORE: '0.05'
       UNKNOWN_MODEL_POLICY: allow
       # Agent Models owns provider connections, credentials, selections and usage.
-      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       MODELS_PUBLIC_URL: https://models.agrt.dev
       MODEL_USAGE_DEFAULTS: "{\"decisionModel\": \"openrouter/jev-1.14\", \"defaultModel\": \"openrouter/deepseek-v4.1-flash\", \"embeddingModel\": \"openrouter/text-embedding-3-small\", \"modelRouting\": {\"localOnly\": false, \"maxCallCostUsd\": 0, \"maxCalls\": 0, \"maxRunCostUsd\": 0, \"minOutputChars\": 1, \"policies\": {}, \"tiers\": {\"coding\": \"openrouter/deepseek-v4.1-flash\", \"fast\": \"openrouter/gpt-6-luna\", \"general\": \"openrouter/deepseek-v4.1-flash\", \"reasoning\": \"openrouter/glm-5.3\", \"vision\": \"openrouter/deepseek-v4.1-flash\"}}, \"rerankerModel\": \"openrouter/rerank-v3.5\"}"
       # The AgentOps console that serves Studio's screens; production Studio refuses to boot without it.
@@ -53,10 +53,10 @@ app:
       MEMBER_TIER_DEFAULTS: "[{\"id\": \"admin\", \"monthlyCostCapUsd\": null}, {\"id\": \"super\", \"monthlyCostCapUsd\": 50}, {\"id\": \"member\", \"monthlyCostCapUsd\": 5}, {\"id\": \"guest\", \"monthlyCostCapUsd\": 0}]"
       CAPABILITY_VISIBILITY_DEFAULTS: "{\"plugins\": [], \"skills\": [], \"tools\": [\"gmail\", \"google-calendar\", \"google-docs\", \"google-drive\", \"google-sheets\", \"google-slides\", \"slack\"]}"
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local,agent-runway.svc.cluster.local
-      FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
+      FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3000
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       KNOWLEDGE_URL: http://agent-knowledge.agent-knowledge.svc.cluster.local:3000
-      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3000
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
       # PR review reaches GitHub with the caller's GitHub MCP grant.

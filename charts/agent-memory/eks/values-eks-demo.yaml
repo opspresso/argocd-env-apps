@@ -20,7 +20,7 @@ app:
       AUTH_ALLOWED_HOSTS: 'memory.agrt.dev'
       # Providers and credentials belong to Agent Models. agent_memory.models names the selection
       # for each role; a Settings override takes precedence after a restart.
-      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       EMBEDDING_MIN_SCORE: '0.2'
       RERANKER_TIMEOUT_MS: '5000'
       RERANKER_MIN_SCORE: '0.05'

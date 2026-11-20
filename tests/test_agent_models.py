@@ -16,8 +16,8 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
     pod = deployment["template"]["spec"]
     assert pod["automountServiceAccountToken"] is False
     container = pod["containers"][0]
-    assert container["readinessProbe"]["httpGet"] == {"path": "/api/ready", "port": 3400}
-    assert container["livenessProbe"]["httpGet"] == {"path": "/api/health", "port": 3400}
+    assert container["readinessProbe"]["httpGet"] == {"path": "/api/ready", "port": 3000}
+    assert container["livenessProbe"]["httpGet"] == {"path": "/api/health", "port": 3000}
     assert container["startupProbe"]["httpGet"] == container["livenessProbe"]["httpGet"]
     # SIGTERM -> preStop sleep -> drain admitted requests -> settle (~30s) -> close responses (10s).
     pre_stop = int(container["lifecycle"]["preStop"]["exec"]["command"][-1].split()[-1])
@@ -34,7 +34,7 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
         "OIDC_CLIENT_SECRET": f"/k8s/{platform}-demo/agent-models/oidc-client-secret",
     }
     ingress = resource("agent-models", platform, "NetworkPolicy", "agent-models")["spec"]["ingress"][0]
-    assert ingress["ports"] == [{"protocol": "TCP", "port": 3400}]
+    assert ingress["ports"] == [{"protocol": "TCP", "port": 3000}]
     peers = {peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in ingress["from"] if "namespaceSelector" in peer}
     assert peers == {"agent-studio", "agent-memory", "agent-knowledge", "agent-forge", "istio-system"}
     assert not any(doc["kind"] == "PersistentVolumeClaim" for doc in manifests("agent-models", platform))

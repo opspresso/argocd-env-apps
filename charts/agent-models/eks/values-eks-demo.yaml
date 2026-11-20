@@ -21,6 +21,7 @@ app:
     enabled: true
     data:
       # Transactions are short ledger/session writes; upstream calls never hold a connection.
+      PORT: '3000'
       DATABASE_POOL_SIZE: '8'
       AUTH_BASE_URL: https://models.agrt.dev
       # Models has no screens of its own; its old pages redirect here (AgentOps phase 2).

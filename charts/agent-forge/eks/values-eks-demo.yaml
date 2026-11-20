@@ -26,7 +26,7 @@ app:
     enabled: true
     data:
       HOSTNAME: 0.0.0.0
-      PORT: '3103'
+      PORT: '3000'
       AUTH_BASE_URL: https://forge.agrt.dev
       # Forge has no screens of its own; its old pages and every link it emits point here (AgentOps phase 5).
       CONSOLE_BASE_URL: https://agentops.agrt.dev
@@ -43,7 +43,7 @@ app:
       # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
       OIDC_ISSUER: https://studio.agrt.dev/api/auth
       OIDC_PROVIDER_ID: studio
-      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       # Required: every env declares agent_forge.model_roles ([] when it has no role).
       FORGE_MODEL_CHANNELS: "[{\"id\": \"openrouter/minimax-m3.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/minimax-m3.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/deepseek-v4.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/deepseek-v4.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/glm-5.3\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/glm-5.3\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-luna\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-luna\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6.1-sol\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-astra\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-astra\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-opus-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-opus-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-sonnet-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-sonnet-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}]"
       # Developer desktops (agent-platform docs/DEV_DESKTOP.md): each desktop pool's Entra app trusts this token
@@ -51,9 +51,9 @@ app:
       # dmz/8-forge-desktop). Pools and their Azure resources are set in the Forge console.
       FORGE_AZURE_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
       # Run start materializes the Project's dev variables (agent-platform docs/DELIVERY_RESOURCES.md).
-      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
-      FORGE_SANDBOX_PORT: '3104'
-      FORGE_SANDBOX_API_URL: http://agent-forge.agent-forge.svc.cluster.local:3104
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3000
+      FORGE_SANDBOX_PORT: '3001'
+      FORGE_SANDBOX_API_URL: http://agent-forge.agent-forge.svc.cluster.local:3001
       FORGE_SANDBOX_MEMORY_MB: '2048'
       FORGE_SANDBOX_DISK_MB: '2048'
       FORGE_SANDBOX_CPUS: '1'
@@ -181,7 +181,7 @@ app:
                       app.kubernetes.io/name: agent-forge
                       app.kubernetes.io/instance: agent-forge-eks-demo
               ports:
-                - {protocol: TCP, port: 3104}
+                - {protocol: TCP, port: 3001}
             - {"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}]}
             - {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}
   routing:

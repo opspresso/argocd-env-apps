@@ -52,7 +52,7 @@ app:
       RERANKER_MIN_SCORE: '0.05'
       UNKNOWN_MODEL_POLICY: allow
       # Agent Models owns provider connections, credentials, selections and usage.
-      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3400
+      MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       MODELS_PUBLIC_URL: https://{{agent_models.hostname}}
 {%- if agent_studio.model_usage is defined %}
       MODEL_USAGE_DEFAULTS: {{agent_studio.model_usage | tojson | tojson}}
@@ -68,11 +68,11 @@ app:
       CAPABILITY_VISIBILITY_DEFAULTS: {{agent_studio.capability_visibility_defaults | tojson | tojson}}
 {%- endif %}
       MCP_INTERNAL_HOST_SUFFIXES: agent-mcps.svc.cluster.local,agent-memory.svc.cluster.local,agent-knowledge.svc.cluster.local,agent-forge.svc.cluster.local{{',agent-runway.svc.cluster.local' if (agent_runway is defined and agent_runway.connected | default(false)) else ''}}
-      FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3103
+      FORGE_URL: http://agent-forge.agent-forge.svc.cluster.local:3000
       MEMORY_URL: http://agent-memory.agent-memory.svc.cluster.local:3000
       KNOWLEDGE_URL: http://agent-knowledge.agent-knowledge.svc.cluster.local:3000
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
-      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3500
+      RUNWAY_URL: http://agent-runway.agent-runway.svc.cluster.local:3000
 {%- endif %}
       PLUGINS_REPO: opspresso/agent-plugins
       PLUGINS_REPO_BRANCH: main
