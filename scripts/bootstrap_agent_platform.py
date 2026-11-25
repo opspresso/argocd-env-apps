@@ -159,7 +159,7 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cluster", required=True)
-    parser.add_argument("--apply", action="store_true", help="Create missing SecureStrings; never overwrite")
+    parser.add_argument("--apply", action="store_true", help="Create missing secrets; never overwrite")
     parser.add_argument("--copy-from", metavar="CLUSTER",
                         help="Copy data-continuity values (keys, Forge organization, OIDC clients) from this cluster")
     args = parser.parse_args()

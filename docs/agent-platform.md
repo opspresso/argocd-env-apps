@@ -80,7 +80,7 @@ Forge의 `agent_forge.model_roles`는 ConfigMap의 `FORGE_MODEL_CHANNELS`로 렌
 
 `agent_studio.oidc` 블록은 Keycloak을 포함한 기업 OIDC 연결을 선언합니다.
 client ID·secret은 다른 서비스 client처럼 `/k8s/<cluster>/agent-studio/oidc-client-id`·`oidc-client-secret`
-SecureString에서 읽습니다. env에는 경로를 적지 않습니다.
+Secrets Manager 시크릿에서 읽습니다. env에는 경로를 적지 않습니다.
 이 블록이 없으면 Studio는 현재 Google 연결을 유지합니다.
 
 ```yaml
@@ -128,8 +128,8 @@ agent_studio:
 1. Git 호스트마다 OAuth application을 등록합니다. redirect URI는 `https://<agent_studio.hostname>/api/git/callback`입니다.
    GitLab application은 scope `api`, `read_repository`, `write_repository`를 허용합니다.
    Gitea application은 scope를 따로 정하지 않습니다. **비공개 클라이언트**를 끄면 client secret 없이 PKCE로 동작합니다.
-2. client secret을 `/k8s/<cluster>/agent-studio/git-host-secrets` SecureString에 JSON 객체 하나로 저장합니다.
-   key는 호스트 `name`, 값은 그 application의 client secret입니다. key가 없는 GitLab·Gitea 호스트는 public client입니다. 이 parameter가 없으면 Studio Secret 동기화가 실패하므로
+2. client secret을 `/k8s/<cluster>/agent-studio/git-host-secrets` Secrets Manager 시크릿에 JSON 객체 하나로 저장합니다.
+   key는 호스트 `name`, 값은 그 application의 client secret입니다. key가 없는 GitLab·Gitea 호스트는 public client입니다. 이 시크릿이 없으면 Studio Secret 동기화가 실패하므로
    `git_hosts`를 추가하기 전에 만듭니다.
 3. `git_hosts`를 추가해 배포한 다음 Studio Pod에서 `node build/upgrade-platform-auth.cjs --apply`를 실행합니다.
    기존 Forge·Runway client가 `platform:git` scope와 토큰 교환 grant를 받습니다.
@@ -189,7 +189,7 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 ```
 
-첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 SecureString만 만들고 기존 값을 덮어쓰지 않습니다.
+첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 시크릿만 만들고 기존 값을 덮어쓰지 않습니다.
 
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
 데이터·등록이 의존하는 값(`CONTINUITY`: Studio 인증 secret·암호화 키, Memory·Knowledge 인증 secret,
