@@ -7,7 +7,7 @@ rovr(<https://rovr.dev>)는 목표를 받아 Leader 에이전트가 작업을 �
 | 저장소 | rovr에 대한 책임 |
 | --- | --- |
 | `terraform-env-demo` | ECR `rovr`(`v*`, `sandbox-v*`), 릴리스 역할 `github--rovr-ecr`, NodePool `rovr-sandboxes`, `rovr.dev` 인증서·DNS |
-| `argocd-env-addons` | ClusterSecretStore `parameter-store`가 `rovr` namespace를 허용한다. Istio Gateway·VPC CNI NetworkPolicy는 그대로 쓴다 |
+| `argocd-env-addons` | ClusterSecretStore `secrets-manager`가 `rovr` namespace를 허용한다. Istio Gateway·VPC CNI NetworkPolicy는 그대로 쓴다 |
 | `argocd-env-apps` | `charts/rovr`, `apps/eks/rovr.yaml`, `env/eks-demo.yaml`의 `rovr` 블록, 공유 PostgreSQL의 rovr DB·역할 |
 | `opspresso/rovr` | 애플리케이션, `v*` 태그 릴리스, 이 저장소로의 GitOps dispatch |
 
@@ -28,7 +28,7 @@ Sandbox 설정은 ConfigMap `rovr`의 `ROVR_SANDBOX_*` 값이다. 설정이나 �
 
 rovr의 DB 연결은 replica당 `ROVR_DATABASE_MAX_CONNS`(10)이고, 용량 테스트는 2 replica × 10 = 20을 넣고, rollout 중 두 세대가 겹치는 것을 반영해 2배(40)를 공유 PostgreSQL 예산에 포함한다.
 
-## SSM 파라미터 (`/k8s/eks-demo/rovr/`)
+## Secrets Manager 시크릿 (`/k8s/eks-demo/rovr/`)
 
 | 파라미터 | 준비 |
 | --- | --- |
@@ -50,7 +50,7 @@ ExternalSecret은 참조 경로가 하나라도 없으면 Secret을 만들지 �
 ## 첫 배포 순서
 
 1. `terraform-env-opsp`의 `demo/8-agent-studio`(ECR·릴리스 역할)와 `demo/7-eks-shared`(rovr sandbox NodePool), `terraform-env-demo`의 `demo/3-alb`(`rovr.dev`)를 apply한다.
-2. rovr GitHub App을 만들고 위 SSM 파라미터를 준비한다. bootstrap을 `--apply`로 실행한다.
+2. rovr GitHub App을 만들고 위 Secrets Manager 시크릿을 준비한다. bootstrap을 `--apply`로 실행한다.
 3. `env/eks-demo.yaml`의 `rovr.github_app_slug`를 App slug로 맞추고 `charts/rovr`를 `main`에 병합한다.
    GitOps dispatch는 `main`의 chart를 갱신하므로 태그보다 먼저 병합한다.
 4. `opspresso/rovr`에 `GHP_TOKEN` 시크릿을 등록하고 `v0.1.0` 태그를 push한다. 릴리스가 이미지를 올리고 이 저장소에

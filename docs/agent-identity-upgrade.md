@@ -21,7 +21,7 @@
    현재 스키마가 표와 다르면 실행하지 않고 해당 버전의 전환 절차를 확인한다.
 4. 기존 인증 secret, 암호화 key, issuer, provider ID를 보존한다. 공통 변수 이름은
    [설정 규칙](https://github.com/opspresso/agent-platform/blob/main/docs/CONVENTIONS.md)을 따른다.
-   기존 Secret의 SSM 경로와 값은 변경하지 않는다.
+   기존 Secret의 Secrets Manager 경로와 값은 변경하지 않는다.
 
 ## 중지와 변환
 

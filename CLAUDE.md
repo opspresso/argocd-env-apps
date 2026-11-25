@@ -68,7 +68,7 @@ charts/<project>/
 `<platform>/values-<cluster>.yaml` 이 바뀌어도 움직이지 않는다. 다만 pod 재시작은 이것에 의존하지
 않는다 — upstream `app` chart 가 `checksum/config`·`checksum/secret` 을 병합된 값 전체에서
 계산해 deployment 에 달아준다. `checksum/external-secrets`(app v2.3.0+)는 `externalSecrets.data`·`dataFrom`
-항목(이름·출처)이 바뀌면 pod 를 재시작한다. SSM 에서 바뀐 값은 다음 재시작에 반영된다.
+항목(이름·출처)이 바뀌면 pod 를 재시작한다. Secrets Manager 에서 바뀐 값은 다음 재시작에 반영된다.
 main app 의 ExternalSecret 을 읽는 worker 는 `overrides` 에 같은 annotation 을 둔다(agent-knowledge).
 `ENV_HASH` 는 앱이 자기 버전을 env 로 읽기 위한 값에 가깝다.
 
@@ -131,7 +131,7 @@ ApplicationSet 의 `helm.valueFiles` 순서 그대로다. 뒤가 앞을 덮는�
 ## env/<cluster>.yaml
 
 - 파일 이름이 클러스터 이름이고, 안의 `cluster` 필드와 일치해야 한다 (`{{cluster}}` 로 치환됨).
-- 클러스터별 SSM 경로는 템플릿의 `{{cluster}}`에서 만든다. 공통 `values.yaml`에 특정 클러스터의 경로를 기본값으로 두지 않는다.
+- 클러스터별 Secrets Manager 경로는 템플릿의 `{{cluster}}`에서 만든다. 공통 `values.yaml`에 특정 클러스터의 경로를 기본값으로 두지 않는다.
 - `env` 는 플랫폼(`eks`, `local`)이며 렌더 출력 디렉터리이자 valueFiles 경로가 된다 (`{{env}}/values-{{cluster}}.yaml`).
   `scripts/gen_values.py`는 필수 템플릿 변수 누락, 지원하지 않는 env, cluster와 파일명 불일치를 거부한다.
   `resources`·`autoscaling`은 YAML boolean이어야 한다.

@@ -99,11 +99,11 @@ ApplicationSet 은 `env/*.yaml` 의 `phase` 필드로 어떤 `values-<phase>.yam
 `eks-demo`는 `phase: prod`를 사용한다.
 앱과 MCP의 두 phase values를 별도로 관리한다.
 
-클러스터별 SSM 경로는 `values-template.yaml.j2`가 `env/<cluster>.yaml`의 `cluster`에서
-생성한다. 공통 `values.yaml`에는 특정 클러스터의 SSM 경로나 `global.ssmPrefix`를 두지 않는다.
+클러스터별 Secrets Manager 경로는 `values-template.yaml.j2`가 `env/<cluster>.yaml`의 `cluster`에서
+생성한다. 공통 `values.yaml`에는 특정 클러스터의 Secrets Manager 경로나 `global.secretPrefix`를 두지 않는다.
 `postgresql`·`delivery-pool`의 ExternalSecret은 클러스터 values의 `raw.resources`에만 있으므로
 공통 values만으로는 자격 증명을 읽지 않는다. `scripts/validate.py`는 `<platform>/values-<cluster>.yaml`이
-대상 클러스터의 파일이 아니거나, values 파일의 `global.ssmPrefix`·최상위 `ssmPrefix`가 대상 클러스터와
+대상 클러스터의 파일이 아니거나, values 파일의 `global.secretPrefix`·최상위 `secretPrefix`가 대상 클러스터와
 다르면 실패한다. EKS 공통 기본값과 클러스터의
 자격 증명 경로는 별개다.
 

@@ -99,12 +99,18 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
 
 
 def read_parameters(region, names):
-    entries = []
-    # SSM GetParameters accepts at most ten names per request.
-    for offset in range(0, len(names), 10):
-        response = aws(region, "ssm", "get-parameters", "--names", *names[offset:offset + 10], "--with-decryption")
-        entries.extend(response["Parameters"])
-    return {entry["Name"]: entry["Value"] for entry in entries}
+    """Current Secrets Manager values by name; a name without a secret is absent from the result."""
+    values = {}
+    # BatchGetSecretValue accepts at most twenty secret IDs per request.
+    for offset in range(0, len(names), 20):
+        response = aws(region, "secretsmanager", "batch-get-secret-value", "--secret-id-list", *names[offset:offset + 20])
+        failures = [error for error in response.get("Errors", []) if error.get("ErrorCode") != "ResourceNotFoundException"]
+        if failures:
+            # Names only: an error entry never carries a value.
+            raise RuntimeError("Secrets Manager read failed: " + ", ".join(
+                f"{error.get('SecretId')} ({error.get('ErrorCode')})" for error in failures))
+        values.update({entry["Name"]: entry["SecretString"] for entry in response["SecretValues"]})
+    return values
 
 
 def continuity_values(region, source, prefix):
@@ -129,9 +135,8 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
     missing = [name for name in names if name not in existing]
     for name in missing:
         if apply:
-            aws(region, "ssm", "put-parameter", payload={
-                "Name": name, "Value": desired[name], "Type": "SecureString", "Overwrite": False
-            })
+            # CreateSecret never replaces an existing secret.
+            aws(region, "secretsmanager", "create-secret", payload={"Name": name, "SecretString": desired[name]})
         source = f" (from {copy_from})" if name in copied else ""
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")

@@ -15,7 +15,7 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
     data:
       # Basic auth with the same parameters that seed Grafana's own
       # GF_SECURITY_ADMIN_* env, not a service account token. A token lives in

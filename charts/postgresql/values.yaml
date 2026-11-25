@@ -85,7 +85,7 @@ postgresql:
         memory: 2Gi
 
 # raw renders the ExternalSecret and bootstrap the idempotent server-side setup Job. Both lists are
-# raw.resources in values-template.yaml.j2: they carry the cluster's SSM path and the env's resource
+# raw.resources in values-template.yaml.j2: they carry the cluster's Secrets Manager names and the env's resource
 # budget, and Helm replaces a values list instead of merging it.
 bootstrap:
   enabled: true

@@ -10,7 +10,7 @@ raw:
         refreshInterval: 1h
         secretStoreRef:
           kind: ClusterSecretStore
-          name: parameter-store
+          name: secrets-manager
         target:
           name: delivery-pool-credentials
           creationPolicy: Owner

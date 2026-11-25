@@ -101,7 +101,7 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
   configmap:
     enabled: true
     tpl: true
