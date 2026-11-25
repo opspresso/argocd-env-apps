@@ -32,7 +32,7 @@ app:
       OIDC_PROVIDER_ID: studio
       AWS_REGION: ap-northeast-2
       RUNWAY_CLUSTER: eks-demo
-      RUNWAY_SECRET_STORE: ssm
+      RUNWAY_SECRET_STORE: secrets-manager
       RUNWAY_KMS_KEY_ID: alias/agent-runway
       RUNWAY_POOL_HOST: postgres.delivery-pool.svc.cluster.local
       RUNWAY_POOL_PORT: '5432'

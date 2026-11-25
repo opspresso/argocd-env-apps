@@ -8,7 +8,7 @@ from test_agent_platform import resource
 def test_runway_chart_uses_its_own_runtime_identity():
     config = resource("agent-runway", "eks", "ConfigMap", "agent-runway")["data"]
     assert config["RUNWAY_CLUSTER"] == "eks-demo"
-    assert config["RUNWAY_SECRET_STORE"] == "ssm"
+    assert config["RUNWAY_SECRET_STORE"] == "secrets-manager"
     assert config["RUNWAY_KMS_KEY_ID"] == "alias/agent-runway"
     assert config["RUNWAY_BUCKET"] == "agent-runway-objects"
     assert not any(key.startswith("DELIVERY_") for key in config)
