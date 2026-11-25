@@ -22,6 +22,9 @@ app:
     data:
       PORT: '3000'
       STAGE: prod
+      # The console's name and copyright. The copyright is the Studio one, so the console and Studio screens match.
+      PRODUCT_NAME: AgentOps
+      PRODUCT_COPYRIGHT: "\u00a9 OpsPresso. All rights reserved."
       # One session read per request and an occasional preference write, each a few milliseconds; service calls never
       # hold a connection. Four per process keeps the shared PostgreSQL budget (tests/test_production_capacity.py).
       DATABASE_POOL_SIZE: '4'
