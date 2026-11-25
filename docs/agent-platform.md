@@ -207,7 +207,7 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from <원�
 생성하지 않고 준비할 경로만 출력합니다.
 Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으로 rollout해야 합니다.
 
-| SSM 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
+| Secrets Manager 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
 | --- | --- | --- |
 | `agent-platform/database-url` | 여섯 서비스 | bootstrap |
 | `agent-<service>/metrics-bearer-token` | Studio·Memory·Knowledge·Forge와 수집기 | bootstrap |
@@ -234,7 +234,7 @@ Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비�
 요청 header와 확인 주기는 [Studio 서비스 연결 계약](https://github.com/opspresso/agent-studio/blob/main/docs/design/agent-services.md#연결-설정)을 따릅니다.
 Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
-ClusterSecretStore `parameter-store`는 허용한 namespace(`argocd-env-addons`의 `charts/external-secrets` `namespaceRegexes`)만 씁니다.
+ClusterSecretStore `secrets-manager`는 허용한 namespace(`argocd-env-addons`의 `charts/external-secrets` `namespaceRegexes`)만 씁니다.
 새 서비스 namespace는 chart를 배포하기 전에 이 목록에 추가합니다. 없으면 ExternalSecret이 `denied by spec.condition`으로 실패하고
 Pod가 `secret "<name>-external" not found`로 시작하지 못합니다. 목록을 고친 뒤에도 실패한 ExternalSecret은 재시도 간격 동안 다시 읽지
 않으므로 `kubectl annotate externalsecret <name>-external force-sync=$(date +%s) --overwrite`로 다시 읽게 합니다.
@@ -305,18 +305,18 @@ run_once() { ns=$1; image=$2; shift 2
    run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply
    ```
 2. **콘솔 client 등록**: 설치마다 하나만 있습니다. 이미 있으면 `existing`을 출력하고 secret을 다시 발급하지 않습니다.
-   출력의 client ID와 secret을 SSM `agentops/oidc-client-id`·`oidc-client-secret`에 저장합니다. 값을 화면이나 로그에 남기지 않습니다.
+   출력의 client ID와 secret을 Secrets Manager `agentops/oidc-client-id`·`oidc-client-secret`에 저장합니다. 값을 화면이나 로그에 남기지 않습니다.
    stdout은 JSON 한 줄(`{"clientId":…,"clientSecret":…}`)입니다. 아래 명령은 값을 출력하지 않고 저장합니다.
    ```bash
    out=$(run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/register-platform-client.cjs \
      --service agentops --base-url https://agentops.agrt.dev)
    for k in id secret; do key=$([ $k = id ] && echo clientId || echo clientSecret)
-     aws ssm put-parameter --name "/k8s/eks-demo/agentops/oidc-client-$k" --type SecureString \
-       --value "$(jq -r ".$key" <<<"$out")" --no-overwrite >/dev/null; done; unset out
+     jq -j ".$key" <<<"$out" | aws secretsmanager create-secret --name "/k8s/eks-demo/agentops/oidc-client-$k" \
+       --secret-string file:///dev/stdin >/dev/null; done; unset out
    ```
-   종료 코드 3(이미 등록)은 secret을 출력하지 않습니다. secret을 잃었으면 `--rotate`로 다시 발급하고 `--overwrite`로 저장합니다.
+   종료 코드 3(이미 등록)은 secret을 출력하지 않습니다. secret을 잃었으면 `--rotate`로 다시 발급하고 `aws secretsmanager put-secret-value`로 저장합니다.
 3. **Secret 준비**: `bootstrap_agent_platform.py --cluster eks-demo --apply`로 `agentops/auth-secret`·`aes-encryption-key`를 만듭니다.
-   `agentops` namespace가 `parameter-store` 허용 목록에 있는지 확인합니다([인증과 Secret 준비](#인증과-secret-준비)).
+   `agentops` namespace가 `secrets-manager` 허용 목록에 있는지 확인합니다([인증과 Secret 준비](#인증과-secret-준비)).
 4. **배포**: AgentOps release image를 게시하고 `agentops-eks-demo`가 `Synced/Healthy`인지 확인합니다.
 5. **확인**: `https://agentops.agrt.dev/api/health`가 200이고, 로그인 후 홈이 열리며, 로그아웃하면 `/signed-out`으로 돌아옵니다.
 
@@ -378,7 +378,7 @@ PostgreSQL OS/libc를 바꿀 때는 기존·보관 DB와 `template1`의 collatio
 ## Agent Runway
 
 EKS에만 배포한다(`env/<cluster>.yaml`의 `agent_runway`). 운영 클러스터 `eks-demo`에서 `runway.agrt.dev`로 제공한다.
-Runway는 Pod Identity로 SSM·STS·EKS를 호출한다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
+Runway는 Pod Identity로 Secrets Manager·STS·EKS를 호출한다. 계약은 `agent-platform`의 `docs/DELIVERY_RESOURCES.md`, AWS 리소스는 `terraform-env-demo`의
 `terraform-env-opsp/demo/8-agent-runway`가 소유한다.
 
 | Application | namespace | 내용 |
@@ -389,7 +389,7 @@ Runway는 Pod Identity로 SSM·STS·EKS를 호출한다. 계약은 `agent-platfo
 
 - `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 풀 egress)가
   Agent Runway에 연결된다. Runway OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
-  `register-platform-client.cjs --service agent-runway`로 client를 등록해 SSM에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
+  `register-platform-client.cjs --service agent-runway`로 client를 등록해 Secrets Manager에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
   이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
 - 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-runway`, ExternalSecret `app-env`,
   NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Runway가

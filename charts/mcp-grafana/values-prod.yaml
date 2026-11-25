@@ -9,6 +9,6 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
   image:
     tag: 1.1.0

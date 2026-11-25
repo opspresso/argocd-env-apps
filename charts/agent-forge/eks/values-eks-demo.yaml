@@ -244,7 +244,7 @@ app:
     link.argocd.argoproj.io/external-link: https://forge.agrt.dev
   externalSecrets:
     enabled: true
-    # Upper bound for an SSM edit to reach the Secret.
+    # Upper bound for a Secrets Manager edit to reach the Secret.
     refreshInterval: 15m
     data:
     - key: /k8s/eks-demo/agent-platform/database-url

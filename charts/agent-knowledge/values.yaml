@@ -103,7 +103,7 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
   # Runs the new image's read-only schema check before Argo CD changes anything. A non-zero exit fails the
   # sync, so the running Pods keep the old image (agent-knowledge docs/OPERATIONS.md). Without the database
   # Secret the release is a first install whose startup creates the schema, so the check has nothing to compare.

@@ -15,7 +15,7 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
     data:
       # An Argo CD API token for the `mcp` local account. The account and its
       # `role:mcp` grant are declared in argocd-env-addons' argo-cd chart; the

@@ -81,7 +81,7 @@ postgresql:
         memory: 512Mi
 
 # raw renders the ExternalSecret and the database NetworkPolicy as raw.resources in
-# values-template.yaml.j2: the ExternalSecret carries the cluster's SSM path, and Helm replaces a values
+# values-template.yaml.j2: the ExternalSecret carries the cluster's Secrets Manager names, and Helm replaces a values
 # list instead of merging it.
 
 # Idempotent server setup: the non-superuser Delivery administrator and pgvector in template1,

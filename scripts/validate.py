@@ -272,18 +272,18 @@ def render(target, env_file):
         global_values = values.get("global") or {}
         if not isinstance(global_values, dict):
             return f"global values must contain a mapping: {path}"
-        if "ssmPrefix" in global_values:
+        if "secretPrefix" in global_values:
             prefix_present = True
-            prefix = global_values["ssmPrefix"]
-        elif "ssmPrefix" in values:
+            prefix = global_values["secretPrefix"]
+        elif "secretPrefix" in values:
             prefix_present = True
-            prefix = values["ssmPrefix"]
+            prefix = values["secretPrefix"]
         if resolved.parent.name in {"eks", "local"} and resolved.stem.startswith("values-"):
             value_clusters.add(resolved.stem.removeprefix("values-"))
         args += ["-f", path]
 
     cluster = env.get("cluster") or expand(target.get("cluster") or "", env)
-    # A cluster values file carries that cluster's SSM paths and settings, with or without ssmPrefix.
+    # A cluster values file carries that cluster's Secrets Manager names and settings, with or without secretPrefix.
     if cluster and value_clusters - {cluster}:
         return f"cluster values must match the target cluster: {cluster}"
 
@@ -291,9 +291,9 @@ def render(target, env_file):
         if not cluster and len(value_clusters) == 1:
             cluster = next(iter(value_clusters))
         if not cluster or len(value_clusters) > 1:
-            return "ssmPrefix requires exactly one cluster context"
+            return "secretPrefix requires exactly one cluster context"
         if prefix != f"/k8s/{cluster}":
-            return f"ssmPrefix must match the target cluster: /k8s/{cluster}"
+            return f"secretPrefix must match the target cluster: /k8s/{cluster}"
 
     result = subprocess.run(args, capture_output=True, text=True)
 

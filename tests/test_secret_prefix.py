@@ -32,11 +32,11 @@ def helm(chart, values=None):
     return subprocess.run(args, capture_output=True, text=True)
 
 
-def test_shared_values_do_not_contain_cluster_specific_ssm_defaults():
+def test_shared_values_do_not_contain_cluster_specific_secret_defaults():
     clusters = [yaml.safe_load(path.read_text())["cluster"] for path in ENV_FILES]
     for path in (ROOT / "charts").glob("*/values.yaml"):
         values = yaml.safe_load(path.read_text()) or {}
-        assert "ssmPrefix" not in values, path
+        assert "secretPrefix" not in values, path
         parsed = yaml.safe_dump(values)
         assert all(f"/k8s/{cluster}" not in parsed for cluster in clusters), path
 
@@ -96,20 +96,20 @@ def test_application_secrets_follow_a_new_cluster_name(chart):
 def test_validator_rejects_wrong_prefix_before_helm(cluster, scope, tmp_path):
     chart = tmp_path / "chart"
     chart.mkdir()
-    values = {"ssmPrefix": "/k8s/wrong-cluster"}
+    values = {"secretPrefix": "/k8s/wrong-cluster"}
     (chart / "values.yaml").write_text(yaml.safe_dump({"global": values} if scope == "global" else values))
     target = {"name": "data", "namespace": "default", "cluster": cluster,
               "chart": str(chart), "appset": "apps/eks/data.yaml", "value_files": ["values.yaml"]}
     with patch.object(validate.subprocess, "run") as run:
         error = validate.render(target, None)
-    assert f"ssmPrefix must match the target cluster: /k8s/{cluster}" == error
+    assert f"secretPrefix must match the target cluster: /k8s/{cluster}" == error
     run.assert_not_called()
 
 
 def test_validator_accepts_generated_cluster_values_without_a_label(tmp_path):
     (tmp_path / "eks").mkdir()
     (tmp_path / "values.yaml").write_text("{}\n")
-    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("ssmPrefix: /k8s/eks-demo-a\n")
+    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("secretPrefix: /k8s/eks-demo-a\n")
     target = {"name": "data", "namespace": "default", "chart": str(tmp_path),
               "appset": "apps/eks/data.yaml", "value_files": ["values.yaml", "eks/values-eks-demo-a.yaml"]}
     result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
@@ -120,7 +120,7 @@ def test_validator_accepts_generated_cluster_values_without_a_label(tmp_path):
 
 def test_validator_rejects_a_cluster_file_for_another_target(tmp_path):
     (tmp_path / "eks").mkdir()
-    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("ssmPrefix: /k8s/eks-demo\n")
+    (tmp_path / "eks/values-eks-demo-a.yaml").write_text("secretPrefix: /k8s/eks-demo\n")
     target = {"name": "data", "namespace": "default", "cluster": "eks-demo", "chart": str(tmp_path),
               "appset": "apps/eks/data.yaml", "value_files": ["eks/values-eks-demo-a.yaml"]}
     with patch.object(validate.subprocess, "run") as run:
@@ -129,8 +129,8 @@ def test_validator_rejects_a_cluster_file_for_another_target(tmp_path):
 
 
 @pytest.mark.parametrize("chart", DATA_CHARTS)
-def test_validator_rejects_another_clusters_values_without_ssm_prefix(chart):
-    # The generated file has no ssmPrefix; its ExternalSecret still reads /k8s/eks-demo-a/.
+def test_validator_rejects_another_clusters_values_without_secret_prefix(chart):
+    # The generated file has no secretPrefix; its ExternalSecret still reads /k8s/eks-demo-a/.
     path = ROOT / "charts" / chart
     target = {"name": chart, "namespace": chart, "cluster": "eks-demo", "chart": str(path),
               "appset": f"apps/eks/{chart}.yaml", "value_files": ["values.yaml", "eks/values-eks-demo-a.yaml"]}

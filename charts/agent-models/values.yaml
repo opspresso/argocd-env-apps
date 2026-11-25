@@ -94,7 +94,7 @@ app:
     refreshInterval: 1h
     secretStoreRef:
       kind: ClusterSecretStore
-      name: parameter-store
+      name: secrets-manager
   ecrPullSecret:
     enabled: true
     region: ap-northeast-2
