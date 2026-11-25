@@ -242,8 +242,8 @@ rovr:
 # for it (terraform-env-demo 3-alb issues the wildcard certificate).
 app_delivery:
   enabled: true
-  # Pin workflows while the service and Nexus configuration are upgraded together.
-  revision: 17a8b88cf1fbdbb1b909669eef813c9906a32857
+  # Pin workflows to the delivery chart that reads Secrets Manager (argocd-env-projects #95).
+  revision: f6e0272b4cd75d3ad2196684276c2b2128ce6df2
   nexus:
     host: nexus.demo.opsp.dev
     image_repository: runway-images
