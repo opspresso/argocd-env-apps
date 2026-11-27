@@ -454,9 +454,9 @@ Runway는 Pod Identity로 Secrets Manager·STS·EKS를 호출한다. 계약은 `
 - AWS는 session tag가 가리키는 Project 경로를 읽게 할 뿐, tag가 정당한지는 확인하지 않는다. 그래서 클러스터의
   ValidatingAdmissionPolicy `delivery-tenant-secret-stores`가 모든 SecretStore·ClusterSecretStore를 검사한다.
   - 테넌트 namespace의 SecretStore는 tenant 역할만 쓸 수 있다.
-  - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`opspresso.com/delivery-project`·`delivery-env`)이
+  - tenant 역할은 이름이 `app-<project>-<env>`이고 그 label(`agentops.clush.net/delivery-project`·`delivery-env`)이
     session tag와 같은 namespace의 SecretStore에서만 허용한다. 다른 namespace와 ClusterSecretStore는 거부한다.
   - 이름까지 확인하므로 다른 namespace에 테넌트 label을 붙여도 다른 Project를 흉내 낼 수 없다.
 - 풀 bootstrap은 `postgres`·`template1` database의 PUBLIC CONNECT를 회수한다.
-- 풀은 `agent-runway`, `agent-forge-workspaces`, `opspresso.com/delivery-tenant=true` namespace에서만 접속을 받는다.
+- 풀은 `agent-runway`, `agent-forge-workspaces`, `agentops.clush.net/delivery-tenant=true` namespace에서만 접속을 받는다.
   Forge Sandbox egress에는 `agent_runway`가 있을 때 풀 5432 허용이 추가된다.

@@ -235,8 +235,8 @@ raw:
             labels:
               opspresso.com/cluster: "{{cluster}}"
               opspresso.com/group: "projects"
-              opspresso.com/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
-              opspresso.com/delivery-env: '{% raw %}{{ .path.basename }}{% endraw %}'
+              agentops.clush.net/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
+              agentops.clush.net/delivery-env: '{% raw %}{{ .path.basename }}{% endraw %}'
           spec:
             project: projects
             destination:
@@ -269,9 +269,9 @@ raw:
                       value: "arn:aws:iam::{{aws_account_id}}:role/agent-runway-tenant-secrets"
                     # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
                     # the Application; its guard checks that these labels name this project and environment.
-                    - name: app.namespace.labels.opspresso\.com/delivery-project
+                    - name: app.namespace.labels.agentops\.clush\.net/delivery-project
                       value: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
-                    - name: app.namespace.labels.opspresso\.com/delivery-env
+                    - name: app.namespace.labels.agentops\.clush\.net/delivery-env
                       value: '{% raw %}{{ .path.basename }}{% endraw %}'
               # The namespaced resources (kro instances) that resource-sync writes; AppProject projects limits the kinds.
               - repoURL: https://github.com/opspresso/argocd-env-projects.git
@@ -315,8 +315,8 @@ raw:
             labels:
               opspresso.com/cluster: "{{cluster}}"
               opspresso.com/group: "projects"
-              opspresso.com/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
-              opspresso.com/delivery-env: '{% raw %}{{ index .path.segments 2 }}{% endraw %}'
+              agentops.clush.net/delivery-project: '{% raw %}{{ index .path.segments 1 }}{% endraw %}'
+              agentops.clush.net/delivery-env: '{% raw %}{{ index .path.segments 2 }}{% endraw %}'
             finalizers:
               - resources-finalizer.argocd.argoproj.io
           spec:

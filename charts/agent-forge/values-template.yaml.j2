@@ -27,7 +27,7 @@ app:
 {%- if (agent_runway is defined and agent_runway.connected | default(false)) %}
 {#- Sandbox apps connect to retired pool databases and to the postgres and valkey servers of each Project's sandbox
     environment. The server NetworkPolicy and its password decide which Project a Sandbox reaches. #}
-{%- set extra_egress = (workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}, {"to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-tenant": "true", "opspresso.com/delivery-env": "dev"}}}], "ports": [{"protocol": "TCP", "port": 5432}, {"protocol": "TCP", "port": 6379}]}] %}
+{%- set extra_egress = (workspace_extra_egress | default([])) + [{"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}], "ports": [{"protocol": "TCP", "port": 5432}]}, {"to": [{"namespaceSelector": {"matchLabels": {"agentops.clush.net/delivery-tenant": "true", "agentops.clush.net/delivery-env": "dev"}}}], "ports": [{"protocol": "TCP", "port": 5432}, {"protocol": "TCP", "port": 6379}]}] %}
 {%- else %}
 {%- set extra_egress = workspace_extra_egress | default([]) %}
 {%- endif %}

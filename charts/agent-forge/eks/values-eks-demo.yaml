@@ -183,7 +183,7 @@ app:
               ports:
                 - {protocol: TCP, port: 3001}
             - {"ports": [{"port": 5432, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "delivery-pool"}}}]}
-            - {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"opspresso.com/delivery-env": "dev", "opspresso.com/delivery-tenant": "true"}}}]}
+            - {"ports": [{"port": 5432, "protocol": "TCP"}, {"port": 6379, "protocol": "TCP"}], "to": [{"namespaceSelector": {"matchLabels": {"agentops.clush.net/delivery-env": "dev", "agentops.clush.net/delivery-tenant": "true"}}}]}
   routing:
     hosts:
     - forge.agrt.dev

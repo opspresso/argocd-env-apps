@@ -177,7 +177,7 @@ raw:
           namespace: app-delivery
         source:
           repoURL: https://github.com/opspresso/argocd-env-projects.git
-          targetRevision: "c0cfbcd7e2dd9ca3241aa65f994842e7eff8dd4e"
+          targetRevision: "8dcb4d45b2e96aa8c3276ee841807ec72725b5ca"
           path: charts/delivery
           helm:
             valuesObject:
@@ -225,8 +225,8 @@ raw:
             labels:
               opspresso.com/cluster: "eks-demo"
               opspresso.com/group: "projects"
-              opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
-              opspresso.com/delivery-env: '{{ .path.basename }}'
+              agentops.clush.net/delivery-project: '{{ index .path.segments 1 }}'
+              agentops.clush.net/delivery-env: '{{ .path.basename }}'
           spec:
             project: projects
             destination:
@@ -259,9 +259,9 @@ raw:
                       value: "arn:aws:iam::396608815058:role/agent-runway-tenant-secrets"
                     # The environment namespace is an object of charts/app (app.namespace), so Argo CD deletes it with
                     # the Application; its guard checks that these labels name this project and environment.
-                    - name: app.namespace.labels.opspresso\.com/delivery-project
+                    - name: app.namespace.labels.agentops\.clush\.net/delivery-project
                       value: '{{ index .path.segments 1 }}'
-                    - name: app.namespace.labels.opspresso\.com/delivery-env
+                    - name: app.namespace.labels.agentops\.clush\.net/delivery-env
                       value: '{{ .path.basename }}'
               # The namespaced resources (kro instances) that resource-sync writes; AppProject projects limits the kinds.
               - repoURL: https://github.com/opspresso/argocd-env-projects.git
@@ -305,8 +305,8 @@ raw:
             labels:
               opspresso.com/cluster: "eks-demo"
               opspresso.com/group: "projects"
-              opspresso.com/delivery-project: '{{ index .path.segments 1 }}'
-              opspresso.com/delivery-env: '{{ index .path.segments 2 }}'
+              agentops.clush.net/delivery-project: '{{ index .path.segments 1 }}'
+              agentops.clush.net/delivery-env: '{{ index .path.segments 2 }}'
             finalizers:
               - resources-finalizer.argocd.argoproj.io
           spec:
