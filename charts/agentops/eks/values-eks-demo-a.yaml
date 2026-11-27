@@ -3,10 +3,14 @@ app:
   ecrPullSecret:
     enabled: False
     region: ap-northeast-2
+  # One policy covers both workloads of this release. The ingress gateway reaches the console; the console reaches
+  # Identity in the same namespace; the platform services reach Identity's key set and token endpoint.
   networkPolicy:
     enabled: False
     appPort:
+      sameNamespace: true
       from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: istio-system
+      namespaces: [agent-studio, agent-models, agent-memory, agent-knowledge, agent-forge, agent-runway]

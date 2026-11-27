@@ -191,6 +191,35 @@ agent_models:
 # The unified console. Every service screen moves here; the services keep their API.
 agentops:
   hostname: agentops.agrt.dev
+  # AgentOps Identity, the platform sign-in (agent-platform docs/OIDC_IDENTITY.md). Dex client agentops-identity
+  # (argocd-env-addons charts/dex); install/eks/secrets.sh there creates /k8s/<cluster>/agentops-identity/oidc-client-*.
+  identity:
+    oidc_issuer: https://sso.demo.opsp.dev
+    # Sign-in creates a person only for ADMIN_EMAILS (/k8s/<cluster>/agentops-identity/admin-emails) and these domains.
+    enrollment_domains: []
+    # The one-time copy of Studio's people into Identity: off, count or apply (charts/agentops).
+    import: count
+  # Git hosts people connect in the console (Profile > Git accounts). clientId is the OAuth application on that host,
+  # with the redirect URI https://<agentops.hostname>/api/git/callback. github: the OAuth App agent-studio-git of the
+  # opspresso organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo:
+  # gitlab.oauth_applications in argocd-env-addons env/eks-demo.yaml.
+  git_hosts:
+    - name: github
+      provider: github
+      origin: https://github.com
+      clientId: Ov23liWo0mJ9kFk43v9N
+    - name: gitlab
+      provider: gitlab
+      origin: https://gitlab.com
+      clientId: 2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4
+    - name: gitlab-demo
+      provider: gitlab
+      origin: https://gitlab.demo.opsp.dev
+      clientId: agent-studio-git
+    - name: gitea-demo
+      provider: gitea
+      origin: https://gitea.demo.opsp.dev
+      clientId: f7f13c8a-a268-46a2-830a-3b5d820bdbc0
 
 agent_runway:
   hostname: runway.agrt.dev
@@ -242,8 +271,9 @@ rovr:
 # for it (terraform-env-demo 3-alb issues the wildcard certificate).
 app_delivery:
   enabled: true
-  # Pin workflows to the delivery chart that reads Secrets Manager (argocd-env-projects #95).
-  revision: f6e0272b4cd75d3ad2196684276c2b2128ce6df2
+  # Pin workflows to the delivery chart that accepts the ChartRelease group runway.agentops.clush.net of Agent Runway
+  # v0.94.0 and later (argocd-env-projects #97).
+  revision: c6159a25cb174c627174e8dab57d83158c70b334
   nexus:
     host: nexus.demo.opsp.dev
     image_repository: runway-images

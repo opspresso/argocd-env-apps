@@ -1,16 +1,22 @@
 {% set maintenance = agentops_maintenance | default(false) -%}
+{% set identity = (agentops | default({})).identity | default({}) -%}
+{% set import_mode = identity.import | default('off') -%}
 app:
   fullnameOverride: agentops
   ecrPullSecret:
     enabled: {{agentops is defined}}
     region: {{aws_region}}
+  # One policy covers both workloads of this release. The ingress gateway reaches the console; the console reaches
+  # Identity in the same namespace; the platform services reach Identity's key set and token endpoint.
   networkPolicy:
     enabled: {{agentops is defined}}
     appPort:
+      sameNamespace: true
       from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: istio-system
+      namespaces: [agent-studio, agent-models, agent-memory, agent-knowledge, agent-forge, agent-runway]
 {% if agentops is defined %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
@@ -31,8 +37,11 @@ app:
       # One session read per request and an occasional preference write, each a few milliseconds; service calls never
       # hold a connection. Four per process keeps the shared PostgreSQL budget (tests/test_production_capacity.py).
       DATABASE_POOL_SIZE: '4'
+      # The console's own origin: sign-in callback /api/auth/callback, Origin check and absolute links. Every service's
+      # CONSOLE_BASE_URL is this origin.
       AUTH_BASE_URL: https://{{agentops.hostname}}
-      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
+      # AgentOps Identity (workload identity below): the console exchanges the session cookie there for 60-second tokens.
+      IDENTITY_URL: http://agentops-identity:3000/identity
       # Service addresses. AgentOps calls each service at its public host for now. A service may move to its in-cluster
       # address later, together with its allowed hosts and NetworkPolicy. A service left out here is not offered in the
       # console.
@@ -52,14 +61,9 @@ app:
     data:
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/{{cluster}}/agentops/auth-secret
-      name: AUTH_SECRET
-    - key: /k8s/{{cluster}}/agentops/aes-encryption-key
-      name: AES_ENCRYPTION_KEY
-    - key: /k8s/{{cluster}}/agentops/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/{{cluster}}/agentops/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
+    # The console's client secret at AgentOps Identity (client console). The console signs and seals nothing.
+    - key: /k8s/{{cluster}}/agentops-identity/client-secret-console
+      name: IDENTITY_CLIENT_SECRET_CONSOLE
   routing:
     hosts:
     - {{agentops.hostname}}
@@ -104,4 +108,158 @@ app:
     sidecar.istio.io/inject: "true"
   podAnnotations:
     link.argocd.argoproj.io/external-link: https://{{agentops.hostname}}
+  workloads:
+    # AgentOps Identity: the platform's sign-in, people, teams and token issuer. Same image as the console with
+    # AGENTOPS_ROLE=identity. Cluster-internal: the console relays /identity/* and /api/auth/callback from the public
+    # host, and the services reach it at agentops-identity.agentops.svc.cluster.local.
+    identity:
+      fullnameOverride: agentops-identity
+      replicaCount: {{0 if maintenance else 2}}
+      overrides: |
+        image: {{ '{{' }} toYaml .Values.image | nindent 2 {{ '}}' }}
+      service:
+        enabled: true
+        name: http
+        port: 3000
+        targetPort: 3000
+      resources:
+        requests:
+          cpu: 10m
+          memory: 160Mi
+        limits:
+          memory: 512Mi
+      readinessProbe:
+        httpGet:
+          path: /api/ready
+          port: 3000
+        initialDelaySeconds: 5
+        timeoutSeconds: 6
+        periodSeconds: 10
+      livenessProbe:
+        httpGet:
+          path: /api/health
+          port: 3000
+        timeoutSeconds: 2
+        periodSeconds: 10
+      startupProbe:
+        httpGet:
+          path: /api/health
+          port: 3000
+        timeoutSeconds: 2
+        periodSeconds: 5
+        failureThreshold: 60
+      terminationGracePeriodSeconds: 30
+      lifecycle:
+        preStop:
+          exec:
+            command: [/bin/sh, -c, sleep 10]
+      pdb:
+        enabled: true
+        maxUnavailable: 1
+      automountServiceAccountToken: false
+      podLabels:
+        sidecar.istio.io/inject: 'true'
+      configmap:
+        enabled: true
+        data:
+          AGENTOPS_ROLE: identity
+          PORT: '3000'
+          STAGE: prod
+          DATABASE_POOL_SIZE: '4'
+          # The public console origin: the token issuer is <AUTH_BASE_URL>/identity and the IdP returns to
+          # <AUTH_BASE_URL>/api/auth/callback.
+          AUTH_BASE_URL: https://{{agentops.hostname}}
+          # The platform Dex (argocd-env-addons charts/dex, client agentops-identity) in front of LLDAP. Dex passes
+          # name, email and groups; sub is the stable subject and email the person's address.
+          OIDC_ISSUER: {{identity.oidc_issuer}}
+{% if identity.enrollment_domains | default([]) %}
+          IDENTITY_ENROLLMENT_DOMAINS: {{identity.enrollment_domains | join(',')}}
+{% endif %}
+          # Git hosts people connect in Profile > Git accounts; Studio, Forge and Runway take user tokens from Identity.
+          # Each OAuth application's redirect URI is https://<agentops.hostname>/api/git/callback. The client secret of
+          # a host is the key <name> of the JSON in /k8s/<cluster>/agentops-identity/git-host-secrets.
+          GIT_HOSTS: {{ agentops.git_hosts | default([]) | tojson | tojson }}
+      externalSecrets:
+        enabled: true
+        refreshInterval: 1h
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: secrets-manager
+        data:
+        - key: /k8s/{{cluster}}/agent-platform/database-url
+          name: DATABASE_URL
+        - key: /k8s/{{cluster}}/agentops-identity/auth-secret
+          name: AUTH_SECRET
+        - key: /k8s/{{cluster}}/agentops-identity/encryption-key
+          name: AES_ENCRYPTION_KEY
+        - key: /k8s/{{cluster}}/agentops-identity/organization-id
+          name: IDENTITY_ORGANIZATION_ID
+        - key: /k8s/{{cluster}}/agentops-identity/admin-emails
+          name: ADMIN_EMAILS
+        - key: /k8s/{{cluster}}/agentops-identity/oidc-client-id
+          name: OIDC_CLIENT_ID
+        - key: /k8s/{{cluster}}/agentops-identity/oidc-client-secret
+          name: OIDC_CLIENT_SECRET
+        - key: /k8s/{{cluster}}/agentops-identity/git-host-secrets
+          name: GIT_HOST_SECRETS
+{% for client in ['console', 'studio', 'memory', 'knowledge', 'forge', 'runway', 'models'] %}
+        - key: /k8s/{{cluster}}/agentops-identity/client-secret-{{client}}
+          name: IDENTITY_CLIENT_SECRET_{{client | upper}}
+{% endfor %}
+{% if import_mode in ['count', 'apply'] %}
+  # One-time copy of people, tiers, teams and Git connections from Studio into AgentOps Identity (agentops
+  # scripts/import-identity.ts), as a PostSync hook after Identity has created its tables. Steps: agentops.identity.import
+  # count, sync and read the Job log (counts only); apply and sync; then off. A second apply changes nothing. It must
+  # finish before Studio 0.276 starts: Studio's schema 17 removes the person data the import reads.
+  extraExternalSecrets:
+    agentops-identity-import:
+      refreshInterval: 1h
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: secrets-manager
+      data:
+      # Studio's key opens its Git connection tokens; the import seals them again with Identity's key.
+      - key: /k8s/{{cluster}}/agent-studio/aes-encryption-key
+        name: STUDIO_AES_ENCRYPTION_KEY
+  jobs:
+    identity-import:
+      annotations:
+        argocd.argoproj.io/hook: PostSync
+        argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      podLabels:
+        sidecar.istio.io/inject: 'false'
+      command: {{ (['node', 'scripts/import-identity.ts'] + (['--apply'] if import_mode == 'apply' else [])) | tojson }}
+      env:
+      - name: PGAPPNAME
+        value: agentops-identity-import
+      # One database: Identity's tables, the console's legacy tables and Studio's people share agent_platform.
+      - name: DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: agentops-identity-external
+            key: DATABASE_URL
+      - name: STUDIO_DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: agentops-identity-external
+            key: DATABASE_URL
+      - name: AES_ENCRYPTION_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentops-identity-external
+            key: AES_ENCRYPTION_KEY
+      - name: STUDIO_AES_ENCRYPTION_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentops-identity-import
+            key: STUDIO_AES_ENCRYPTION_KEY
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+{% endif %}
 {% endif %}
