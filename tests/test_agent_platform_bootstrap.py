@@ -1,5 +1,6 @@
 """Secret bootstrap preserves identity and all existing credentials."""
 import base64
+import uuid
 from unittest.mock import patch
 import pytest
 import bootstrap_agent_platform as bootstrap
@@ -37,19 +38,27 @@ def test_check_reports_missing_without_writes_or_fabricated_installation_ids(cap
     output = capsys.readouterr().out
     for name in bootstrap.STUDIO_PROVIDED:
         assert f"{PREFIX}/agent-studio/{name}" in output
-    for service in bootstrap.SERVICE_CLIENTS:
-        assert f"{PREFIX}/{service}/oidc-client-id" in output
-    assert "organization-id" not in output.replace(f"{PREFIX}/agent-forge/organization-id", "")
+    for name in bootstrap.IDENTITY_PROVIDED:
+        assert f"{PREFIX}/agentops-identity/{name}" in output
+    assert "organization-id" not in output.replace(f"{PREFIX}/agentops-identity/organization-id", "")
     desired = bootstrap.parameter_values(PREFIX, {})
+    # Identity requires a UUID organization; Forge finds its rows by it.
+    assert str(uuid.UUID(desired[f"{PREFIX}/agentops-identity/organization-id"])) == \
+        desired[f"{PREFIX}/agentops-identity/organization-id"]
+    assert f"{PREFIX}/agent-forge/organization-id" not in desired
     assert f"{PREFIX}/agent-memory/organization-id" not in desired
     assert f"{PREFIX}/agent-knowledge/organization-id" not in desired
     assert f"{PREFIX}/agent-forge/model-roles" not in desired
     # Agent services keep every parameter under the cluster prefix.
     assert all(name.startswith(f"{PREFIX}/") for name in desired)
     assert not any(f"{PREFIX}/agent-studio/{name}" in desired for name in bootstrap.STUDIO_PROVIDED)
-    # Studio issues OIDC clients; random values would never match a registration.
+    assert not any(f"{PREFIX}/agentops-identity/{name}" in desired for name in bootstrap.IDENTITY_PROVIDED)
+    # The Dex client comes from argocd-env-addons install/eks/secrets.sh; no service holds an OIDC client.
     assert not any("oidc-client" in name for name in desired)
-    assert not any(part in name for name in desired for part in ("delegat", "policy", "/credentials", "neo4j"))
+    for client in bootstrap.IDENTITY_CLIENTS:
+        assert len(desired[f"{PREFIX}/agentops-identity/client-secret-{client}"]) >= 32
+    assert not any(part in name for name in desired if not name.endswith("/agent-forge/git-delegation-secret")
+                   for part in ("delegat", "policy", "/credentials", "neo4j"))
 
 
 def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(capsys):
@@ -62,12 +71,14 @@ def test_apply_preserves_db_password_and_creates_models_secrets_without_logging(
     assert values[f"{PREFIX}/agent-platform/database-url"].endswith(":5432/agent_platform")
     assert "existing-password%3Aescaped%2F%40@" in values[f"{PREFIX}/agent-platform/database-url"]
     assert not any(entry["Name"].endswith("/agent-studio/postgres-password") for entry in writes)
-    keys = [values[f"{PREFIX}/{service}/aes-encryption-key"] for service in ("agent-studio", "agent-models")]
+    keys = [values[f"{PREFIX}/{path}"] for path in
+            ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key", "agentops-identity/encryption-key")]
     for key in keys:
         assert len(base64.b64decode(key, validate=True)) == 32 and base64.b64encode(base64.b64decode(key)).decode() == key
-    assert keys[0] != keys[1]
-    for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
-                 "agent-knowledge/auth-secret", "agent-forge/auth-secret", "agent-models/auth-secret"):
+    assert len(set(keys)) == 3
+    assert values[f"{PREFIX}/agent-forge/git-delegation-secret"] != values[f"{PREFIX}/agent-forge/checkpoint-secret"]
+    for path in ("agent-studio/schedule-scan-token", "agent-memory/auth-secret", "agentops-identity/auth-secret",
+                 "agent-knowledge/auth-secret", "agent-forge/git-delegation-secret", "agent-models/auth-secret"):
         assert len(values[f"{PREFIX}/{path}"]) >= 32
     output = capsys.readouterr().out
     assert all(value not in output for value in values.values())
@@ -123,9 +134,9 @@ def test_copy_from_refuses_a_target_value_that_differs_from_the_source():
 
 def test_copy_from_requires_every_source_value_before_any_write():
     existing = source_values()
-    del existing[f"{SOURCE}/agent-forge/organization-id"]
+    del existing[f"{SOURCE}/agentops-identity/organization-id"]
     with patch.object(bootstrap, "aws", side_effect=fake_secrets(existing)) as aws:
-        with pytest.raises(RuntimeError, match="agent-forge/organization-id"):
+        with pytest.raises(RuntimeError, match="agentops-identity/organization-id"):
             bootstrap.bootstrap("eks-demo", "ap-northeast-2", apply=True, copy_from="eks-demo-a")
     assert all(call.args[2] == "batch-get-secret-value" for call in aws.call_args_list)
 
@@ -138,10 +149,10 @@ def test_delivery_clusters_get_pool_credentials_with_a_matching_admin_url(capsys
     admin = writes[f"{TARGET}/agent-runway/pool-admin-password"]
     assert writes[f"{TARGET}/agent-runway/pool-database-url"] == (
         f"postgresql://delivery_admin:{admin}@postgres.delivery-pool.svc.cluster.local:5432/postgres")
-    assert len(writes[f"{TARGET}/agent-runway/auth-secret"]) >= 32
     assert len(writes[f"{TARGET}/agent-runway/metrics-bearer-token"]) >= 32
     assert writes[f"{TARGET}/delivery-pool/postgres-password"] != admin
-    assert f"{TARGET}/agent-runway/oidc-client-id" in capsys.readouterr().out
+    assert f"{TARGET}/agent-runway/auth-secret" not in writes
+    assert len(writes[f"{TARGET}/agentops-identity/client-secret-runway"]) >= 32
     assert not any("oidc-client" in name for name in writes)
 
 
