@@ -1,127 +1,77 @@
-"""Studio alone connects to the enterprise IdP; the other services sign in through Studio."""
-import copy
-import json
+"""AgentOps Identity alone connects to the IdP; every Agent service verifies Identity's tokens."""
 from pathlib import Path
-import subprocess
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
 import pytest
 import yaml
 
-from gen_values import validate_agent_oidc
+from gen_values import validate_agent_oidc, validate_agentops_identity
 from test_agent_platform import resource
 
 ROOT = Path(__file__).resolve().parents[1]
-CONSUMERS = ["memory", "knowledge", "forge", "models"]
+# Every service that verifies AgentOps Identity tokens, and whether it holds a client secret at Identity.
+SERVICES = {"studio": True, "memory": True, "knowledge": True, "forge": True, "runway": True, "models": False}
+LEGACY = {"OIDC_ISSUER", "OIDC_PROVIDER_ID", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_SCOPES", "OIDC_PROFILE_CLAIMS",
+          "OIDC_LOGOUT_MODE", "OIDC_TRUST_EMAIL", "ADMIN_EMAILS", "ALLOWED_EMAIL_DOMAINS", "GOOGLE_CLIENT_ID",
+          "GOOGLE_CLIENT_SECRET", "AUTH_PASSWORD", "GIT_HOSTS", "GIT_HOST_SECRETS", "FORGE_ORGANIZATION_ID"}
 
 
-def configured(platform):
-    context = yaml.safe_load((ROOT / "env" / f"{platform}-demo.yaml").read_text())
-    context["agent_studio_maintenance"] = False
-    settings = context["agent_studio"]
-    settings["google_sign_in"] = False
-    settings["oidc"] = {
-        "issuer": "https://identity.example.test/realms/company",
-        "provider_id": "enterprise",
-        "scopes": "openid profile email groups",
-        "profile_claims": {"teams": "/directory~1groups", "department": "/company/department", "roles": "/realm_access/roles"},
-    }
-    return context
+def env():
+    return yaml.safe_load((ROOT / "env" / "eks-demo.yaml").read_text())
 
 
+@pytest.mark.parametrize("service,client", SERVICES.items())
 @pytest.mark.parametrize("platform", ["eks"])
-def test_studio_enterprise_oidc_renders_to_real_manifests(platform):
-    context = configured(platform)
-    validate_agent_oidc(context)
-    chart = ROOT / "charts" / "agent-studio"
-    values = Environment(loader=FileSystemLoader(chart), undefined=StrictUndefined).get_template("values-template.yaml.j2").render(context)
-    result = subprocess.run(["helm", "template", "agent-studio", str(chart),
-        "-f", str(chart / "values.yaml"), "-f", str(chart / f"values-{context['phase']}.yaml"), "-f", "-"],
-        input=values, text=True, capture_output=True, check=True)
-    documents = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
-    config = next(doc["data"] for doc in documents if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "agent-studio")
-    secret = next(doc for doc in documents if doc["kind"] == "ExternalSecret" and doc["metadata"]["name"] == "agent-studio-external")
-    refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
-    oidc = context["agent_studio"]["oidc"]
-    assert config["OIDC_ISSUER"] == oidc["issuer"]
-    assert config["OIDC_PROVIDER_ID"] == "enterprise"
-    assert config["OIDC_SCOPES"] == oidc["scopes"]
-    assert json.loads(config["OIDC_PROFILE_CLAIMS"]) == oidc["profile_claims"]
-    assert config["OIDC_LOGOUT_MODE"] == "app"
-    assert config["OIDC_TRUST_EMAIL"] == "false"
-    assert refs["OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-id"
-    assert refs["OIDC_CLIENT_SECRET"] == f"/k8s/{platform}-demo/agent-studio/oidc-client-secret"
-    assert "OIDC_CLIENT_SECRET" not in config
-    assert "GOOGLE_CLIENT_ID" not in refs and "GOOGLE_CLIENT_SECRET" not in refs
-
-
-@pytest.mark.parametrize("platform", ["eks"])
-def test_studio_trust_email_renders_as_text(platform):
-    context = configured(platform)
-    context["agent_studio"]["oidc"]["trust_email"] = True
-    validate_agent_oidc(context)
-    chart = ROOT / "charts" / "agent-studio"
-    values = Environment(loader=FileSystemLoader(chart), undefined=StrictUndefined).get_template("values-template.yaml.j2").render(context)
-    assert yaml.safe_load(values)["app"]["configmap"]["data"]["OIDC_TRUST_EMAIL"] == "true"
-
-
-@pytest.mark.parametrize("service", CONSUMERS)
-@pytest.mark.parametrize("platform", ["eks"])
-def test_consumers_sign_in_only_through_studio_with_their_own_client(service, platform):
+def test_services_verify_identity_tokens(service, client, platform):
     chart = f"agent-{service}"
     config = resource(chart, platform, "ConfigMap", chart)["data"]
     refs = {entry["secretKey"]: entry["remoteRef"]["key"]
             for entry in resource(chart, platform, "ExternalSecret", f"{chart}-external")["spec"]["data"]}
-    assert config["OIDC_ISSUER"] == "https://studio.agrt.dev/api/auth"
-    assert config["OIDC_PROVIDER_ID"] == "studio"
-    assert refs["OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/{chart}/oidc-client-id"
-    assert refs["OIDC_CLIENT_SECRET"] == f"/k8s/{platform}-demo/{chart}/oidc-client-secret"
-    legacy = {"OIDC_SCOPES", "OIDC_PROFILE_CLAIMS", "OIDC_LOGOUT_MODE", "ADMIN_EMAILS", "ALLOWED_EMAIL_DOMAINS",
-              "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AUTH_PASSWORD"}
-    names = set(config) | set(refs)
-    assert not names & legacy
-    assert not any(name.endswith(("_API_KEY", "_DELEGATION_SECRET", "_DELEGATION_ISSUER", "_ISSUER_POLICIES"))
-                   or (name.endswith("_BASE_URL") and name not in {"AUTH_BASE_URL", "CONSOLE_BASE_URL"}) for name in names)
+    assert config["IDENTITY_ISSUER"] == "https://agentops.agrt.dev/identity"
+    assert config["IDENTITY_URL"] == "http://agentops-identity.agentops.svc.cluster.local:3000/identity"
+    if client:
+        assert refs["IDENTITY_CLIENT_SECRET"] == f"/k8s/{platform}-demo/agentops-identity/client-secret-{service}"
+    else:
+        assert "IDENTITY_CLIENT_SECRET" not in refs
+    assert not (set(config) | set(refs)) & LEGACY
+    assert not any(name.endswith("_OIDC_CLIENT_ID") for name in refs)
     # A service whose screens moved to AgentOps redirects its old pages to the console (agent-platform docs/AGENTOPS.md).
-    if "CONSOLE_BASE_URL" in config:
-        assert config["CONSOLE_BASE_URL"] == "https://agentops.agrt.dev"
-    if service in {"models", "memory", "knowledge", "forge"}:
-        assert "CONSOLE_BASE_URL" in config
-    if service != "models":
-        assert config["MODELS_URL"] == "http://agent-models.agent-models.svc.cluster.local:3000"
-    # Knowledge and Forge enforce their own policy; they never call back into Studio.
-    assert "STUDIO_URL" not in config
+    assert config["CONSOLE_BASE_URL"] == "https://agentops.agrt.dev"
 
 
-@pytest.mark.parametrize("service", CONSUMERS)
+@pytest.mark.parametrize("platform", ["eks"])
+def test_forge_seals_git_delegation_with_its_own_secret(platform):
+    refs = {entry["secretKey"]: entry["remoteRef"]["key"]
+            for entry in resource("agent-forge", platform, "ExternalSecret", "agent-forge-external")["spec"]["data"]}
+    assert refs["FORGE_GIT_DELEGATION_SECRET"] == f"/k8s/{platform}-demo/agent-forge/git-delegation-secret"
+    assert refs["FORGE_GIT_DELEGATION_SECRET"] != refs.get("FORGE_CHECKPOINT_SECRET")
+    assert "AUTH_SECRET" not in refs
+
+
+@pytest.mark.parametrize("service", list(SERVICES))
 @pytest.mark.parametrize("key,value", [("oidc", {"issuer": "https://sso.example.test"}), ("google_sign_in", False),
-                                        ("sign_in_domains", ["example.test"])])
-def test_consumer_external_sign_in_settings_are_rejected_before_generation(service, key, value):
-    context = yaml.safe_load((ROOT / "env" / "eks-demo.yaml").read_text())
+                                        ("password_sign_in", False), ("sign_in_domains", ["example.test"]),
+                                        ("git_hosts", [])])
+def test_service_sign_in_settings_are_rejected_before_generation(service, key, value):
+    context = env()
     context[f"agent_{service}"][key] = value
-    with pytest.raises(ValueError, match="Studio OIDC"):
+    with pytest.raises(ValueError, match="agentops.identity"):
         validate_agent_oidc(context)
 
 
-def test_incomplete_studio_oidc_configuration_is_rejected_before_generation():
-    context = configured("eks")
-    for changed in [{}, {"issuer": " "}, "not a mapping"]:
-        invalid = copy.deepcopy(context)
-        invalid["agent_studio"]["oidc"] = changed
-        with pytest.raises(ValueError):
-            validate_agent_oidc(invalid)
-    invalid = copy.deepcopy(context)
-    invalid["agent_studio"]["oidc"]["client_secret_parameter"] = "/k8s/common/agent-studio/oidc-client-secret"
-    with pytest.raises(ValueError, match="not supported"):
-        validate_agent_oidc(invalid)
-    invalid = copy.deepcopy(context)
-    invalid["agent_studio"]["oidc"]["logout_mode"] = "unknown"
-    with pytest.raises(ValueError, match="logout_mode"):
-        validate_agent_oidc(invalid)
-    invalid = copy.deepcopy(context)
-    invalid["agent_studio"]["oidc"]["trust_email"] = "true"
-    with pytest.raises(ValueError, match="trust_email"):
-        validate_agent_oidc(invalid)
-    context["agent_studio"]["google_sign_in"] = "false"
-    with pytest.raises(ValueError, match="boolean"):
-        validate_agent_oidc(context)
+@pytest.mark.parametrize("change,message", [
+    ({"oidc_issuer": "http://sso.example.test"}, "https URL"),
+    ({"import": False}, "off, count or apply"),
+    ({"import": "copy"}, "off, count or apply"),
+    ({"enrollment_domains": "example.test"}, "list of domains"),
+])
+def test_invalid_identity_settings_are_rejected_before_generation(change, message):
+    context = env()
+    context["agentops"]["identity"].update(change)
+    with pytest.raises(ValueError, match=message):
+        validate_agentops_identity(context)
+
+
+def test_demo_identity_settings_are_valid():
+    context = env()
+    validate_agent_oidc(context)
+    validate_agentops_identity(context)

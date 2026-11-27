@@ -17,8 +17,8 @@ def test_runway_chart_uses_its_own_runtime_identity():
 
     secret = resource("agent-runway", "eks", "ExternalSecret", "agent-runway-external")
     refs = {entry["secretKey"]: entry["remoteRef"]["key"] for entry in secret["spec"]["data"]}
-    assert refs["AUTH_SECRET"] == "/k8s/eks-demo/agent-runway/auth-secret"
-    assert refs["OIDC_CLIENT_ID"] == "/k8s/eks-demo/agent-runway/oidc-client-id"
+    assert refs["IDENTITY_CLIENT_SECRET"] == "/k8s/eks-demo/agentops-identity/client-secret-runway"
+    assert "AUTH_SECRET" not in refs and "OIDC_CLIENT_ID" not in refs
     assert refs["RUNWAY_POOL_DATABASE_URL"] == "/k8s/eks-demo/agent-runway/pool-database-url"
 
     deployment = resource("agent-runway", "eks", "Deployment", "agent-runway")

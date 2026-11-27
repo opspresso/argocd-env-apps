@@ -39,9 +39,9 @@ app:
       AUTH_BASE_URL: https://{{agent_knowledge.hostname}}
       # The service has no screens of its own; its old pages and every link it emits point here (AgentOps phase 4).
       CONSOLE_BASE_URL: https://{{agentops.hostname}}
-      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
-      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
-      OIDC_PROVIDER_ID: studio
+      # AgentOps Identity signs every token this service accepts (agent-platform docs/OIDC_IDENTITY.md).
+      IDENTITY_ISSUER: https://{{agentops.hostname}}/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
       S3_REGION: {{aws_region}}
       S3_BUCKET_NAME: agent-knowledge-static
       S3_FORCE_PATH_STYLE: 'false'
@@ -119,10 +119,9 @@ app:
       name: DATABASE_URL
     - key: /k8s/{{cluster}}/agent-knowledge/auth-secret
       name: AUTH_SECRET
-    - key: /k8s/{{cluster}}/agent-knowledge/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/{{cluster}}/agent-knowledge/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
+    # This service's client secret at AgentOps Identity (client knowledge).
+    - key: /k8s/{{cluster}}/agentops-identity/client-secret-knowledge
+      name: IDENTITY_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-knowledge/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
   serviceMonitor:

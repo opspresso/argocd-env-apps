@@ -38,35 +38,13 @@ def validate_agentops_identity(context):
 
 
 def validate_agent_oidc(context):
-    """Studio alone connects to an external IdP; the other services sign in through Studio."""
-    for service in ("memory", "knowledge", "forge", "models"):
+    """AgentOps Identity is the only sign-in; no Agent service connects to an IdP or holds Git hosts."""
+    for service in ("studio", "memory", "knowledge", "forge", "models", "runway"):
         settings = context.get(f"agent_{service}")
         if isinstance(settings, dict):
-            for key in ("oidc", "google_sign_in", "sign_in_domains"):
+            for key in ("oidc", "google_sign_in", "password_sign_in", "sign_in_domains", "git_hosts"):
                 if key in settings:
-                    raise ValueError(f"agent_{service}.{key} is not supported; the service signs in through Studio OIDC")
-    settings = context.get("agent_studio")
-    if not isinstance(settings, dict):
-        return
-    if "google_sign_in" in settings and not isinstance(settings["google_sign_in"], bool):
-        raise ValueError("agent_studio.google_sign_in must be a boolean")
-    oidc = settings.get("oidc")
-    if oidc is None:
-        return
-    if not isinstance(oidc, dict):
-        raise ValueError("agent_studio.oidc must be a mapping")
-    if not isinstance(oidc.get("issuer"), str) or not oidc["issuer"].strip():
-        raise ValueError("agent_studio.oidc.issuer is required")
-    for key in ("client_id_parameter", "client_secret_parameter"):
-        if key in oidc:
-            raise ValueError(f"agent_studio.oidc.{key} is not supported; Studio reads /k8s/<cluster>/agent-studio/oidc-client-id and oidc-client-secret")
-    if not isinstance(oidc.get("profile_claims", {}), dict):
-        raise ValueError("agent_studio.oidc.profile_claims must be a mapping")
-    mode = oidc.get("logout_mode", "app")
-    if not isinstance(mode, str) or mode not in {"app", "provider"}:
-        raise ValueError("agent_studio.oidc.logout_mode is not supported")
-    if not isinstance(oidc.get("trust_email", False), bool):
-        raise ValueError("agent_studio.oidc.trust_email must be a boolean")
+                    raise ValueError(f"agent_{service}.{key} is not supported; sign-in and Git hosts are agentops.identity and agentops.git_hosts")
 
 
 def gen_repos(args):

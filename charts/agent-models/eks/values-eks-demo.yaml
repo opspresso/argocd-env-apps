@@ -26,8 +26,9 @@ app:
       AUTH_BASE_URL: https://models.agrt.dev
       # Models has no screens of its own; its old pages redirect here (AgentOps phase 2).
       CONSOLE_BASE_URL: https://agentops.agrt.dev
-      OIDC_ISSUER: https://studio.agrt.dev/api/auth
-      OIDC_PROVIDER_ID: studio
+      # AgentOps Identity signs every token this service accepts (agent-platform docs/OIDC_IDENTITY.md).
+      IDENTITY_ISSUER: https://agentops.agrt.dev/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
       MODELS_REQUEST_TIMEOUT_MS: '600000'
       MODELS_SHUTDOWN_GRACE_MS: '600000'
       MODELS_MAX_CONCURRENT_REQUESTS: '64'
@@ -43,10 +44,6 @@ app:
       name: AUTH_SECRET
     - key: /k8s/eks-demo/agent-models/aes-encryption-key
       name: AES_ENCRYPTION_KEY
-    - key: /k8s/eks-demo/agent-models/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/eks-demo/agent-models/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
   routing:
     hosts:
     - models.agrt.dev

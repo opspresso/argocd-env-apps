@@ -1,7 +1,6 @@
 app:
   fullnameOverride: agent-studio
 
-
   replicaCount: 1
   autoscaling:
     enabled: True
@@ -14,30 +13,17 @@ app:
       STAGE: 'prod'
       DATABASE_POOL_SIZE: '4'
       SERVICE_NAME: 'Agent Studio'
-      SERVICE_LOGO: 'agent-studio'
-
-      SERVICE_COPYRIGHT: "\u00a9 OpsPresso. All rights reserved."
-
-      ADMIN_EMAILS: me@nalbam.com
-      # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: ap-northeast-2
-      AUTH_BASE_URL: https://studio.agrt.dev
-
-      OIDC_ISSUER: "https://sso.demo.opsp.dev"
-      OIDC_PROVIDER_ID: "lldap"
-      OIDC_SCOPES: "openid email profile groups"
-      OIDC_LOGOUT_MODE: "app"
-      OIDC_PROFILE_CLAIMS: "{\"account\": \"/email\", \"company\": {\"claim\": \"/groups\", \"match\": \"^org-(.+)$\"}, \"department\": {\"claim\": \"/groups\", \"match\": \"^dept-(.+)$\"}, \"jobTitle\": {\"claim\": \"/groups\", \"match\": \"^title-(.+)$\"}, \"roles\": {\"claim\": \"/groups\", \"match\": \"^role-(.+)$\"}, \"teams\": {\"claim\": \"/groups\", \"match\": \"^(?!lldap_|org-|dept-|title-|role-).+$\"}}"
-      OIDC_DISPLAY_NAME: "LLDAP"
-      OIDC_TRUST_EMAIL: "true"
-
-      AUTH_ALLOWED_HOSTS: 'studio.agrt.dev'
-      # PUBLIC_BASE_URL: https://studio.agrt.dev
+      # AgentOps Identity signs every token Studio accepts and holds people, teams and Git connections
+      # (agent-platform docs/OIDC_IDENTITY.md). Sign-in, admins and Git hosts are Identity settings (charts/agentops).
+      IDENTITY_ISSUER: https://agentops.agrt.dev/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
+      # Studio's public origin: the Agent API base, webhook addresses and MCP OAuth client metadata.
+      PUBLIC_BASE_URL: https://studio.agrt.dev
       S3_BUCKET_NAME: agent-studio-static
       ARTIFACT_ACCESS_MODE: proxied
       CATALOG_ENABLED: 'true'
       SLACK_LOADING_INDICATOR: ':loading:'
-      TRUSTED_PROXY_CIDRS: '10.10.0.0/16'
       EMBEDDING_DIM: native
       CATALOG_MIN_SCORE: '0.2'
       RERANKER_MIN_SCORE: '0.05'
@@ -62,9 +48,6 @@ app:
       # PR review reaches GitHub with the caller's GitHub MCP grant.
       GITHUB_API_URL: https://api.github.com
       GITHUB_WEB_URL: https://github.com
-      # Git hosts whose accounts users connect in Studio; Forge and Runway get each user's Git token from Studio
-      # (agent-platform/docs/GIT_CONNECTIONS.md, Agent Studio v0.242.0 or later).
-      GIT_HOSTS: "[{\"clientId\": \"Ov23liWo0mJ9kFk43v9N\", \"name\": \"github\", \"origin\": \"https://github.com\", \"provider\": \"github\"}, {\"clientId\": \"2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4\", \"name\": \"gitlab\", \"origin\": \"https://gitlab.com\", \"provider\": \"gitlab\"}, {\"clientId\": \"agent-studio-git\", \"name\": \"gitlab-demo\", \"origin\": \"https://gitlab.demo.opsp.dev\", \"provider\": \"gitlab\"}, {\"clientId\": \"f7f13c8a-a268-46a2-830a-3b5d820bdbc0\", \"name\": \"gitea-demo\", \"origin\": \"https://gitea.demo.opsp.dev\", \"provider\": \"gitea\"}]"
   routing:
     hosts:
     - studio.agrt.dev
@@ -116,52 +99,19 @@ app:
   externalSecrets:
     enabled: true
     data:
-    - key: /k8s/eks-demo/agent-studio/auth-secret
-      name: AUTH_SECRET
-
-    - key: /k8s/eks-demo/agent-studio/google-client-id
-      name: GOOGLE_CLIENT_ID
-    - key: /k8s/eks-demo/agent-studio/google-client-secret
-      name: GOOGLE_CLIENT_SECRET
-
-
-    # The enterprise IdP client, under the cluster prefix like every service client.
-    - key: /k8s/eks-demo/agent-studio/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/eks-demo/agent-studio/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
-
+    # Studio's client secret at AgentOps Identity (client studio).
+    - key: /k8s/eks-demo/agentops-identity/client-secret-studio
+      name: IDENTITY_CLIENT_SECRET
     - key: /k8s/eks-demo/agent-studio/aes-encryption-key
       name: AES_ENCRYPTION_KEY
     - key: /k8s/eks-demo/agent-studio/plugins-repo-token
       name: PLUGINS_REPO_TOKEN
     - key: /k8s/eks-demo/agent-studio/schedule-scan-token
       name: SCHEDULE_SCAN_TOKEN
-
-    # One JSON object: Git host name -> OAuth client secret. A host without a key is a public client.
-    - key: /k8s/eks-demo/agent-studio/git-host-secrets
-      name: GIT_HOST_SECRETS
-
     - key: /k8s/eks-demo/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/eks-demo/agent-studio/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
-    - key: /k8s/eks-demo/agent-forge/organization-id
-      name: FORGE_ORGANIZATION_ID
-    # Studio registers each service client; the service and Studio read the same client ID.
-
-    - key: /k8s/eks-demo/agent-forge/oidc-client-id
-      name: FORGE_OIDC_CLIENT_ID
-
-    - key: /k8s/eks-demo/agent-memory/oidc-client-id
-      name: MEMORY_OIDC_CLIENT_ID
-
-    - key: /k8s/eks-demo/agent-knowledge/oidc-client-id
-      name: KNOWLEDGE_OIDC_CLIENT_ID
-
-    - key: /k8s/eks-demo/agent-runway/oidc-client-id
-      name: RUNWAY_OIDC_CLIENT_ID
-
   networkPolicy:
     appPort:
       from:

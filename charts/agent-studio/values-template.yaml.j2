@@ -5,7 +5,6 @@
 app:
   fullnameOverride: agent-studio
 {% if agent_studio is defined %}
-{% set oidc = agent_studio.oidc | default(none) %}
   replicaCount: {{0 if maintenance else replicas}}
   autoscaling:
     enabled: {{false if maintenance else autoscaling}}
@@ -20,33 +19,17 @@ app:
       STAGE: '{{phase}}'
       DATABASE_POOL_SIZE: '4'
       SERVICE_NAME: '{{agent_studio.service.name}}'
-      SERVICE_LOGO: '{{agent_studio.service.logo}}'
-{% if agent_studio.service.copyright is defined %}
-      SERVICE_COPYRIGHT: {{agent_studio.service.copyright | tojson}}
-{% endif %}
-      ADMIN_EMAILS: me@nalbam.com
-      # ALLOWED_EMAIL_DOMAINS: nalbam.com
       AWS_REGION: {{aws_region}}
-      AUTH_BASE_URL: https://{{agent_studio.hostname}}
-{%- if agent_studio.password_sign_in | default(true) %}
-      AUTH_PASSWORD: 'true'
-{%- endif %}
-{% if oidc is not none %}
-      OIDC_ISSUER: {{ oidc.issuer | tojson }}
-      OIDC_PROVIDER_ID: {{ oidc.provider_id | default('oidc') | tojson }}
-      OIDC_SCOPES: {{ oidc.scopes | default('openid email profile') | tojson }}
-      OIDC_LOGOUT_MODE: {{ oidc.logout_mode | default('app') | tojson }}
-      OIDC_PROFILE_CLAIMS: {{ oidc.profile_claims | default({}) | tojson | tojson }}
-      OIDC_DISPLAY_NAME: {{ oidc.display_name | default("SSO") | tojson }}
-      OIDC_TRUST_EMAIL: {{ (oidc.trust_email | default(false)) | string | lower | tojson }}
-{% endif %}
-      AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
-      # PUBLIC_BASE_URL: https://{{agent_studio.hostname}}
+      # AgentOps Identity signs every token Studio accepts and holds people, teams and Git connections
+      # (agent-platform docs/OIDC_IDENTITY.md). Sign-in, admins and Git hosts are Identity settings (charts/agentops).
+      IDENTITY_ISSUER: https://{{agentops.hostname}}/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
+      # Studio's public origin: the Agent API base, webhook addresses and MCP OAuth client metadata.
+      PUBLIC_BASE_URL: https://{{agent_studio.hostname}}
       S3_BUCKET_NAME: agent-studio-static
       ARTIFACT_ACCESS_MODE: proxied
       CATALOG_ENABLED: 'true'
       SLACK_LOADING_INDICATOR: ':loading:'
-      TRUSTED_PROXY_CIDRS: '{{trusted_proxy_cidrs | join(",")}}'
       EMBEDDING_DIM: native
       CATALOG_MIN_SCORE: '0.2'
       RERANKER_MIN_SCORE: '0.05'
@@ -79,15 +62,6 @@ app:
       # PR review reaches GitHub with the caller's GitHub MCP grant.
       GITHUB_API_URL: https://api.github.com
       GITHUB_WEB_URL: https://github.com
-{%- if agent_studio.git_hosts is defined %}
-      # Git hosts whose accounts users connect in Studio; Forge and Runway get each user's Git token from Studio
-      # (agent-platform/docs/GIT_CONNECTIONS.md, Agent Studio v0.242.0 or later).
-{%- set git_hosts = [] %}
-{%- for host in agent_studio.git_hosts %}
-{%- set _ = git_hosts.append({"name": host.name, "provider": host.provider, "origin": host.origin, "clientId": host.client_id}) %}
-{%- endfor %}
-      GIT_HOSTS: {{ git_hosts | tojson | tojson }}
-{%- endif %}
   routing:
     hosts:
 {%- for host in allowed_hosts %}
@@ -143,43 +117,19 @@ app:
   externalSecrets:
     enabled: true
     data:
-    - key: /k8s/{{cluster}}/agent-studio/auth-secret
-      name: AUTH_SECRET
-{% if agent_studio.google_sign_in | default(true) %}
-    - key: /k8s/{{cluster}}/agent-studio/google-client-id
-      name: GOOGLE_CLIENT_ID
-    - key: /k8s/{{cluster}}/agent-studio/google-client-secret
-      name: GOOGLE_CLIENT_SECRET
-{% endif %}
-{% if oidc is not none %}
-    # The enterprise IdP client, under the cluster prefix like every service client.
-    - key: /k8s/{{cluster}}/agent-studio/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/{{cluster}}/agent-studio/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
-{% endif %}
+    # Studio's client secret at AgentOps Identity (client studio).
+    - key: /k8s/{{cluster}}/agentops-identity/client-secret-studio
+      name: IDENTITY_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-studio/aes-encryption-key
       name: AES_ENCRYPTION_KEY
     - key: /k8s/{{cluster}}/agent-studio/plugins-repo-token
       name: PLUGINS_REPO_TOKEN
     - key: /k8s/{{cluster}}/agent-studio/schedule-scan-token
       name: SCHEDULE_SCAN_TOKEN
-{% if agent_studio.git_hosts is defined %}
-    # One JSON object: Git host name -> OAuth client secret. A host without a key is a public client.
-    - key: /k8s/{{cluster}}/agent-studio/git-host-secrets
-      name: GIT_HOST_SECRETS
-{% endif %}
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/{{cluster}}/agent-studio/metrics-bearer-token
       name: METRICS_BEARER_TOKEN
-    - key: /k8s/{{cluster}}/agent-forge/organization-id
-      name: FORGE_ORGANIZATION_ID
-    # Studio registers each service client; the service and Studio read the same client ID.
-{% for service in ('forge', 'memory', 'knowledge') + (('runway',) if (agent_runway is defined and agent_runway.connected | default(false)) else ()) %}
-    - key: /k8s/{{cluster}}/agent-{{service}}/oidc-client-id
-      name: {{service | upper}}_OIDC_CLIENT_ID
-{% endfor %}
   networkPolicy:
     appPort:
       from:

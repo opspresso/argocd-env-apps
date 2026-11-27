@@ -31,8 +31,9 @@ app:
       AUTH_BASE_URL: https://{{agent_runway.hostname}}
       # Runway has no screens of its own; its old pages and every link it emits point here (AgentOps phase 3).
       CONSOLE_BASE_URL: https://{{agentops.hostname}}
-      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
-      OIDC_PROVIDER_ID: studio
+      # AgentOps Identity signs every token this service accepts (agent-platform docs/OIDC_IDENTITY.md).
+      IDENTITY_ISSUER: https://{{agentops.hostname}}/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
       AWS_REGION: {{aws_region}}
       RUNWAY_CLUSTER: {{cluster}}
       RUNWAY_SECRET_STORE: secrets-manager
@@ -82,12 +83,9 @@ app:
 {% endif %}
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
-    - key: /k8s/{{cluster}}/agent-runway/auth-secret
-      name: AUTH_SECRET
-    - key: /k8s/{{cluster}}/agent-runway/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/{{cluster}}/agent-runway/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
+    # This service's client secret at AgentOps Identity (client runway).
+    - key: /k8s/{{cluster}}/agentops-identity/client-secret-runway
+      name: IDENTITY_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-runway/pool-database-url
       name: RUNWAY_POOL_DATABASE_URL
     - key: /k8s/{{cluster}}/agent-runway/metrics-bearer-token

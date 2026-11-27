@@ -35,7 +35,7 @@ grafana_url: http://grafana.addon-grafana.svc.cluster.local
 agent_studio_maintenance: false
 agent_memory_maintenance: false
 agent_knowledge_maintenance: false
-agent_forge_maintenance: true
+agent_forge_maintenance: false
 agent_models_maintenance: false
 agentops_maintenance: false
 agent_runway_maintenance: false
@@ -65,64 +65,10 @@ agent_studio:
     tools: [gmail, google-calendar, google-docs, google-drive, google-sheets, google-slides, slack]
   service:
     name: Agent Studio
-    logo: agent-studio
     copyright: © OpsPresso. All rights reserved.
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
-  # Sign-in is LLDAP (Dex) and Google only; email and password sign-in is off.
-  password_sign_in: false
-  # Platform sign-in: the Dex client agent-studio (argocd-env-addons charts/dex).
-  # One Dex session serves the addons and Studio; the Agent services sign in
-  # through Studio. argocd-env-addons install/eks/secrets.sh creates
-  # /k8s/eks-demo/agent-studio/oidc-client-id and oidc-client-secret.
-  oidc:
-    issuer: https://sso.demo.opsp.dev
-    provider_id: lldap
-    display_name: LLDAP
-    # Dex sessions store the claims of the latest direct sign-in and reuse them
-    # for SSO into every other client. Without groups here, a Studio sign-in
-    # erases the LLDAP groups that Argo CD, Grafana and GitLab receive.
-    scopes: openid email profile groups
-    # Dex passes only name, email and groups from LLDAP, so the company profile
-    # comes from LLDAP group names: org-<company>, dept-<department>,
-    # title-<job title> and role-<role>. Other groups except LLDAP's own
-    # lldap_* are teams. One company, department and title per person.
-    profile_claims:
-      # The directory login Forge assigns developer desktops by (agent-platform docs/DEV_DESKTOP.md). LLDAP stands in for the
-      # customer AD, so a user's LLDAP mail is the Entra userPrincipalName of the desktops' tenant.
-      account: /email
-      company: {claim: /groups, match: '^org-(.+)$'}
-      department: {claim: /groups, match: '^dept-(.+)$'}
-      jobTitle: {claim: /groups, match: '^title-(.+)$'}
-      roles: {claim: /groups, match: '^role-(.+)$'}
-      teams: {claim: /groups, match: '^(?!lldap_|org-|dept-|title-|role-).+$'}
-    # LLDAP sign-in links to the Studio account with the same email. Safe only
-    # because users cannot change their own LLDAP email: the LLDAP UI admits
-    # only sso.admin_groups (argocd-env-addons charts/lldap).
-    trust_email: true
-  # Git hosts whose accounts users connect in Studio (Profile > Git accounts). client_id is the OAuth application on
-  # that host, with the redirect URI https://<hostname>/api/git/callback; its client secret is the key <name> of the
-  # JSON in /k8s/<cluster>/agent-studio/git-host-secrets. github: the OAuth App agent-studio-git of the opspresso
-  # organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo: gitlab.oauth_applications in
-  # argocd-env-addons env/eks-demo.yaml.
-  git_hosts:
-    - name: github
-      provider: github
-      origin: https://github.com
-      client_id: Ov23liWo0mJ9kFk43v9N
-    - name: gitlab
-      provider: gitlab
-      origin: https://gitlab.com
-      client_id: 2ecdaea4aa0015547c53779a63d5419b3d09a5adb3d80e760d282f84afb9aef4
-    - name: gitlab-demo
-      provider: gitlab
-      origin: https://gitlab.demo.opsp.dev
-      client_id: agent-studio-git
-    - name: gitea-demo
-      provider: gitea
-      origin: https://gitea.demo.opsp.dev
-      client_id: f7f13c8a-a268-46a2-830a-3b5d820bdbc0
   # Central selection IDs; Studio's saved overrides take precedence until reset in Settings.
   model_usage:
     defaultModel: openrouter/deepseek-v4.1-flash
