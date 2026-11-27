@@ -16,4 +16,4 @@ def test_pool_policy_keeps_existing_clients_and_adds_only_runway():
     namespaces = [peer["namespaceSelector"]["matchLabels"] for peer in ingress[0]["from"] if "namespaceSelector" in peer]
     assert namespaces == [{"kubernetes.io/metadata.name": "agent-runway"},
                           {"kubernetes.io/metadata.name": "agent-forge-workspaces"},
-                          {"opspresso.com/delivery-tenant": "true"}]
+                          {"agentops.clush.net/delivery-tenant": "true"}]
