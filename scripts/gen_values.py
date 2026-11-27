@@ -20,6 +20,23 @@ def parse_args():
     return p.parse_args()
 
 
+def validate_agentops_identity(context):
+    """AgentOps Identity signs in through one OIDC provider; the import runs off, count or apply."""
+    settings = context.get("agentops")
+    if not isinstance(settings, dict) or "identity" not in settings:
+        return
+    identity = settings["identity"]
+    if not isinstance(identity, dict):
+        raise ValueError("agentops.identity must be a mapping")
+    if not isinstance(identity.get("oidc_issuer"), str) or not identity["oidc_issuer"].startswith("https://"):
+        raise ValueError("agentops.identity.oidc_issuer must be an https URL")
+    if identity.get("import", "off") not in {"off", "count", "apply"}:
+        raise ValueError("agentops.identity.import must be off, count or apply")
+    domains = identity.get("enrollment_domains", [])
+    if not isinstance(domains, list) or not all(isinstance(domain, str) and domain for domain in domains):
+        raise ValueError("agentops.identity.enrollment_domains must be a list of domains")
+
+
 def validate_agent_oidc(context):
     """Studio alone connects to an external IdP; the other services sign in through Studio."""
     for service in ("memory", "knowledge", "forge", "models"):
@@ -88,6 +105,7 @@ def gen_values(t, reponame, platform=PLATFORM):
                     if key in v and not isinstance(v[key], bool):
                         raise ValueError("{} {} must be a boolean".format(env_path, key))
                 validate_agent_oidc(v)
+                validate_agentops_identity(v)
                 proxies = v.get("trusted_proxy_cidrs", [])
                 if not isinstance(proxies, list):
                     raise ValueError("{} trusted_proxy_cidrs must be a list".format(env_path))
