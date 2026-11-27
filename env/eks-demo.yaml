@@ -65,7 +65,7 @@ agent_studio:
     tools: [gmail, google-calendar, google-docs, google-drive, google-sheets, google-slides, slack]
   service:
     name: Agent Studio
-    copyright: © OpsPresso. All rights reserved.
+    copyright: © Clush. All rights reserved.
   hostname: studio.agrt.dev
   allowed_hosts:
   - studio.agrt.dev
