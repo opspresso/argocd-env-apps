@@ -239,7 +239,7 @@ app:
       activeDeadlineSeconds: 600
       podLabels:
         sidecar.istio.io/inject: 'false'
-      command: ["node", "scripts/import-identity.ts"]
+      command: ["node", "scripts/import-identity.ts", "--apply"]
       env:
       - name: PGAPPNAME
         value: agentops-identity-import

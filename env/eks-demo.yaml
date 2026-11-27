@@ -198,7 +198,7 @@ agentops:
     # Sign-in creates a person only for ADMIN_EMAILS (/k8s/<cluster>/agentops-identity/admin-emails) and these domains.
     enrollment_domains: []
     # The one-time copy of Studio's people into Identity: off, count or apply (charts/agentops).
-    import: count
+    import: apply
   # Git hosts people connect in the console (Profile > Git accounts). clientId is the OAuth application on that host,
   # with the redirect URI https://<agentops.hostname>/api/git/callback. github: the OAuth App agent-studio-git of the
   # opspresso organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo:
