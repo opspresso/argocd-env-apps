@@ -219,7 +219,7 @@ app_delivery:
   enabled: true
   # Pin workflows to the delivery chart that accepts the ChartRelease group runway.agentops.clush.net of Agent Runway
   # v0.94.0 and later (argocd-env-projects #97).
-  revision: c6159a25cb174c627174e8dab57d83158c70b334
+  revision: c0cfbcd7e2dd9ca3241aa65f994842e7eff8dd4e
   nexus:
     host: nexus.demo.opsp.dev
     image_repository: runway-images
