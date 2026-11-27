@@ -35,7 +35,7 @@ grafana_url: http://grafana.addon-grafana.svc.cluster.local
 agent_studio_maintenance: false
 agent_memory_maintenance: false
 agent_knowledge_maintenance: false
-agent_forge_maintenance: false
+agent_forge_maintenance: true
 agent_models_maintenance: false
 agentops_maintenance: false
 agent_runway_maintenance: false
@@ -197,8 +197,8 @@ agentops:
     oidc_issuer: https://sso.demo.opsp.dev
     # Sign-in creates a person only for ADMIN_EMAILS (/k8s/<cluster>/agentops-identity/admin-emails) and these domains.
     enrollment_domains: []
-    # The one-time copy of Studio's people into Identity: off, count or apply (charts/agentops).
-    import: apply
+    # The one-time copy of Studio's people into Identity: 'off' (quoted; bare off is a YAML boolean), count or apply.
+    import: 'off'
   # Git hosts people connect in the console (Profile > Git accounts). clientId is the OAuth application on that host,
   # with the redirect URI https://<agentops.hostname>/api/git/callback. github: the OAuth App agent-studio-git of the
   # opspresso organization. gitlab: the user application Agent Studio on gitlab.com. gitlab-demo:
