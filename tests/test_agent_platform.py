@@ -65,6 +65,11 @@ def test_authentication_hosts_match_public_routes(chart, platform):
     route = resource(chart, platform, "HTTPRoute", chart)["spec"]
     hostname = chart.removeprefix("agent-") + ".agrt.dev"
     assert route["hostnames"] == [hostname]
+    if chart == "agent-studio":
+        # Studio has no sign-in since v0.276.0: AgentOps Identity signs its tokens. PUBLIC_BASE_URL is its public origin.
+        assert config["PUBLIC_BASE_URL"] == f"https://{hostname}"
+        assert not any(name.startswith(("AUTH_", "OIDC_")) for name in config)
+        return
     assert config["AUTH_BASE_URL"] == f"https://{hostname}"
     if chart == "agent-forge":
         # Forge has no browser sign-in since v0.55.0 and refuses every request with an Origin header.
@@ -163,9 +168,9 @@ def test_studio_has_no_execution_or_cluster_authority(platform):
     assert not any(name.startswith("LLM_PROVIDER_") or "_DELEGATION_" in name for name in config)
     refs = {entry["secretKey"]: entry["remoteRef"]["key"]
             for entry in resource("agent-studio", platform, "ExternalSecret", "agent-studio-external")["spec"]["data"]}
-    # Studio and each service read the same registered client ID.
-    for service in ("forge", "memory", "knowledge"):
-        assert refs[f"{service.upper()}_OIDC_CLIENT_ID"] == f"/k8s/{platform}-demo/agent-{service}/oidc-client-id"
+    # AgentOps Identity issues Studio's tokens to the services; Studio registers no service client.
+    assert refs["IDENTITY_CLIENT_SECRET"] == f"/k8s/{platform}-demo/agentops-identity/client-secret-studio"
+    assert not any(name.endswith("_OIDC_CLIENT_ID") for name in refs)
     assert not any(name.startswith("LLM_PROVIDER_") or name.endswith(("_DELEGATION_SECRET", "_POLICY_SECRET")) for name in refs)
     assert not any(doc["kind"] in {"Role", "RoleBinding", "Job"} for doc in manifests("agent-studio", platform))
     assert resource("agent-studio", platform, "Deployment", "agent-studio-ticker")["spec"]["replicas"] == 1

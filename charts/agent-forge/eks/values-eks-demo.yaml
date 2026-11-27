@@ -14,9 +14,9 @@ app:
             matchLabels:
               kubernetes.io/metadata.name: addon-prometheus
 
-  replicaCount: 0
+  replicaCount: 1
   autoscaling:
-    enabled: False
+    enabled: True
   image:
     repository: 396608815058.dkr.ecr.ap-northeast-2.amazonaws.com/agent-forge
   imagePullSecrets:
@@ -40,9 +40,9 @@ app:
       FORGE_SUSPENDED_WORKSPACE_RETENTION_DAYS: '14'
       FORGE_CLOSED_CHECKPOINT_RETENTION_DAYS: '14'
       FORGE_CLOSED_WORKSPACE_RETENTION_DAYS: '30'
-      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
-      OIDC_ISSUER: https://studio.agrt.dev/api/auth
-      OIDC_PROVIDER_ID: studio
+      # AgentOps Identity signs every token this service accepts (agent-platform docs/OIDC_IDENTITY.md).
+      IDENTITY_ISSUER: https://agentops.agrt.dev/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
       MODELS_URL: http://agent-models.agent-models.svc.cluster.local:3000
       # Required: every env declares agent_forge.model_roles ([] when it has no role).
       FORGE_MODEL_CHANNELS: "[{\"id\": \"openrouter/minimax-m3.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/minimax-m3.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/deepseek-v4.1-flash\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/deepseek-v4.1-flash\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/glm-5.3\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/glm-5.3\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-luna\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-luna\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6.1-sol\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6.1-sol\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/gpt-6-astra\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/gpt-6-astra\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-opus-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-opus-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}, {\"id\": \"openrouter/claude-sonnet-5.5\", \"maxOutputTokens\": 8192, \"maxRequestsPerRun\": 100, \"model\": \"openrouter/claude-sonnet-5.5\", \"protocol\": \"chat/completions\", \"runtime\": \"opencode\"}]"
@@ -253,14 +253,12 @@ app:
       name: FORGE_CHECKPOINT_SECRET
     - key: /k8s/eks-demo/agent-forge/model-secret
       name: FORGE_MODEL_SECRET
-    - key: /k8s/eks-demo/agent-forge/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/eks-demo/agent-forge/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
-    - key: /k8s/eks-demo/agent-forge/organization-id
-      name: FORGE_ORGANIZATION_ID
-    - key: /k8s/eks-demo/agent-forge/auth-secret
-      name: AUTH_SECRET
+    # This service's client secret at AgentOps Identity (client forge).
+    - key: /k8s/eks-demo/agentops-identity/client-secret-forge
+      name: IDENTITY_CLIENT_SECRET
+    # Seals the Git delegation grants Forge hands to its runs; it must differ from FORGE_CHECKPOINT_SECRET.
+    - key: /k8s/eks-demo/agent-forge/git-delegation-secret
+      name: FORGE_GIT_DELEGATION_SECRET
     # Static scrape credential for /metrics, shared with Alloy and the ServiceMonitor.
     - key: /k8s/eks-demo/agent-forge/metrics-bearer-token
       name: METRICS_BEARER_TOKEN

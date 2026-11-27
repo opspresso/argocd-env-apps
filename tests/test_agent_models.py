@@ -10,8 +10,9 @@ from test_agent_memory_maintenance import render
 def test_models_readiness_native_identity_and_consumer_network(platform):
     config = resource("agent-models", platform, "ConfigMap", "agent-models")["data"]
     assert config["AUTH_BASE_URL"] == "https://models.agrt.dev"
-    assert config["OIDC_ISSUER"] == "https://studio.agrt.dev/api/auth"
-    assert config["OIDC_PROVIDER_ID"] == "studio"
+    assert config["IDENTITY_ISSUER"] == "https://agentops.agrt.dev/identity"
+    assert config["IDENTITY_URL"] == "http://agentops-identity.agentops.svc.cluster.local:3000/identity"
+    assert not any(name.startswith("OIDC_") for name in config)
     deployment = resource("agent-models", platform, "Deployment", "agent-models")["spec"]
     pod = deployment["template"]["spec"]
     assert pod["automountServiceAccountToken"] is False
@@ -30,8 +31,6 @@ def test_models_readiness_native_identity_and_consumer_network(platform):
         "DATABASE_URL": f"/k8s/{platform}-demo/agent-platform/database-url",
         "AUTH_SECRET": f"/k8s/{platform}-demo/agent-models/auth-secret",
         "AES_ENCRYPTION_KEY": f"/k8s/{platform}-demo/agent-models/aes-encryption-key",
-        "OIDC_CLIENT_ID": f"/k8s/{platform}-demo/agent-models/oidc-client-id",
-        "OIDC_CLIENT_SECRET": f"/k8s/{platform}-demo/agent-models/oidc-client-secret",
     }
     ingress = resource("agent-models", platform, "NetworkPolicy", "agent-models")["spec"]["ingress"][0]
     assert ingress["ports"] == [{"protocol": "TCP", "port": 3000}]

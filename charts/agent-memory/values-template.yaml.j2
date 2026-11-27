@@ -20,9 +20,9 @@ app:
       AUTH_BASE_URL: https://{{agent_memory.hostname}}
       # The service has no screens of its own; its old pages and every link it emits point here (AgentOps phase 4).
       CONSOLE_BASE_URL: https://{{agentops.hostname}}
-      # Studio is the only sign-in authority; the callback is /api/auth/callback/studio.
-      OIDC_ISSUER: https://{{agent_studio.hostname}}/api/auth
-      OIDC_PROVIDER_ID: studio
+      # AgentOps Identity signs every token this service accepts (agent-platform docs/OIDC_IDENTITY.md).
+      IDENTITY_ISSUER: https://{{agentops.hostname}}/identity
+      IDENTITY_URL: http://agentops-identity.agentops.svc.cluster.local:3000/identity
       AUTH_ALLOWED_HOSTS: '{{allowed_hosts | join(",")}}'
       # Providers and credentials belong to Agent Models. agent_memory.models names the selection
       # for each role; a Settings override takes precedence after a restart.
@@ -95,10 +95,9 @@ app:
     data:
     - key: /k8s/{{cluster}}/agent-memory/auth-secret
       name: AUTH_SECRET
-    - key: /k8s/{{cluster}}/agent-memory/oidc-client-id
-      name: OIDC_CLIENT_ID
-    - key: /k8s/{{cluster}}/agent-memory/oidc-client-secret
-      name: OIDC_CLIENT_SECRET
+    # This service's client secret at AgentOps Identity (client memory).
+    - key: /k8s/{{cluster}}/agentops-identity/client-secret-memory
+      name: IDENTITY_CLIENT_SECRET
     - key: /k8s/{{cluster}}/agent-platform/database-url
       name: DATABASE_URL
     - key: /k8s/{{cluster}}/agent-memory/metrics-bearer-token
