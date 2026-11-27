@@ -9,6 +9,7 @@ import secrets
 import subprocess
 import tempfile
 from urllib.parse import quote
+import uuid
 
 import yaml
 
@@ -29,21 +30,26 @@ def aws(region, *arguments, payload=None):
     return json.loads(result.stdout)
 
 
-SERVICE_CLIENTS = ("agent-models", "agent-memory", "agent-knowledge", "agent-forge")
+# AgentOps Identity clients (agentops charts/agentops): Identity and each client read the same generated secret.
+# Models holds no client secret.
+IDENTITY_CLIENTS = ("console", "studio", "memory", "knowledge", "forge", "runway", "models")
 
-# Values that existing data or registrations depend on. A migrated database stays readable only when the
-# new cluster uses the same keys, Forge organization and Studio-issued clients.
+# Values that existing data depends on. A migrated database stays readable only when the new cluster uses the same
+# keys and the same Identity organization, which Forge rows and checkpoint AAD carry.
 CONTINUITY = (
-    "agent-studio/auth-secret", "agent-studio/aes-encryption-key", "agent-memory/auth-secret",
-    "agent-forge/checkpoint-secret", "agent-forge/model-secret",
-    "agent-forge/auth-secret", "agent-forge/organization-id",
+    "agent-studio/aes-encryption-key", "agent-memory/auth-secret",
+    "agent-forge/checkpoint-secret", "agent-forge/model-secret", "agent-forge/git-delegation-secret",
     "agent-models/auth-secret", "agent-models/aes-encryption-key", "agent-knowledge/auth-secret",
-    *(f"{service}/oidc-client-{part}" for service in SERVICE_CLIENTS for part in ("id", "secret")),
+    "agentops-identity/auth-secret", "agentops-identity/encryption-key", "agentops-identity/organization-id",
+    *(f"agentops-identity/client-secret-{client}" for client in IDENTITY_CLIENTS),
 )
 
-# Studio parameters that come from the Google OAuth client, the plugins repository and the Git hosts' OAuth
-# applications, never generated.
-STUDIO_PROVIDED = ("google-client-id", "google-client-secret", "plugins-repo-token", "git-host-secrets")
+# Studio parameters that come from the plugins repository, never generated.
+STUDIO_PROVIDED = ("plugins-repo-token",)
+
+# Identity parameters that people decide or that come from the Git hosts' OAuth applications. argocd-env-addons
+# install/eks/secrets.sh creates the Dex client (agentops-identity/oidc-client-id and oidc-client-secret).
+IDENTITY_PROVIDED = ("admin-emails", "git-host-secrets")
 
 
 # rovr parameters that come from the GitHub App and model providers, never generated.
@@ -65,20 +71,19 @@ def parameter_values(prefix, existing, delivery=False, rovr=False):
         "@postgres.agent-studio.svc.cluster.local:5432/agent_platform")
     for service in ("agent-studio", "agent-memory", "agent-knowledge", "agent-forge"):
         secret(f"{service}/metrics-bearer-token")
-    for path in ("agent-studio/auth-secret", "agent-studio/schedule-scan-token", "agent-memory/auth-secret",
+    for path in ("agent-studio/schedule-scan-token", "agent-memory/auth-secret",
                  "agent-knowledge/auth-secret", "agent-forge/checkpoint-secret",
-                 "agent-forge/model-secret", "agent-forge/auth-secret", "agent-models/auth-secret",
-                 "agentops/auth-secret"):
+                 "agent-forge/model-secret", "agent-forge/git-delegation-secret", "agent-models/auth-secret",
+                 "agentops-identity/auth-secret",
+                 *(f"agentops-identity/client-secret-{client}" for client in IDENTITY_CLIENTS)):
         secret(path)
-    # Studio, Models and AgentOps require canonical base64 of exactly 32 bytes.
-    for path in ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key", "agentops/aes-encryption-key"):
+    # Studio, Models and Identity require canonical base64 of exactly 32 bytes.
+    for path in ("agent-studio/aes-encryption-key", "agent-models/aes-encryption-key", "agentops-identity/encryption-key"):
         secret(path, lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
-    # Forge owns issuer-qualified principals; its organization is a configured namespace.
-    # Memory/Knowledge organization IDs must instead come from their initialized installations.
-    values[f"{prefix}/agent-forge/organization-id"] = existing.get(
-        f"{prefix}/agent-forge/organization-id", f"agent-platform-{prefix.rsplit('/', 1)[-1]}")
+    # The organization every Identity token names; Forge finds its rows by it. Identity requires a UUID that never
+    # changes after the first sign-in.
+    secret("agentops-identity/organization-id", lambda: str(uuid.uuid4()))
     if delivery:
-        secret("agent-runway/auth-secret")
         secret("agent-runway/metrics-bearer-token")
         secret("delivery-pool/postgres-password")
         # Delivery administers the pool as a non-superuser; the pool bootstrap sets this password.
@@ -140,19 +145,13 @@ def bootstrap(cluster, region, apply=False, copy_from=None, delivery=False, rovr
         source = f" (from {copy_from})" if name in copied else ""
         print(f"{'Created' if apply else 'Missing'}: {name}{source}")
     print(f"{len(existing)} existing, {len(missing)} {'created' if apply else 'missing'} parameters")
-    print("Prepare from the Google OAuth client (when Google sign-in is enabled), the plugins repository and "
-          "the Git hosts' OAuth applications (when agent_studio.git_hosts is set): "
+    print("Prepare from the plugins repository: "
           + ", ".join(f"{prefix}/agent-studio/{name}" for name in STUDIO_PROVIDED))
+    print("Prepare the Identity admins and the Git hosts' OAuth client secrets (agentops.git_hosts): "
+          + ", ".join(f"{prefix}/agentops-identity/{name}" for name in IDENTITY_PROVIDED))
     if rovr:
         print("Prepare from the rovr GitHub App and model providers: "
               + ", ".join(f"{prefix}/rovr/{name}" for name in ROVR_PROVIDED))
-    if copy_from:
-        if delivery:
-            print(f"Prepare from Studio Platform connections: {prefix}/agent-runway/oidc-client-id, oidc-client-secret")
-        return 0 if apply or not missing else 1
-    # Studio issues each service client. Operators prepare these after registration; they are never random.
-    for service in SERVICE_CLIENTS + (("agent-runway",) if delivery else ()):
-        print(f"Prepare from Studio Platform connections: {prefix}/{service}/oidc-client-id, oidc-client-secret")
     return 0 if apply or not missing else 1
 
 
@@ -161,7 +160,7 @@ def main():
     parser.add_argument("--cluster", required=True)
     parser.add_argument("--apply", action="store_true", help="Create missing secrets; never overwrite")
     parser.add_argument("--copy-from", metavar="CLUSTER",
-                        help="Copy data-continuity values (keys, Forge organization, OIDC clients) from this cluster")
+                        help="Copy data-continuity values (keys, Identity organization and clients) from this cluster")
     args = parser.parse_args()
     if args.copy_from == args.cluster:
         parser.error("--copy-from must name a different cluster")

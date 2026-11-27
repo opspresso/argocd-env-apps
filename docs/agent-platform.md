@@ -13,38 +13,67 @@
 
 | 앱 | 공개 호스트 | 처리 책임 |
 | --- | --- | --- |
-| Studio | `studio.agrt.dev` | Agent·Chat, 승인, 로그인(OIDC 발급), MCP로 Memory·Knowledge·Forge 호출 |
+| Studio | `studio.agrt.dev` | Agent·Chat, 승인, MCP로 Memory·Knowledge·Forge 호출 |
 | Memory | `memory.agrt.dev` | 사용자·팀·조직의 단기/장기 메모리, recall/remember/handoff |
 | Knowledge | `knowledge.agrt.dev` | 문서·검색·지식 그래프, 원본 녹음·전사·회의록, durable queue worker |
 | Forge | `forge.agrt.dev` | Workspace·Sandbox·Run·Session·Git, native 모델 Gateway |
 | Models | `models.agrt.dev` | 공급자 연결·자격 증명, 모델 선택, 공급자 호출, 사용량 원장 |
 | Runway | `runway.agrt.dev` | 앱 리소스(PostgreSQL database·S3 prefix)·Variable 저장과 전달. [Agent Runway](#agent-runway) |
-| AgentOps | `agentops.agrt.dev` | 모든 서비스 화면의 통합 콘솔. 서비스 데이터를 저장하지 않고, 사용자의 콘솔 grant로 각 서비스 API를 부른다 |
+| AgentOps | `agentops.agrt.dev` | 모든 서비스 화면의 통합 콘솔. 서비스 데이터를 저장하지 않고, 로그인 세션을 Identity에서 60초 토큰으로 바꿔 각 서비스 API를 부른다 |
+| AgentOps Identity | 없음. 콘솔이 `agentops.agrt.dev`의 `/identity/*`와 `/api/auth/callback`을 중계한다 | 플랫폼 로그인, 사람·팀·Git 연결, 모든 서비스가 받는 토큰 발급. [로그인](#로그인과-모델-연결) |
 
 공개 요청은 public ALB `demo`(`terraform-env-demo`의 `3-alb`, Route53 `*.agrt.dev`) → `istio-ingressgateway`(`istio-system`)
 → 각 앱의 HTTPRoute 순서로 전달됩니다.
 
-모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `AUTH_BASE_URL`,
-`AUTH_ALLOWED_HOSTS`, HTTPRoute는 같은 호스트를 가리킵니다. Forge는
-`ALLOWED_ORIGINS`를 사용합니다. 프록시는 원래 `Host`를 전달해야 합니다.
+모든 Agent 앱은 `.agrt.dev` 호스트 하나만 사용합니다. `AUTH_BASE_URL`(Studio는 `PUBLIC_BASE_URL`)과
+HTTPRoute는 같은 호스트를 가리킵니다. Memory는 `AUTH_ALLOWED_HOSTS`도 같은 호스트로 렌더합니다.
+프록시는 원래 `Host`를 전달해야 합니다.
 `trusted_proxy_cidrs`는 실제 프록시 hop에 맞춰 EKS VPC CIDR(`10.10.0.0/16`)을 사용합니다.
 
 ## 로그인과 모델 연결
 
-Studio만 외부 로그인 제공자(Google 또는 기업 OIDC)와 연결합니다. Memory·Knowledge·Forge·Models는
-Studio OIDC로 로그인합니다. 템플릿은 다음 값을 고정으로 렌더합니다.
+플랫폼 로그인은 AgentOps Identity가 담당합니다. Identity는 `charts/agentops`의 `identity` workload입니다
+(image `agentops`, `AGENTOPS_ROLE=identity`, Service `agentops-identity:3000`). 클러스터 내부에서만 열리며,
+콘솔이 공개 host의 `/identity/*`와 `/api/auth/callback`을 Identity로 중계합니다.
+Agent 서비스는 외부 로그인 제공자와 연결하지 않고 Identity가 발급한 토큰만 받습니다.
 
-| 설정 | Memory·Knowledge·Forge·Models |
+Identity는 OIDC 제공자 하나(플랫폼 Dex)로만 로그인합니다. Google 로그인과 비밀번호 로그인은 없습니다.
+설정은 `env/<cluster>.yaml`의 `agentops.identity`입니다.
+
+| 설정 | 값 |
 | --- | --- |
-| `OIDC_ISSUER` | `https://<agent_studio.hostname>/api/auth` |
-| `OIDC_PROVIDER_ID` | `studio`. callback은 `https://<서비스 호스트>/api/auth/callback/studio` |
-| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | `/k8s/<cluster>/agent-<service>/oidc-client-id`, `oidc-client-secret` |
-| `MODELS_URL` | `http://agent-models.agent-models.svc.cluster.local:3000` (Models 제외) |
+| `OIDC_ISSUER` | `agentops.identity.oidc_issuer`. eks-demo는 `https://sso.demo.opsp.dev`(LLDAP 앞의 Dex) |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Dex client `agentops-identity`. `/k8s/<cluster>/agentops-identity/oidc-client-id`, `oidc-client-secret` |
+| callback | `https://<agentops.hostname>/api/auth/callback`. Dex client의 redirect URI와 같습니다 |
+| `ADMIN_EMAILS` | `/k8s/<cluster>/agentops-identity/admin-emails`. 관리자 이메일의 쉼표 구분 목록 |
+| `IDENTITY_ENROLLMENT_DOMAINS` | `agentops.identity.enrollment_domains`. 목록이 비어 있으면 렌더하지 않습니다. eks-demo는 `[]` |
 
-`gen_values.py`는 이 네 서비스의 `oidc`, `google_sign_in`, `sign_in_domains`를 거부합니다.
-Studio는 같은 `oidc-client-id` 경로를 `MEMORY_OIDC_CLIENT_ID`, `KNOWLEDGE_OIDC_CLIENT_ID`,
-`FORGE_OIDC_CLIENT_ID`로 읽습니다. Studio에는 `MODELS_URL`과 브라우저용
-`MODELS_PUBLIC_URL=https://<agent_models.hostname>`을 설정합니다.
+Identity는 첫 로그인에서 이메일이 `ADMIN_EMAILS`에 있거나 이메일 도메인이 `enrollment_domains`에 있을 때만
+사람을 만듭니다. 둘 다 아니면 그 계정은 등록되지 않습니다.
+
+`gen_values.py`는 렌더 전에 다음을 검사합니다.
+
+- `validate_agentops_identity`: `oidc_issuer`는 `https://` URL, `import`는 `off`·`count`·`apply` 중 하나,
+  `enrollment_domains`는 도메인 문자열 목록이어야 합니다.
+- `validate_agent_oidc`: `agent_studio`, `agent_memory`, `agent_knowledge`, `agent_forge`, `agent_models`,
+  `agent_runway`의 `oidc`, `google_sign_in`, `password_sign_in`, `sign_in_domains`, `git_hosts`를 거부합니다.
+  로그인과 Git 호스트는 `agentops.identity`와 `agentops.git_hosts`에서만 선언합니다.
+
+템플릿은 각 서비스에 다음 값을 고정으로 렌더합니다. 서비스에는 `OIDC_*` 설정이 없습니다.
+
+| 설정 | Studio·Memory·Knowledge·Forge·Models·Runway | AgentOps 콘솔 |
+| --- | --- | --- |
+| `IDENTITY_ISSUER` | `https://<agentops.hostname>/identity` | - |
+| `IDENTITY_URL` | `http://agentops-identity.agentops.svc.cluster.local:3000/identity` | `http://agentops-identity:3000/identity` |
+| client secret | `IDENTITY_CLIENT_SECRET` ← `/k8s/<cluster>/agentops-identity/client-secret-<service>`. Models는 읽지 않습니다 | `IDENTITY_CLIENT_SECRET_CONSOLE` ← `client-secret-console` |
+| `CONSOLE_BASE_URL` | `https://<agentops.hostname>` | - |
+
+`<service>`는 `studio`, `memory`, `knowledge`, `forge`, `runway`입니다. Identity는 client 일곱 개(`console`, `studio`,
+`memory`, `knowledge`, `forge`, `runway`, `models`)의 같은 secret을 `IDENTITY_CLIENT_SECRET_<CLIENT>`로 읽습니다.
+NetworkPolicy `agentops`는 콘솔과 Identity의 3000 포트를 같은 namespace, `istio-system`, 여섯 서비스 namespace에만 엽니다.
+
+Studio·Memory·Knowledge·Forge에는 `MODELS_URL=http://agent-models.agent-models.svc.cluster.local:3000`을 설정합니다.
+Studio에는 브라우저용 `MODELS_PUBLIC_URL=https://<agent_models.hostname>`도 설정합니다.
 
 공급자 주소·API 키·wire ID·가격은 Models만 소유합니다. 소비 서비스에는 공급자 설정을 주입하지 않습니다.
 역할별 기본 모델, 선정 근거와 기존 설정 전환은 [모델 기본값](model-defaults.md)을 따릅니다.
@@ -76,79 +105,47 @@ Forge의 `agent_forge.model_roles`는 ConfigMap의 `FORGE_MODEL_CHANNELS`로 렌
 저장된 Workspace 프로필과 접수한 작업의 모델은 채널 기본값과 별개입니다. 기존 채널 ID는
 이를 참조하는 Workspace가 남아 있으면 유지합니다.
 
-### Studio 기업 OIDC
+### Git 호스트
 
-`agent_studio.oidc` 블록은 Keycloak을 포함한 기업 OIDC 연결을 선언합니다.
-client ID·secret은 다른 서비스 client처럼 `/k8s/<cluster>/agent-studio/oidc-client-id`·`oidc-client-secret`
-Secrets Manager 시크릿에서 읽습니다. env에는 경로를 적지 않습니다.
-이 블록이 없으면 Studio는 현재 Google 연결을 유지합니다.
-
-```yaml
-agent_studio:
-  hostname: studio.example.com
-  google_sign_in: false
-  oidc:
-    issuer: https://sso.example.com/realms/company
-    provider_id: oidc
-    display_name: Company SSO
-    scopes: openid profile email
-    logout_mode: app
-    trust_email: false
-    profile_claims:
-      teams: /company/teams
-      department: /company/department
-      jobTitle: /company/title
-      roles: /company/roles
-```
-
-`google_sign_in: false`는 Studio의 Google credential 주입을 끕니다.
-`trust_email`은 Studio `OIDC_TRUST_EMAIL`(Studio v0.240.0 이상)이 되며 기본값은 `false`입니다.
-`false`이면 기존 Google 계정과 새 OIDC 계정을 이메일만으로 연결하지 않으므로 전환할 계정을 먼저 확인합니다.
-`true`이면 IdP가 `email_verified=true`로 보낸 이메일이 Studio의 확인된 이메일과 같을 때 첫 OIDC 로그인에서
-기존 계정에 연결합니다. 사용자가 IdP에서 자기 이메일을 바꿀 수 없을 때만 켭니다. 바꿀 수 있으면 다른 사람의
-계정을 가져갈 수 있습니다. eks-demo는 LLDAP UI를 관리자 그룹에만 열어 이 조건을 지킵니다. `provider_id`는 기존 계정과
-callback을 식별합니다. 기존 Keycloak 전용 설정에서 바꿀 때는 `provider_id: keycloak`을 유지합니다.
-새 설치 기본값은 `oidc`입니다. 회사 팀·역할은 표시 정보이며 앱 권한을 자동 부여하지 않습니다.
-
-### Studio Git 호스트
-
-`agent_studio.git_hosts`는 사용자가 Studio **프로필 → Git 계정**에서 연결할 Git 호스트를 선언합니다(Studio v0.242.0 이상).
-Forge와 Runway는 이 연결로 사용자의 저장소를 씁니다. 두 서비스에는 Git 호스트 설정이나 credential이 없습니다.
-계약은 agent-platform `docs/GIT_CONNECTIONS.md`를 따릅니다.
+`agentops.git_hosts`는 사람이 콘솔 **프로필 → Git 계정**에서 연결할 Git 호스트를 선언합니다.
+Identity가 이 목록을 `GIT_HOSTS`로 읽고 Git 연결을 저장합니다. Studio·Forge·Runway는 Identity에서 사용자의 Git token을
+받습니다. 세 서비스에는 Git 호스트 설정이나 OAuth credential이 없습니다.
+계약(필드 규칙, provider별 scope)은 agent-platform `docs/GIT_CONNECTIONS.md`를 따릅니다.
 
 ```yaml
-agent_studio:
+agentops:
   git_hosts:
-    - name: github              # 이름은 GIT_HOST_SECRETS의 key와 같습니다.
+    - name: github              # GIT_HOST_SECRETS의 key와 같습니다.
       provider: github          # github, gitlab 또는 gitea
       origin: https://github.com
-      client_id: <OAuth application의 client ID>
+      clientId: <OAuth application의 client ID>
 ```
 
-1. Git 호스트마다 OAuth application을 등록합니다. redirect URI는 `https://<agent_studio.hostname>/api/git/callback`입니다.
+1. Git 호스트마다 OAuth application을 등록합니다. redirect URI는 `https://<agentops.hostname>/api/git/callback`입니다.
+   콘솔이 이 경로를 Identity로 중계합니다.
    GitLab application은 scope `api`, `read_repository`, `write_repository`를 허용합니다.
    Gitea application은 scope를 따로 정하지 않습니다. **비공개 클라이언트**를 끄면 client secret 없이 PKCE로 동작합니다.
-2. client secret을 `/k8s/<cluster>/agent-studio/git-host-secrets` Secrets Manager 시크릿에 JSON 객체 하나로 저장합니다.
-   key는 호스트 `name`, 값은 그 application의 client secret입니다. key가 없는 GitLab·Gitea 호스트는 public client입니다. 이 시크릿이 없으면 Studio Secret 동기화가 실패하므로
-   `git_hosts`를 추가하기 전에 만듭니다.
-3. `git_hosts`를 추가해 배포한 다음 Studio Pod에서 `node build/upgrade-platform-auth.cjs --apply`를 실행합니다.
-   기존 Forge·Runway client가 `platform:git` scope와 토큰 교환 grant를 받습니다.
+2. client secret을 `/k8s/<cluster>/agentops-identity/git-host-secrets` Secrets Manager 시크릿에 JSON 객체 하나로 저장합니다.
+   key는 호스트 `name`, 값은 그 application의 client secret입니다. key가 없는 GitLab·Gitea 호스트는 public client입니다.
+   `github` 호스트에는 secret이 있어야 합니다. Identity ExternalSecret은 이 경로를 항상 읽으므로 Git 호스트가 없어도
+   시크릿을 만듭니다(빈 객체 `{}`).
+3. `agentops.git_hosts`를 바꿔 배포합니다. Identity가 새 `GIT_HOSTS`로 다시 시작합니다.
 
 기존 DB는 새 image의 데이터 보존 전환 도구로 현재 schema로 바꿉니다. 도구는 정해진 시작 schema만 받습니다.
 
 | 서비스 | 현재 schema | 시작 schema와 도구 |
 | --- | --- | --- |
-| Studio | baseline 13 | baseline 12: `node build/upgrade-platform-auth.cjs --apply`. baseline 11: `node build/upgrade-enterprise-profile.cjs --apply`(12 단계 포함) |
+| Studio | version 17 | version 14–16: 시작할 때 자동으로 단계별 변환. 16→17은 사람 데이터를 지우므로 [Studio 데이터 가져오기](#studio-데이터-가져오기)를 먼저 끝냅니다 |
 | Memory | 현재 fingerprint | 기업 프로필 이전: `upgrade-enterprise-profile.mjs` 후 `upgrade-model-work.mjs`. 그 다음 기준선: `upgrade-model-work.mjs` |
 | Knowledge | 현재 fingerprint | v0.18.1, v0.19.0–v0.20.1: `node scripts/upgrade-platform-auth.mjs --apply` |
 | Forge | version 11 | v4–v10을 시작할 때 자동으로 단계별 확장 |
 
-Studio의 현재 baseline은 `SELECT version FROM agent_studio_schema`로 확인합니다. 해당 image에서 도구를
-명시적으로 실행한 직후 새 버전을 시작합니다. 운영 DB reset은 데이터 유실이 허용될 때만 사용합니다.
+Studio의 현재 schema는 `SELECT version FROM agent_studio_schema`로 확인합니다. 도구가 있는 서비스는 해당 image에서
+도구를 명시적으로 실행한 직후 새 버전을 시작합니다. 운영 DB reset은 데이터 유실이 허용될 때만 사용합니다.
 
 ## DB와 원본 보존
 
-여섯 서비스의 `DATABASE_URL`은 `/k8s/<cluster>/agent-platform/database-url` 하나입니다.
+여섯 서비스와 AgentOps 콘솔·Identity의 `DATABASE_URL`은 `/k8s/<cluster>/agent-platform/database-url` 하나입니다.
 PostgreSQL의 새 빈 `agent_platform` DB를 사용하고, 업무 테이블은 각각
 `agent_studio_`, `agent_memory_`, `agent_knowledge_`, `agent_forge_` 접두어로 구분합니다.
 Knowledge pg-boss도 같은 DB에 전용 queue namespace를 사용합니다.
@@ -192,48 +189,70 @@ python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
 첫 명령은 누락 경로만 출력합니다. `--apply`는 누락된 시크릿만 만들고 기존 값을 덮어쓰지 않습니다.
 
 기존 클러스터의 데이터베이스를 새 클러스터로 옮길 때는 `--copy-from <원본 cluster>`를 함께 사용합니다.
-데이터·등록이 의존하는 값(`CONTINUITY`: Studio 인증 secret·암호화 키, Memory·Knowledge 인증 secret,
-Forge 키·조직·GitHub OAuth, Models 인증 secret·암호화 키, 네 서비스의 OIDC client)을 원본에서 그대로 복사하고,
-나머지(DB URL·metrics token·schedule scan token)만 대상 클러스터 값으로 만듭니다.
+기존 데이터가 의존하는 값(`CONTINUITY`)을 원본에서 그대로 복사하고, 나머지 값만 대상 클러스터에서 만듭니다.
+`CONTINUITY`는 다음 값입니다.
+
+- Studio 암호화 키(`agent-studio/aes-encryption-key`)
+- Memory·Knowledge 인증 secret
+- Forge 체크포인트 secret·모델 secret·Git 위임 secret
+- Models 인증 secret·암호화 키
+- Identity 인증 secret·암호화 키·조직 ID(`agentops-identity/auth-secret`, `encryption-key`, `organization-id`)
+- Identity client secret 일곱 개(`agentops-identity/client-secret-<client>`)
+
 원본에 값이 하나라도 없거나 대상에 다른 값이 이미 있으면 쓰기 전에 중단합니다. 값은 출력하지 않습니다.
 
 ```bash
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from <원본 cluster>
 python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --copy-from <원본 cluster> --apply
 ```
-기존 PostgreSQL 비밀번호에서 공통 DB URL을 만들며, 각 서비스의 인증 secret, Studio·Models의 base64 32바이트
-암호화 키, Forge 체크포인트·Git credential·모델 키를 서로 독립적으로 생성합니다. DB URL이 기존 비밀번호와
-모순되면 쓰기 전에 중단합니다. 서비스 OIDC client, Studio의 Google OAuth client와 plugins 저장소 token은
-생성하지 않고 준비할 경로만 출력합니다.
+
+bootstrap은 기존 PostgreSQL 비밀번호에서 공통 DB URL을 만듭니다. metrics token, schedule scan token,
+Runway 풀 비밀번호(`agent_runway`가 있는 클러스터)와 다음 값은 서로 독립적으로 생성합니다.
+
+- Memory·Knowledge·Models·Identity의 인증 secret
+- Studio·Models·Identity의 base64 32바이트 암호화 키
+- Forge 체크포인트 secret·모델 secret·Git 위임 secret(`agent-forge/git-delegation-secret`)
+- Identity client secret 일곱 개. client는 `console`, `studio`, `memory`, `knowledge`, `forge`, `runway`, `models`입니다.
+- Identity 조직 ID(`agentops-identity/organization-id`): UUID입니다. 모든 Identity 토큰이 이 조직을 가리키고 Forge 행과
+  체크포인트가 이 값을 가집니다. 첫 로그인 뒤에는 바꾸지 않습니다.
+
+DB URL이 기존 비밀번호와 모순되면 쓰기 전에 중단합니다. 다음 값은 생성하지 않고 준비할 경로만 출력합니다.
+
+- `agent-studio/plugins-repo-token`
+- `agentops-identity/admin-emails`
+- `agentops-identity/git-host-secrets`
+
+Dex client 값(`agentops-identity/oidc-client-id`, `oidc-client-secret`)은 argocd-env-addons `install/eks/secrets.sh`가 만듭니다.
 Secret 환경변수를 변경한 뒤에는 소비자 Deployment를 새 설정으로 rollout해야 합니다.
 
 | Secrets Manager 경로 (`/k8s/<cluster>/` 아래) | 소비자 | 준비 |
 | --- | --- | --- |
-| `agent-platform/database-url` | 여섯 서비스 | bootstrap |
+| `agent-platform/database-url` | Agent 서비스 여섯 개, AgentOps 콘솔·Identity, Identity 가져오기 Job | bootstrap |
 | `agent-<service>/metrics-bearer-token` | Studio·Memory·Knowledge·Forge와 수집기 | bootstrap |
-| `agent-studio/auth-secret`, `aes-encryption-key` | Studio | bootstrap |
+| `agent-studio/aes-encryption-key` | Studio, Identity 가져오기 Job(`STUDIO_AES_ENCRYPTION_KEY`) | bootstrap |
 | `agent-studio/schedule-scan-token` | Studio web·ticker | bootstrap |
-| `agent-studio/google-client-id`, `google-client-secret` | Studio(Google 로그인을 켠 경우) | Google OAuth client 생성 후 |
 | `agent-studio/plugins-repo-token` | Studio | `PLUGINS_REPO` 저장소에 접근할 GitHub token |
-| `agent-studio/git-host-secrets` | Studio(`agent_studio.git_hosts`를 정한 경우) | 각 Git 호스트에 OAuth application 등록 후 |
 | `agent-memory/auth-secret` | Memory | bootstrap |
 | `agent-models/auth-secret`, `aes-encryption-key` | Models | bootstrap |
 | `agent-knowledge/auth-secret` | Knowledge web·worker | bootstrap |
-| `agent-forge/auth-secret`, `checkpoint-secret`, `model-secret` | Forge | bootstrap |
-| `agent-forge/organization-id` | Studio·Forge | bootstrap |
-| `agent-{models,memory,knowledge,forge}/oidc-client-id` | 해당 서비스, Studio(Models 제외) | Studio 등록 후 |
-| `agent-{models,memory,knowledge,forge}/oidc-client-secret` | 해당 서비스 | Studio 등록 후 |
-| `agent-runway/auth-secret` | Runway | bootstrap(`agent_runway`가 있는 클러스터) |
+| `agent-forge/checkpoint-secret`, `model-secret` | Forge | bootstrap |
+| `agent-forge/git-delegation-secret` | Forge(`FORGE_GIT_DELEGATION_SECRET`). Run에 넘기는 Git 위임을 봉인한다 | bootstrap. `checkpoint-secret`과 다른 값이어야 한다 |
+| `agentops-identity/auth-secret`, `encryption-key` | Identity | bootstrap |
+| `agentops-identity/organization-id` | Identity(`IDENTITY_ORGANIZATION_ID`) | bootstrap. UUID이며 첫 로그인 뒤 바꾸지 않는다 |
+| `agentops-identity/client-secret-<client>` | Identity, 해당 client(`console`은 콘솔). `client-secret-models`는 Identity만 읽는다 | bootstrap |
+| `agentops-identity/oidc-client-id`, `oidc-client-secret` | Identity. Dex는 `oidc-client-secret`을 읽는다 | argocd-env-addons `install/eks/secrets.sh` |
+| `agentops-identity/admin-emails` | Identity(`ADMIN_EMAILS`) | 관리자 이메일의 쉼표 구분 목록 |
+| `agentops-identity/git-host-secrets` | Identity(`GIT_HOST_SECRETS`) | 각 Git 호스트에 OAuth application 등록 후. 호스트가 없으면 `{}` |
+| `agent-runway/metrics-bearer-token` | Runway와 수집기 | bootstrap(`agent_runway`가 있는 클러스터) |
 | `agent-runway/pool-admin-password`, `pool-database-url` | Runway, 풀 bootstrap Job | bootstrap. URL은 비밀번호에서 만든다 |
 | `delivery-pool/postgres-password` | 풀 PostgreSQL superuser(bootstrap Job 전용) | bootstrap |
-| `agent-runway/oidc-client-id`, `oidc-client-secret` | Runway, Studio | Studio 등록 후 |
-| `agentops/auth-secret`, `aes-encryption-key` | AgentOps | bootstrap |
-| `agentops/oidc-client-id`, `oidc-client-secret` | AgentOps | Studio에 콘솔 client로 등록 후([AgentOps 연결](#agentops-연결)) |
 
 Memory·Knowledge 조직 ID는 설정하지 않습니다. Studio가 각 서비스의 공개 MCP `installation_get`으로 확인합니다.
 요청 header와 확인 주기는 [Studio 서비스 연결 계약](https://github.com/opspresso/agent-studio/blob/main/docs/design/agent-services.md#연결-설정)을 따릅니다.
-Forge의 조직은 설정된 namespace이며 기본값은 `agent-platform-<cluster>`입니다.
+Forge는 조직 ID를 설정으로 읽지 않습니다. Forge는 Identity 토큰의 조직(`agentops-identity/organization-id`)으로 행을 찾습니다.
 ExternalSecret은 참조한 경로가 하나라도 없으면 Secret을 갱신하지 않습니다. 새 경로를 먼저 준비합니다.
+Identity의 ExternalSecret은 `agentops.git_hosts`·`agentops.identity.import` 값과 관계없이 위 `agentops-identity/` 경로를
+모두 읽습니다. 배포 전에 모두 만듭니다.
 ClusterSecretStore `secrets-manager`는 허용한 namespace(`argocd-env-addons`의 `charts/external-secrets` `namespaceRegexes`)만 씁니다.
 새 서비스 namespace는 chart를 배포하기 전에 이 목록에 추가합니다. 없으면 ExternalSecret이 `denied by spec.condition`으로 실패하고
 Pod가 `secret "<name>-external" not found`로 시작하지 못합니다. 목록을 고친 뒤에도 실패한 ExternalSecret은 재시도 간격 동안 다시 읽지
@@ -260,8 +279,9 @@ Sandbox 이미지는 같은 release의 `agent-forge:sandbox-<full-v-tag>`이며 
 공급자·Git 장기 키는 Sandbox에 전달하지 않습니다. 자세한 권한·보존 계약은
 [Kubernetes Workspace 운영](workspace-kubernetes.md)을 따릅니다.
 
-Forge에는 Git 호스트 설정이나 credential이 없습니다(Forge v0.40.0 이상). 사용자는 Studio에서 Git 호스트를 연결하고,
-Forge는 사용할 때마다 Studio에서 짧은 수명의 Git token을 받습니다. 호스트는 [Studio Git 호스트](#studio-git-호스트)에서 선언합니다.
+Forge에는 Git 호스트 설정이나 credential이 없습니다. 사용자는 콘솔에서 Git 호스트를 연결하고,
+Forge는 Identity에서 사용자의 Git token을 받습니다. Run에 넘기는 Git 위임은 `FORGE_GIT_DELEGATION_SECRET`으로 봉인합니다.
+호스트는 [Git 호스트](#git-호스트)에서 선언합니다.
 
 내부 Service와 Pod의 HTTP 포트는 모든 Agent 서비스(AgentOps·Studio·Memory·Knowledge 웹/worker·Forge·Models·Runway)가 `3000`으로 같습니다. Forge는 Sandbox 전용 보조 포트 `3001`을 함께 엽니다.
 HTTPRoute backend, Studio 서비스 연결, callback, ticker와 지표 수집도 이 포트를 사용합니다.
@@ -290,7 +310,72 @@ Sandbox는 별도 기본 거부 정책으로 DNS·public HTTP/HTTPS·Forge Pod �
 
 ## AgentOps 연결
 
-AgentOps는 Studio의 콘솔 client로 로그인합니다. 콘솔 grant를 지원하는 Studio(v0.257.0 이상)를 먼저 배포합니다.
+AgentOps 콘솔(Deployment `agentops`)과 Identity(Deployment `agentops-identity`)는 Application `agentops-<cluster>`
+(namespace `agentops`) 하나로 배포됩니다. 콘솔은 Identity로 로그인하고, Identity는 Dex로 로그인합니다
+([로그인과 모델 연결](#로그인과-모델-연결)).
+
+1. **Dex client**: argocd-env-addons의 `env/<cluster>.yaml`에 `agentops`가 있으면 Dex에 client `agentops-identity`가 생깁니다.
+   redirect URI는 `https://<agentops.hostname>/api/auth/callback`입니다. argocd-env-addons `install/eks/secrets.sh`가
+   `/k8s/<cluster>/agentops-identity/oidc-client-id`(값 `agentops-identity`)와 `oidc-client-secret`을 만듭니다.
+2. **Secret 준비**: bootstrap으로 Identity의 생성 값을 만듭니다.
+   ```bash
+   python3 scripts/bootstrap_agent_platform.py --cluster eks-demo --apply
+   ```
+   사람이 정하는 두 값을 만듭니다. `git-host-secrets`는 [Git 호스트](#git-호스트)의 JSON 객체를 파일로 전달합니다.
+   ```bash
+   aws secretsmanager create-secret --name /k8s/eks-demo/agentops-identity/admin-emails \
+     --secret-string 'admin@example.com,ops@example.com'
+   aws secretsmanager create-secret --name /k8s/eks-demo/agentops-identity/git-host-secrets \
+     --secret-string file://git-host-secrets.json
+   ```
+   `agentops` namespace가 `secrets-manager` 허용 목록에 있는지 확인합니다([인증과 Secret 준비](#인증과-secret-준비)).
+3. **배포**: `env/<cluster>.yaml`에 `agentops.identity`(`oidc_issuer`, `enrollment_domains`, `import: 'off'`)와
+   `agentops.git_hosts`를 선언합니다. AgentOps release image를 게시하고 `agentops-eks-demo`가 `Synced/Healthy`인지 확인합니다.
+   ```bash
+   kubectl -n agentops rollout status deploy/agentops
+   kubectl -n agentops rollout status deploy/agentops-identity
+   ```
+4. **확인**: `https://agentops.agrt.dev/api/health`가 200이고, `ADMIN_EMAILS`의 계정으로 로그인하면 홈이 열리며,
+   로그아웃하면 `/signed-out`으로 돌아옵니다.
+
+AgentOps는 지금 각 서비스를 공개 host로 부릅니다. Studio·Memory·Knowledge가 공개 host만 허용하기
+때문입니다. 서비스가 AgentOps 전환 단계에 들어가면 그 서비스의 허용 host와 NetworkPolicy에 내부 주소와 `agentops` namespace를
+더하고, AgentOps의 `<SERVICE>_API_URL`을 내부 주소로 바꿉니다.
+
+### Studio 데이터 가져오기
+
+Studio DB에 사람 데이터가 남아 있는 설치(Studio schema 16 이하)는 Identity를 처음 켤 때 한 번 가져오기를 실행합니다.
+eks-demo는 가져오기를 마쳤고 `import: 'off'`입니다.
+
+가져오기는 Studio의 사람·등급·팀·Git 연결을 Identity로 복사합니다. Studio v0.276.0이 시작하기 전에 끝내야 합니다.
+Studio schema 17이 가져오기가 읽는 사람 데이터를 지우기 때문입니다.
+
+`agentops.identity.import`가 `count` 또는 `apply`이면 chart가 PostSync hook Job `agentops-identity-import`를 렌더합니다.
+Job은 Identity가 테이블을 만든 뒤 `node scripts/import-identity.ts`(`apply`이면 `--apply`)를 한 번 실행합니다
+(`backoffLimit: 0`, `activeDeadlineSeconds: 600`). Job은 `agentops-identity-external`의 `DATABASE_URL`·`AES_ENCRYPTION_KEY`와,
+ExternalSecret `agentops-identity-import`로 읽는 `agent-studio/aes-encryption-key`(`STUDIO_AES_ENCRYPTION_KEY`)를 사용합니다.
+Studio의 Git 연결 token을 Studio 키로 열고 Identity 키로 다시 봉인합니다.
+
+1. `agentops.identity.import: count`로 배포합니다. sync가 끝나면 Job log에서 건수를 확인합니다. 이 단계는 아무것도 쓰지 않으며,
+   log에는 건수만 있습니다.
+   ```bash
+   kubectl -n agentops logs job/agentops-identity-import
+   ```
+2. `apply`로 바꿔 배포한 뒤 수동으로 sync합니다. Job log에서 결과를 확인합니다. `apply`를 다시 실행해도 바뀌는 것이 없습니다.
+3. `'off'`로 바꿔 배포합니다. Job과 ExternalSecret `agentops-identity-import`가 렌더에서 빠집니다.
+
+`off`는 따옴표로 씁니다. 따옴표가 없는 `off`는 YAML boolean이 되어 `gen_values.py`가 거부합니다.
+hook Job만 바뀌는 변경(`count` → `apply`)은 Application을 OutOfSync로 만들지 않으므로 auto-sync가 Job을 다시 실행하지 않습니다.
+이때는 Argo CD에서 `agentops-eks-demo`의 sync를 직접 시작합니다.
+
+## Studio worker 폐기와 독립 서비스 전환
+
+이 절은 Studio audio/Workspace worker를 쓰던 이전 버전의 DB를 변환하는 절차입니다. `eks-demo`의 현재 선언에는
+두 worker가 없습니다.
+
+이 전환에서 Studio의 audio/Workspace worker와 Knowledge·Forge의 `STUDIO_URL`이 제거됩니다.
+Argo CD의 `prune`이 두 worker Deployment를 삭제합니다. 아래 명령은 ECR 주소 `ECR`과 서비스별 image tag
+`V_<SERVICE>`를 사용합니다. 각 서비스의 새 release image 게시를 먼저 확인합니다.
 `run_once`는 해당 namespace의 Secret을 읽는 일회성 Pod를 실행하고, 끝나면 Pod를 지웁니다.
 
 ```bash
@@ -299,39 +384,6 @@ run_once() { ns=$1; image=$2; shift 2
     --arg i "$image" --arg s "$ns-external" '{spec:{imagePullSecrets:[{name:"ecr-registry"}],
     containers:[{name:"run",image:$i,command:$ARGS.positional,envFrom:[{secretRef:{name:$s}}]}]}}' --args -- "$@")"; }
 ```
-
-1. **Studio 인증 구조 갱신**: 콘솔 resource를 추가합니다. 여러 번 실행해도 결과가 같습니다.
-   ```bash
-   run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/upgrade-platform-auth.cjs --apply
-   ```
-2. **콘솔 client 등록**: 설치마다 하나만 있습니다. 이미 있으면 `existing`을 출력하고 secret을 다시 발급하지 않습니다.
-   출력의 client ID와 secret을 Secrets Manager `agentops/oidc-client-id`·`oidc-client-secret`에 저장합니다. 값을 화면이나 로그에 남기지 않습니다.
-   stdout은 JSON 한 줄(`{"clientId":…,"clientSecret":…}`)입니다. 아래 명령은 값을 출력하지 않고 저장합니다.
-   ```bash
-   out=$(run_once agent-studio "$ECR/agent-studio:$V_STUDIO" node build/register-platform-client.cjs \
-     --service agentops --base-url https://agentops.agrt.dev)
-   for k in id secret; do key=$([ $k = id ] && echo clientId || echo clientSecret)
-     jq -j ".$key" <<<"$out" | aws secretsmanager create-secret --name "/k8s/eks-demo/agentops/oidc-client-$k" \
-       --secret-string file:///dev/stdin >/dev/null; done; unset out
-   ```
-   종료 코드 3(이미 등록)은 secret을 출력하지 않습니다. secret을 잃었으면 `--rotate`로 다시 발급하고 `aws secretsmanager put-secret-value`로 저장합니다.
-3. **Secret 준비**: `bootstrap_agent_platform.py --cluster eks-demo --apply`로 `agentops/auth-secret`·`aes-encryption-key`를 만듭니다.
-   `agentops` namespace가 `secrets-manager` 허용 목록에 있는지 확인합니다([인증과 Secret 준비](#인증과-secret-준비)).
-4. **배포**: AgentOps release image를 게시하고 `agentops-eks-demo`가 `Synced/Healthy`인지 확인합니다.
-5. **확인**: `https://agentops.agrt.dev/api/health`가 200이고, 로그인 후 홈이 열리며, 로그아웃하면 `/signed-out`으로 돌아옵니다.
-
-AgentOps는 지금 각 서비스를 공개 host로 부릅니다. Studio·Memory·Knowledge가 공개 host만 허용(`AUTH_ALLOWED_HOSTS`)하기
-때문입니다. 서비스가 AgentOps 전환 단계에 들어가면 그 서비스의 허용 host와 NetworkPolicy에 내부 주소와 `agentops` namespace를
-더하고, AgentOps의 `<SERVICE>_API_URL`을 내부 주소로 바꿉니다.
-
-## Studio worker 폐기와 독립 서비스 전환
-
-이 절은 Studio audio/Workspace worker를 쓰던 이전 버전의 DB를 변환하는 절차입니다. `eks-demo`의 현재 선언에는
-두 worker가 없습니다.
-
-이 전환에서 Studio의 audio/Workspace worker와 Knowledge·Forge의 `STUDIO_URL`이 제거됩니다.
-Argo CD의 `prune`이 두 worker Deployment를 삭제합니다. 아래 명령은 [순서와 명령](#순서와-명령)의
-`run_once`와 `ECR`, `V_<SERVICE>`를 사용합니다. 각 서비스의 새 release image 게시를 먼저 확인합니다.
 
 1. **Knowledge DB 변환**: `agent_knowledge_maintenance: true`로 Knowledge web과 worker를 먼저 정지합니다.
    두 Deployment의 desired/ready가 0인지 확인한 뒤 새 image로 변환합니다.
@@ -387,10 +439,9 @@ Runway는 Pod Identity로 Secrets Manager·STS·EKS를 호출한다. 계약은 `
 | `delivery-pool-<cluster>` | `delivery-pool` | `postgres` 리소스의 공유 PostgreSQL. bootstrap Job이 비superuser `delivery_admin`(CREATEDB·CREATEROLE)과 `template1`의 `vector`를 준비한다 |
 | `delivery-tenants-<cluster>` | (클러스터 범위) | tenant secrets 역할을 쓰는 SecretStore를 검사하는 ValidatingAdmissionPolicy `delivery-tenant-secret-stores` |
 
-- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, Runway OIDC client ID, MCP 내부 host)와 Forge(`RUNWAY_URL`, Sandbox의 풀 egress)가
-  Agent Runway에 연결된다. Runway OIDC client는 Studio가 발급하므로, 새 설치에서는 Studio를 먼저 실행하고
-  `register-platform-client.cjs --service agent-runway`로 client를 등록해 Secrets Manager에 저장한 뒤 Runway를 켜고 `connected: true`로 바꾼다.
-  이 순서를 지키지 않으면 Studio Secret이 없는 client ID를 참조해 Studio가 시작되지 않는다.
+- `agent_runway.connected`가 `true`일 때만 Studio(`RUNWAY_URL`, MCP 내부 host), Forge(`RUNWAY_URL`, Sandbox의 풀 egress),
+  AgentOps 콘솔(`RUNWAY_API_URL`)이 Agent Runway에 연결된다. Runway는 다른 서비스처럼 Identity 토큰을 받는다.
+  Runway의 Identity client secret `agentops-identity/client-secret-runway`는 bootstrap이 만든다.
 - 테넌트 앱의 namespace `app-<project>-<env>`와 그 안의 SA `app`, SecretStore `agent-runway`, ExternalSecret `app-env`,
   NetworkPolicy, ResourceQuota, Deployment는 `argocd-env-projects`의 `charts/app`이 만든다. Agent Runway가
   `projects/<project>/<env>/app.yaml`을 쓰면 `argocd-env-addons`의 ApplicationSet `projects`가 Application을 만든다
